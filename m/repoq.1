@@ -1,0 +1,338 @@
+.\" vim: tw=72 fdm=marker cms=.\\"\ %s
+.
+.\" FRONT MATTER {{{
+.Dd Feb 04, 2016
+.Os
+.Dt REPOQ 1
+.
+.Sh NAME
+.Nm repoq
+.Nd Output repository information for given products
+.\" FRONT MATTER }}}
+.
+.\" SYNOPSIS {{{
+.Sh SYNOPSIS
+.Nm
+.Fl h | \-help
+.Nm
+.Op Fl F Ar RULES
+.Op Fl A | R
+.Op Fl a Ar ARCH
+.Oo Fl t Ar TAG Oc Ns ...
+.Ar REPA Ns ...
+.\" SYNOPSIS }}}
+.
+.\" DESCRIPTION {{{
+.Sh DESCRIPTION
+.Nm
+writes to standard output repository URLs (or zypper commands to add
+or remove said repositories) for given
+.Ar REPA Ns s.
+.\" }}}
+.
+.\" OPTIONS {{{
+.Sh OPTIONS
+.
+.Bl -tag -width "xx"
+.
+.It Fl h
+Display usage instructions.
+.
+.It Fl \-help
+Display full help.
+.
+.It Fl A , Fl \-addrepo
+Output
+. Nm zypper
+. Cm addrepo
+commands.
+.
+.It Fl F , Fl \-file Ns = Ns Ar RULES
+Use product/repository information from
+. Ar RULES .
+This option overrides the
+.Ev $REPOQ_RULES
+environment variable.
+.
+.It Fl R , Fl \-removerepo
+Output
+. Nm zypper
+. Cm removerepo
+commands.
+.
+.It Fl a , Fl \-arch Ns = Ns Ar ARCH
+Imply
+. Ar ARCH
+for
+. Ar REPA Ns s
+without an explicit
+. Sy Architecture name .
+.
+.It Fl t , Fl \-tag Ns = Ns Ar TAG
+Imply
+. Ar TAG
+for
+. Ar REPA Ns s
+without an explicit
+. Sy Tagset .
+.
+.El
+.\" }}}
+.
+.\" OPERANDS {{{
+.Sh OPERANDS
+.Bl -tag -width "xx"
+. It Ar REPA
+Repository pattern, see below.
+.El
+.\" }}}
+.
+.\" EXTENDED DESCRIPTION {{{
+.Sh EXTENDED DESCRIPTION
+.\" Repository patterns {{{
+.Sy Repository patterns
+accepted by
+.Nm
+use the following grammar:
+.Pp
+.
+.Bd -ragged -offset "xx"
+.\" P:V[:[A][:[T]]]
+.Bd -literal
+.Cm P Ns Li : Ns Cm V Ns Op Li : Ns Oo Cm A Oc Ns Op Li : Ns Op Cm T
+.Ed
+.Pp
+.Bl -tag -compact -width "xx"
+.It Sy P
+is
+.Sy Product name
+.It Sy V
+is
+.Sy Version string
+.It Sy A
+is
+.Sy Architecture name
+.It Sy T
+is
+.Sy Tagset
+.El
+.Ed
+.Pp
+That is,
+.Nm
+accepts these formats:
+.Pp
+.Bl -bullet -compact -offset "xx"
+.\" P:V:A:T
+.It
+. Sy P Ns Li : Ns Sy V Ns Li : Ns Sy A Ns Li : Ns Sy T
+.\" P:V:A
+.It
+. Sy P Ns Li : Ns Sy V Ns Li : Ns Sy A
+.\" P:V
+.It
+. Sy P Ns Li : Ns Sy V
+.\" P:V::T
+.It
+. Sy P Ns Li : Ns Sy V Ns Li :: Ns Sy T
+.El
+.Pp
+Empty
+. Sy A
+requires
+. Fl \-arch .
+Empty
+. Sy T
+matches all tags (but see
+. Fl \-tag Ns No ).
+.\" }}}
+.Pp
+.\" Repository names {{{
+.Sy Repository names
+output by
+.Nm
+use the following grammar:
+.Pp
+.
+.Bd -ragged -offset "xx"
+.Cm P Ns Li : Ns Cm V Ns Li :: Ns Cm T
+.Pp
+.Bl -tag -compact -width "xx"
+.It Sy P
+is Product name
+.It Sy V
+is Version string
+.It Sy T
+is Tag
+.El
+.Ed
+.\" }}}
+.Pp
+.\" Product names {{{
+.Sy Product names
+accepted and emitted are the variety found in
+.Pa /etc/products.d/*.prod
+files
+(XPath:
+.Pa /product/name/text() Ns ).
+Exceptions:
+.Dq Li SUSE_SLES ,
+.Dq Li SLES ,
+and
+.Dq Li sles
+are
+equivalent; same with
+.Dq Li SUSE_SLED ,
+.Dq Li SLED ,
+and
+.Dq Li sled .
+.Nm
+emits only the lowercase variants.
+.\" }}}
+.Pp
+.\" Version strings {{{
+.Sy Version strings
+use the
+.Sy MAJOR Ns Li . Ns Sy MINOR
+format,
+.Sy MINOR
+may have the form
+.Li sp Ns Sy N
+where
+.Sy N
+is a number.
+.Dq Li 12 ,
+.Dq Li 12.0 ,
+.Dq Li 12.sp0 ,
+.Dq Li 12.SP0
+are equivalent, as are
+.Dq Li 12.1 ,
+.Dq Li 12.sp1 ,
+.Dq Li 12.SP1 .
+.Nm
+emits only the numeric variants and elides
+.Sy MINOR
+if it is
+.Li 0 .
+.\" }}}
+.Pp
+.\" Architecture names {{{
+.Sy Architecture names
+are the variety found in
+.Pa /etc/products.d/*.prod
+files
+(XPath:
+.Pa /product/arch/text() Ns ).
+.\" }}}
+.Pp
+.\" Tagsets {{{
+.Sy Tagsets
+are comma-delimited lists of tags.
+Complement (negation) is expressed by prepending the tagset with
+.Li ~
+or
+.Li ^
+(tilde or caret).
+.Pp
+Empty tagset matches all tags (but see
+.Fl \-tag Ns No ).
+.\" }}}
+.Pp
+.\" Tags {{{
+.Sy Tags
+are arbitrary words used to label repositories in
+.Xr repoq.rules 5 .
+Currently used tags are:
+.Pp
+.Bl -hang -compact -offset "xx"
+. It Li at
+ATI/AMD driver repository
+. It Li dg
+release repository with
+.Em -debuginfo , -debugsource
+packages
+. It Li du
+update repository with
+.Em -debuginfo , -debugsource
+packages
+. It Li gm
+release repository
+. It Li nv
+Nvidia driver repository
+. It Li up
+update repository
+.El
+.\" }}}
+.\" }}}
+.
+.\" ENVIRONMENT {{{
+.Sh ENVIRONMENT
+.Bl -tag -width "xx"
+.It Ev REPOQ_RULES
+This variable overrides the builtin default path
+to the configuration file, see
+.Xr repoq.rules 5 .
+.
+.It Ev REPOQ_CHATTY , Ev REPOQ_DRYRUN
+Development and testing aids.
+.El
+.\" }}}
+.
+.\" FILES {{{
+.Sh FILES
+.Bl -tag -width "xx"
+.It Pa @etcdir@/repoq.rules
+See
+. Xr repoq.rules 5 .
+Default location of the database used by
+. Nm
+to map repository patterns to repository name and url pairs.
+.El
+.\" }}}
+.
+.\" EXIT STATUS {{{
+.Sh EXIT STATUS
+.Ex -std
+.\" EXIT STATUS }}}
+.
+.\" EXAMPLES {{{
+.Sh EXAMPLES
+Show all repositories for SLE-SERVER and SLE-SDK 12-SP1 on x86_64:
+.Bd -literal -offset "xx"
+$ repoq -a x86_64 sles:12.1 sle-sdk:12.1
+.Ed
+.Pp
+Show product and update repositories for SLE-SERVER 12-SP1, and all but
+the product repository for SUSE Enterprise Storage 2.0, both on s390x:
+.Bd -literal -offset "xx"
+$ repoq -a s390x sles:12.1::gm,up ses:2.0::~gm
+.Ed
+.Pp
+Show product, update repositories for SLE-SERVER 12-SP1
+and SLE-DESKTOP 12, product repository for SLE-SDK 12-SP1:
+.Bd -literal -offset "xx"
+$ repoq -a ppc64le -t gm -t up sles:12.1 sle-sdk:12.1::gm sled:12
+.Ed
+.Pp
+Show all but the GPU-specific repositories for SUSE-DESKTOP 12:
+.Bd -literal -offset "xx"
+$ repoq sled:12:x86_64:~at,nv
+.Ed
+.\" }}}
+.
+.\" SEE ALSO {{{
+.Sh SEE ALSO
+.Xr refdb 1 ,
+.Xr repose 1 ,
+.Xr smrt 1 ,
+.Xr zshexpn 1 ,
+.Xr repoq.rules 5 ,
+.Xr zypper 8 .
+.\" }}}
+.
+.\" REPOSE {{{
+.Sh REPOSE
+.Nm
+is part of
+.Xr repose 1 .
+.\" }}}

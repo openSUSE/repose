@@ -1,0 +1,55 @@
+<project name="SUSE:Maintenance:1085" kind="maintenance_incident">
+  <title/>
+  <description/>
+  <person userid="dilbert" role="bugowner"/>
+  <person userid="alice" role="maintainer"/>
+  <group groupid="maintenance-team" role="maintainer"/>
+  <group groupid="autobuild-team" role="reviewer"/>
+  <group groupid="legal-auto" role="reviewer"/>
+  <group groupid="maintenance-team" role="reviewer"/>
+  <lock>
+    <enable/>
+  </lock>
+  <build>
+    <disable/>
+  </build>
+  <publish>
+    <disable/>
+  </publish>
+  <debuginfo>
+    <enable/>
+  </debuginfo>
+  <repository name="SUSE_Updates_SLE-SERVER_12_x86_64">
+    <releasetarget project="SUSE:Updates:SLE-SERVER:12:x86_64" repository="update" trigger="maintenance"/>
+    <path project="SUSE:Updates:SLE-SERVER:12:x86_64" repository="update"/>
+    <arch>x86_64</arch>
+    <arch>i586</arch>
+  </repository>
+  <repository name="SUSE_Updates_SLE-SERVER_12_s390x">
+    <releasetarget project="SUSE:Updates:SLE-SERVER:12:s390x" repository="update" trigger="maintenance"/>
+    <path project="SUSE:Updates:SLE-SERVER:12:s390x" repository="update"/>
+    <arch>s390x</arch>
+    <arch>s390</arch>
+  </repository>
+  <repository name="SUSE_Updates_SLE-SERVER_12_ppc64le">
+    <releasetarget project="SUSE:Updates:SLE-SERVER:12:ppc64le" repository="update" trigger="maintenance"/>
+    <path project="SUSE:Updates:SLE-SERVER:12:ppc64le" repository="update"/>
+    <arch>ppc64le</arch>
+  </repository>
+  <repository name="SUSE_Updates_SLE-DESKTOP_12_x86_64">
+    <releasetarget project="SUSE:Updates:SLE-DESKTOP:12:x86_64" repository="update" trigger="maintenance"/>
+    <path project="SUSE:Updates:SLE-DESKTOP:12:x86_64" repository="update"/>
+    <arch>x86_64</arch>
+    <arch>i586</arch>
+  </repository>
+  <repository name="SUSE_SLE-12_Update">
+    <releasetarget project="SUSE:SLE-12:Update" repository="standard" trigger="maintenance"/>
+    <path project="SUSE:SLE-12:Update" repository="standard"/>
+    <arch>i586</arch>
+    <arch>x86_64</arch>
+    <arch>s390</arch>
+    <arch>s390x</arch>
+    <arch>ppc64le</arch>
+    <arch>aarch64</arch>
+  </repository>
+</project>

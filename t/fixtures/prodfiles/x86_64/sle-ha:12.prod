@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<product schemeversion="0">
+  <vendor>SUSE</vendor>
+  <name>sle-ha</name>
+  <version>12</version>
+  <baseversion>12</baseversion>
+  <patchlevel>0</patchlevel>
+  <predecessor>sle-hae</predecessor>
+  <release>0</release>
+  <endoflife>2024-10-31</endoflife>
+  <arch>x86_64</arch>
+  <cpeid>cpe:/o:suse:sle-ha:12</cpeid>
+  <productline>sle-ha</productline>
+  <register>
+      <target>sle-12-x86_64</target>
+    <flavor>extension</flavor>
+    <updates>
+      <repository repoid="obsrepository://build.suse.de/SUSE:Updates:SLE-HA:12:x86_64/update" />
+      <repository repoid="obsrepository://build.suse.de/SUSE:Updates:SLE-HA:12:x86_64/update_debug" />
+    </updates>
+  </register>
+  <upgrades />
+  <summary>SUSE Linux Enterprise High Availability Extension 12</summary>
+  <shortsummary>SLEHA-12</shortsummary>
+  <description>SUSE Linux Enterprise High Availability Extension.</description>
+  <urls>
+    <url name="bugtracker">https://bugzilla.novell.com/</url>
+    <url name="releasenotes">https://www.suse.com/releasenotes/x86_64/SLE-HA/12/release-notes-ha.rpm</url>
+  </urls>
+  <buildconfig>
+    <producttheme>SLES</producttheme>
+  </buildconfig>
+  <installconfig>
+    <defaultlang>en_US</defaultlang>
+    <datadir>suse</datadir>
+    <descriptiondir>suse/setup/descr</descriptiondir>
+    <releasepackage name="sle-ha-release" flag="EQ" version="12" release="1.47" />
+    <distribution>SUSE_SLE</distribution>
+  </installconfig>
+  <runtimeconfig />
+  <productdependency relationship="requires" name="SLES" baseversion="12" patchlevel="0" flag="EQ" />
+</product>
+

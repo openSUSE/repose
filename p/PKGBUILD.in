@@ -1,0 +1,35 @@
+# Maintainer: Roman Neuhauser <neuhauser+git-pimp@sigpipe.cz>
+pkgname=repose
+pkgver=__VERSION__
+pkgrel=1
+pkgdesc="Manipulate products and repositories"
+arch=(any)
+url="https://gitlab.suse.de/rneuhauser/$pkgname"
+license=(MIT)
+depends=(curl haveopt openssh sumaxy xmlstarlet zsh)
+checkdepends=(cram make curl haveopt openssh sumaxy xmlstarlet zsh)
+source=($pkgname-$pkgver.tar.gz)
+sha1sums=(SKIP)
+
+build()
+{
+  _in_src ./configure --prefix=/usr
+  _in_src make
+}
+
+check()
+{
+  _in_src make check
+}
+
+package()
+{
+  _in_src make install DESTDIR="$pkgdir/"
+  sed -i s:dl.example.org:download.suse.de: "$pkgdir"/etc/repose/repoq.rules
+}
+
+_in_src()
+(
+  cd "$srcdir/$pkgname-$pkgver"
+  "$@"
+)

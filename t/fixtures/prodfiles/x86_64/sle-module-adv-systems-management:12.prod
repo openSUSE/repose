@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<product schemeversion="0">
+  <vendor>SUSE</vendor>
+  <name>sle-module-adv-systems-management</name>
+  <version>12</version>
+  <baseversion>12</baseversion>
+  <patchlevel>0</patchlevel>
+  <release>0</release>
+  <endoflife>2017-10-31</endoflife>
+  <arch>x86_64</arch>
+  <cpeid>cpe:/o:suse:sle-module-adv-systems-management:12</cpeid>
+  <productline>sle-module-adv-systems-management</productline>
+  <register>
+      <target>sle-12-x86_64</target>
+    <flavor>module</flavor>
+    <updates>
+      <repository repoid="obsrepository://build.suse.de/SUSE:Updates:SLE-Module-Adv-Systems-Management:12:x86_64/update" />
+      <repository repoid="obsrepository://build.suse.de/SUSE:Updates:SLE-Module-Adv-Systems-Management:12:x86_64/update_debug" />
+    </updates>
+  </register>
+  <upgrades />
+  <summary>Advanced Systems Management Module</summary>
+  <shortsummary>Adv-Sys-Mgmt-module</shortsummary>
+  <description>&lt;p&gt;This Module contains current versions of the popular configuration management
+      frameworks Puppet and CFEngine as well as the new systems management toolbox
+      called machinery.&lt;/p&gt;
+      &lt;p&gt;The machinery tool will be frequently updated and is SUSE's
+      upcoming systems management toolbox for inspecting and validating systems
+      remotely, storing their system description and creating new systems to deploy
+      them in datacenters and clouds.
+      &lt;/p&gt;</description>
+  <urls>
+    <url name="bugtracker">https://bugzilla.novell.com/</url>
+  </urls>
+  <buildconfig>
+    <producttheme>SLES</producttheme>
+  </buildconfig>
+  <installconfig>
+    <defaultlang>en_US</defaultlang>
+    <datadir>suse</datadir>
+    <descriptiondir>suse/setup/descr</descriptiondir>
+    <releasepackage name="sle-module-adv-systems-management-release" flag="EQ" version="12" release="3.1" />
+    <distribution>SUSE_SLE</distribution>
+  </installconfig>
+  <runtimeconfig />
+  <productdependency relationship="requires" name="SLES" baseversion="12" patchlevel="0" flag="GE" />
+</product>
+

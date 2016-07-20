@@ -1,0 +1,9 @@
+bsu_bs_package=repose
+bsu_dloadurl='https://github.com/openSUSE/$bsu_bs_package/archive/$bsu_tag.tar.gz'
+bsu_specfiles=(p/$bsu_bs_package.spec)
+
+function bsu_specfile_hook
+{
+  extract $@[3,-1]
+  osc vc -m "Update to version $1"
+}

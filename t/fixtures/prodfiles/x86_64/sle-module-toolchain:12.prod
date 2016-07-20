@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<product schemeversion="0">
+  <vendor>SUSE</vendor>
+  <name>sle-module-toolchain</name>
+  <version>12</version>
+  <baseversion>12</baseversion>
+  <patchlevel>0</patchlevel>
+  <release>0</release>
+  <endoflife>2017-06-31</endoflife>
+  <arch>x86_64</arch>
+  <cpeid>cpe:/o:suse:sle-module-toolchain:12</cpeid>
+  <productline>sle-module-toolchain</productline>
+  <register>
+      <target>sle-12-x86_64</target>
+    <flavor>module</flavor>
+    <updates>
+      <repository repoid="obsrepository://build.suse.de/SUSE:Updates:SLE-Module-Toolchain:12:x86_64/update" />
+      <repository repoid="obsrepository://build.suse.de/SUSE:Updates:SLE-Module-Toolchain:12:x86_64/update_debug" />
+    </updates>
+  </register>
+  <upgrades />
+  <summary>Toolchain Module</summary>
+  <shortsummary>Toolchain-Module</shortsummary>
+  <description>Via this Module you will have access to a more recent GCC and
+Toolchain in addition to the default compiler of SUSE Linux Enterprise.
+
+Access to the Toolchain Module is included in your SUSE Linux
+Enterprise Server subscription. The module has a different lifecycle than SUSE
+Linux Enterprise Server itself.  Please check the Release Notes for further
+details.</description>
+  <urls>
+    <url name="bugtracker">https://bugzilla.suse.com/</url>
+  </urls>
+  <buildconfig>
+    <producttheme>SLES</producttheme>
+  </buildconfig>
+  <installconfig>
+    <defaultlang>en_US</defaultlang>
+    <datadir>suse</datadir>
+    <descriptiondir>suse/setup/descr</descriptiondir>
+    <releasepackage name="sle-module-toolchain-release" flag="EQ" version="12" release="1.7" />
+    <distribution>SUSE_SLE</distribution>
+  </installconfig>
+  <runtimeconfig />
+  <productdependency relationship="requires" name="SLES" baseversion="12" patchlevel="0" flag="GE" />
+</product>
+

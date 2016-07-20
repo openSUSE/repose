@@ -1,0 +1,106 @@
+<resultlist state="133fe51771899925e1cd6ea10d01dfa5">
+  <result project="SUSE:Maintenance:1085" repository="SUSE_Updates_SLE-SERVER_12_x86_64" arch="x86_64" code="published" state="published">
+    <status package="SLE-DESKTOP_12_x86_64.SUSE_Channels" code="locked" />
+    <status package="SLE-SERVER_12_ppc64le.SUSE_Channels" code="locked" />
+    <status package="SLE-SERVER_12_s390x.SUSE_Channels" code="locked" />
+    <status package="SLE-SERVER_12_x86_64.SUSE_Channels" code="locked" />
+    <status package="kiwi.SUSE_SLE-12_Update" code="locked" />
+    <status package="patchinfo" code="locked" />
+  </result>
+  <result project="SUSE:Maintenance:1085" repository="SUSE_Updates_SLE-SERVER_12_x86_64" arch="i586" code="published" state="published">
+    <status package="SLE-DESKTOP_12_x86_64.SUSE_Channels" code="locked" />
+    <status package="SLE-SERVER_12_ppc64le.SUSE_Channels" code="locked" />
+    <status package="SLE-SERVER_12_s390x.SUSE_Channels" code="locked" />
+    <status package="SLE-SERVER_12_x86_64.SUSE_Channels" code="locked" />
+    <status package="kiwi.SUSE_SLE-12_Update" code="locked" />
+    <status package="patchinfo" code="locked" />
+  </result>
+  <result project="SUSE:Maintenance:1085" repository="SUSE_Updates_SLE-SERVER_12_s390x" arch="s390x" code="published" state="published">
+    <status package="SLE-DESKTOP_12_x86_64.SUSE_Channels" code="locked" />
+    <status package="SLE-SERVER_12_ppc64le.SUSE_Channels" code="locked" />
+    <status package="SLE-SERVER_12_s390x.SUSE_Channels" code="locked" />
+    <status package="SLE-SERVER_12_x86_64.SUSE_Channels" code="locked" />
+    <status package="kiwi.SUSE_SLE-12_Update" code="locked" />
+    <status package="patchinfo" code="locked" />
+  </result>
+  <result project="SUSE:Maintenance:1085" repository="SUSE_Updates_SLE-SERVER_12_s390x" arch="s390" code="published" state="published">
+    <status package="SLE-DESKTOP_12_x86_64.SUSE_Channels" code="locked" />
+    <status package="SLE-SERVER_12_ppc64le.SUSE_Channels" code="locked" />
+    <status package="SLE-SERVER_12_s390x.SUSE_Channels" code="locked" />
+    <status package="SLE-SERVER_12_x86_64.SUSE_Channels" code="locked" />
+    <status package="kiwi.SUSE_SLE-12_Update" code="locked" />
+    <status package="patchinfo" code="locked" />
+  </result>
+  <result project="SUSE:Maintenance:1085" repository="SUSE_Updates_SLE-SERVER_12_ppc64le" arch="ppc64le" code="published" state="published">
+    <status package="SLE-DESKTOP_12_x86_64.SUSE_Channels" code="locked" />
+    <status package="SLE-SERVER_12_ppc64le.SUSE_Channels" code="locked" />
+    <status package="SLE-SERVER_12_s390x.SUSE_Channels" code="locked" />
+    <status package="SLE-SERVER_12_x86_64.SUSE_Channels" code="locked" />
+    <status package="kiwi.SUSE_SLE-12_Update" code="locked" />
+    <status package="patchinfo" code="locked" />
+  </result>
+  <result project="SUSE:Maintenance:1085" repository="SUSE_Updates_SLE-DESKTOP_12_x86_64" arch="x86_64" code="published" state="published">
+    <status package="SLE-DESKTOP_12_x86_64.SUSE_Channels" code="locked" />
+    <status package="SLE-SERVER_12_ppc64le.SUSE_Channels" code="locked" />
+    <status package="SLE-SERVER_12_s390x.SUSE_Channels" code="locked" />
+    <status package="SLE-SERVER_12_x86_64.SUSE_Channels" code="locked" />
+    <status package="kiwi.SUSE_SLE-12_Update" code="locked" />
+    <status package="patchinfo" code="locked" />
+  </result>
+  <result project="SUSE:Maintenance:1085" repository="SUSE_Updates_SLE-DESKTOP_12_x86_64" arch="i586" code="published" state="published">
+    <status package="SLE-DESKTOP_12_x86_64.SUSE_Channels" code="locked" />
+    <status package="SLE-SERVER_12_ppc64le.SUSE_Channels" code="locked" />
+    <status package="SLE-SERVER_12_s390x.SUSE_Channels" code="locked" />
+    <status package="SLE-SERVER_12_x86_64.SUSE_Channels" code="locked" />
+    <status package="kiwi.SUSE_SLE-12_Update" code="locked" />
+    <status package="patchinfo" code="locked" />
+  </result>
+  <result project="SUSE:Maintenance:1085" repository="SUSE_SLE-12_Update" arch="i586" code="published" state="published">
+    <status package="SLE-DESKTOP_12_x86_64.SUSE_Channels" code="locked" />
+    <status package="SLE-SERVER_12_ppc64le.SUSE_Channels" code="locked" />
+    <status package="SLE-SERVER_12_s390x.SUSE_Channels" code="locked" />
+    <status package="SLE-SERVER_12_x86_64.SUSE_Channels" code="locked" />
+    <status package="kiwi.SUSE_SLE-12_Update" code="locked" />
+    <status package="patchinfo" code="locked" />
+  </result>
+  <result project="SUSE:Maintenance:1085" repository="SUSE_SLE-12_Update" arch="x86_64" code="published" state="published">
+    <status package="SLE-DESKTOP_12_x86_64.SUSE_Channels" code="locked" />
+    <status package="SLE-SERVER_12_ppc64le.SUSE_Channels" code="locked" />
+    <status package="SLE-SERVER_12_s390x.SUSE_Channels" code="locked" />
+    <status package="SLE-SERVER_12_x86_64.SUSE_Channels" code="locked" />
+    <status package="kiwi.SUSE_SLE-12_Update" code="locked" />
+    <status package="patchinfo" code="locked" />
+  </result>
+  <result project="SUSE:Maintenance:1085" repository="SUSE_SLE-12_Update" arch="s390" code="published" state="published">
+    <status package="SLE-DESKTOP_12_x86_64.SUSE_Channels" code="locked" />
+    <status package="SLE-SERVER_12_ppc64le.SUSE_Channels" code="locked" />
+    <status package="SLE-SERVER_12_s390x.SUSE_Channels" code="locked" />
+    <status package="SLE-SERVER_12_x86_64.SUSE_Channels" code="locked" />
+    <status package="kiwi.SUSE_SLE-12_Update" code="locked" />
+    <status package="patchinfo" code="locked" />
+  </result>
+  <result project="SUSE:Maintenance:1085" repository="SUSE_SLE-12_Update" arch="s390x" code="published" state="published">
+    <status package="SLE-DESKTOP_12_x86_64.SUSE_Channels" code="locked" />
+    <status package="SLE-SERVER_12_ppc64le.SUSE_Channels" code="locked" />
+    <status package="SLE-SERVER_12_s390x.SUSE_Channels" code="locked" />
+    <status package="SLE-SERVER_12_x86_64.SUSE_Channels" code="locked" />
+    <status package="kiwi.SUSE_SLE-12_Update" code="locked" />
+    <status package="patchinfo" code="locked" />
+  </result>
+  <result project="SUSE:Maintenance:1085" repository="SUSE_SLE-12_Update" arch="ppc64le" code="published" state="published">
+    <status package="SLE-DESKTOP_12_x86_64.SUSE_Channels" code="locked" />
+    <status package="SLE-SERVER_12_ppc64le.SUSE_Channels" code="locked" />
+    <status package="SLE-SERVER_12_s390x.SUSE_Channels" code="locked" />
+    <status package="SLE-SERVER_12_x86_64.SUSE_Channels" code="locked" />
+    <status package="kiwi.SUSE_SLE-12_Update" code="locked" />
+    <status package="patchinfo" code="locked" />
+  </result>
+  <result project="SUSE:Maintenance:1085" repository="SUSE_SLE-12_Update" arch="aarch64" code="published" state="published">
+    <status package="SLE-DESKTOP_12_x86_64.SUSE_Channels" code="locked" />
+    <status package="SLE-SERVER_12_ppc64le.SUSE_Channels" code="locked" />
+    <status package="SLE-SERVER_12_s390x.SUSE_Channels" code="locked" />
+    <status package="SLE-SERVER_12_x86_64.SUSE_Channels" code="locked" />
+    <status package="kiwi.SUSE_SLE-12_Update" code="locked" />
+    <status package="patchinfo" code="locked" />
+  </result>
+</resultlist>

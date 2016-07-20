@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<product schemeversion="0">
+  <vendor>SUSE</vendor>
+  <name>sle-module-web-scripting</name>
+  <version>12</version>
+  <baseversion>12</baseversion>
+  <patchlevel>0</patchlevel>
+  <release>0</release>
+  <endoflife>2017-10-31</endoflife>
+  <arch>x86_64</arch>
+  <cpeid>cpe:/o:suse:sle-module-web-scripting:12</cpeid>
+  <productline>sle-module-web-scripting</productline>
+  <register>
+      <target>sle-12-x86_64</target>
+    <flavor>module</flavor>
+    <updates>
+      <repository repoid="obsrepository://build.suse.de/SUSE:Updates:SLE-Module-Web-Scripting:12:x86_64/update" />
+      <repository repoid="obsrepository://build.suse.de/SUSE:Updates:SLE-Module-Web-Scripting:12:x86_64/update_debug" />
+    </updates>
+  </register>
+  <upgrades />
+  <summary>Web and Scripting Module</summary>
+  <shortsummary>Web-and-Scripting-module</shortsummary>
+  <description>&lt;p&gt;
+	The SUSE Linux Enterprise Web and Scripting Module delivers a
+	comprehensive suite of scripting languages, frameworks, and related tools
+	helping developers and systems administrators accelerate the creation
+	of stable, modern web applications, using dynamic languages, such as
+	PHP, Ruby on Rails, and Python.
+	&lt;/p&gt;
+	&lt;p&gt;
+	Access to the Web and Scripting Module is included in your SUSE Linux
+	Enterprise Server subscription. The module has a different lifecycle
+	than SUSE Linux Enterprise Server itself: Package versions in the this
+	module are usually supported for at most three years. We are planning
+	to release more recent versions on a schedule of approximately 18
+	month; the exact dates may differ per package.
+	&lt;/p&gt;</description>
+  <urls>
+    <url name="bugtracker">https://bugzilla.novell.com/</url>
+  </urls>
+  <buildconfig>
+    <producttheme>SLES</producttheme>
+  </buildconfig>
+  <installconfig>
+    <defaultlang>en_US</defaultlang>
+    <datadir>suse</datadir>
+    <descriptiondir>suse/setup/descr</descriptiondir>
+    <releasepackage name="sle-module-web-scripting-release" flag="EQ" version="12" release="3.1" />
+    <distribution>SUSE_SLE</distribution>
+  </installconfig>
+  <runtimeconfig />
+  <productdependency relationship="requires" name="SLES" baseversion="12" patchlevel="0" flag="GE" />
+</product>
+
