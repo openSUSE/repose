@@ -1,0 +1,55 @@
+#!/bin/sh
+
+populate() # {{{
+{
+  sed \
+    -e "s@prefix@$prefixg" \
+    -e "s@bindir@$bindirg" \
+    -e "s@etcdir@$etcdirg" \
+    -e "s@preludedir@$preludedirg" \
+    -e "s@datarootdir@$datarootdirg" \
+    -e "s@mandir@$mandirg" \
+    -e "s@sysconfdir@$sysconfdirg" \
+    $1 \
+  > $2
+} # }}}
+
+rootdir=$(dirname $(realpath $0))
+
+prefix=/usr/local
+bindir='${prefix}/bin'
+datarootdir='${prefix}/share'
+mandir='${datarootdir}/man'
+mandir_set=0
+etcdir='${sysconfdir}/repose'
+preludedir='${datarootdir}/repose'
+sysconfdir='${prefix}/etc'
+sysconfdir_set=0
+
+for a in "$@"; do
+  case $a in
+  --bindir=*)       bindir="${a#*=}"      ;;
+  --etcdir=*)       etcdir="${a#*=}"      ;;
+  --datarootdir=*)  datarootdir="${a#*=}" ;;
+  --mandir=*)
+    mandir="${a#*=}"
+    mandir_set=1
+  ;;
+  --prefix=*)       prefix="${a#*=}"      ;;
+  --preludedir=*)   preludedir="${a#*=}"  ;;
+  --sysconfdir=*)
+    sysconfdir="${a#*=}"
+    sysconfdir_set=1
+  ;;
+  esac
+done
+
+if [[ $prefix == /usr && $sysconfdir_set == 0 ]]; then
+  sysconfdir=/etc
+fi
+
+if [[ $prefix == /usr/local && $mandir_set == 0 ]]; then
+  mandir=$prefix/man
+fi
+
+populate $rootdir/GNUmakefile.in GNUmakefile

@@ -1,0 +1,50 @@
+<request id="89320">
+  <action type="maintenance_release">
+    <source project="SUSE:Maintenance:1085" package="kiwi.SUSE_SLE-12_Update"/>
+    <target project="SUSE:SLE-12:Update" package="kiwi.1085"/>
+  </action>
+  <action type="maintenance_release">
+    <source project="SUSE:Maintenance:1085" package="patchinfo"/>
+    <target project="SUSE:SLE-12:Update" package="patchinfo.1085"/>
+  </action>
+  <action type="maintenance_release">
+    <source project="SUSE:Maintenance:1085" package="patchinfo"/>
+    <target project="SUSE:Updates:SLE-DESKTOP:12:x86_64" package="patchinfo.1085"/>
+  </action>
+  <action type="maintenance_release">
+    <source project="SUSE:Maintenance:1085" package="patchinfo"/>
+    <target project="SUSE:Updates:SLE-SERVER:12:ppc64le" package="patchinfo.1085"/>
+  </action>
+  <action type="maintenance_release">
+    <source project="SUSE:Maintenance:1085" package="patchinfo"/>
+    <target project="SUSE:Updates:SLE-SERVER:12:s390x" package="patchinfo.1085"/>
+  </action>
+  <action type="maintenance_release">
+    <source project="SUSE:Maintenance:1085" package="patchinfo"/>
+    <target project="SUSE:Updates:SLE-SERVER:12:x86_64" package="patchinfo.1085"/>
+  </action>
+  <state name="review" who="dilbert" when="2016-01-15T19:48:05">
+    <comment/>
+  </state>
+  <review state="accepted" when="2016-01-15T19:30:39" who="dilbert" by_group="qam-auto">
+    <comment>reviewers added: qam-sle</comment>
+    <history who="dilbert" when="2016-01-15T19:48:05">
+      <description>Review got accepted</description>
+      <comment>reviewers added: qam-sle</comment>
+    </history>
+  </review>
+  <review state="accepted" by_group="qam-sle">
+    <comment/>
+    <history who="ted" when="2016-01-25T15:58:01">
+      <description>Review got accepted</description>
+      <comment>review assigend to user ted</comment>
+    </history>
+  </review>
+  <review state="new" by_user="ted">
+    <history who="ted" when="2016-01-25T15:58:01">
+      <description>Review got assigned</description>
+      <comment>review for group qam-sle</comment>
+    </history>
+  </review>
+  <description>requesting release</description>
+</request>

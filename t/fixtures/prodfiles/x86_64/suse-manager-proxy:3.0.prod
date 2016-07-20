@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<product schemeversion="0">
+  <vendor>SUSE</vendor>
+  <name>SUSE-Manager-Proxy</name>
+  <version>3.0</version>
+  <baseversion>3.0</baseversion>
+  <patchlevel>0</patchlevel>
+  <release>0</release>
+  <endoflife>2018-03-31</endoflife>
+  <arch>x86_64</arch>
+  <cpeid>cpe:/o:suse:suse-manager-proxy:3.0</cpeid>
+  <productline>manager-proxy</productline>
+  <register>
+      <target>sle-12-x86_64</target>
+    <flavor>extension</flavor>
+    <updates>
+      <repository repoid="obsrepository://build.suse.de/SUSE:Updates:SUSE-Manager-Proxy:3.0:x86_64/update" />
+      <repository repoid="obsrepository://build.suse.de/SUSE:Updates:SUSE-Manager-Proxy:3.0:x86_64/update_debug" />
+    </updates>
+  </register>
+  <upgrades />
+  <summary>SUSE Manager Proxy</summary>
+  <shortsummary>SUSE Manager Proxy</shortsummary>
+  <description>SUSE Manager Proxies extend large and/or geographically
+dispersed SUSE Manager environments to reduce load on the SUSE Manager
+Server, lower bandwidth needs, and provide faster local
+updates.</description>
+  <urls>
+    <url name="bugtracker">https://bugzilla.suse.com/</url>
+    <url name="releasenotes">http://www.novell.com/linux/releasenotes/x86_64/SUSE-MANAGER/2.1/release-notes-susemanager.rpm</url>
+  </urls>
+  <buildconfig>
+    <producttheme>SLES</producttheme>
+  </buildconfig>
+  <installconfig>
+    <defaultlang>en_US</defaultlang>
+    <datadir>suse</datadir>
+    <descriptiondir>suse/setup/descr</descriptiondir>
+    <releasepackage name="suse-manager-proxy-release" flag="EQ" version="3.0" release="1.19" />
+    <distribution>SUSE_SLE</distribution>
+  </installconfig>
+  <runtimeconfig />
+  <productdependency relationship="requires" name="SLES" baseversion="12" patchlevel="1" flag="EQ" />
+</product>
+

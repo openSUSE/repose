@@ -1,0 +1,222 @@
+# vim: sw=2 sts=2 et
+# a sequence of blocks, ordered hashmap from patterns to tag/repourl pairs
+
+define H http://dl.example.org
+
+sapaio:12
+  gm $H/ibs/SUSE/Products/SLE-SAP/$V/$A/product/
+  up $H/ibs/SUSE/Updates/SLE-SAP/$V/$A/update/
+  dg $H/ibs/SUSE/Products/SLE-SAP/$V/$A/product_debug/
+  du $H/ibs/SUSE/Updates/SLE-SAP/$V/$A/update_debug/
+
+sapaio:11
+  gm $H/update/zypp-patches.suse.de/$A/update/SLE-SAP-AIO/$V-POOL/
+  up $H/update/build-ncc.suse.de/SUSE/Updates/SLE-SAP-AIO/$V/$A/update/
+
+ses # SUSE Enterprise Storage
+  gm $H/ibs/SUSE/Products/Storage/${v/#%1/1.0}/$A/product/
+  up $H/ibs/SUSE/Updates/Storage/${v/#%1/1.0}/$A/update/
+  dg $H/ibs/SUSE/Products/Storage/${v/#%1/1.0}/$A/product_debug/
+  du $H/ibs/SUSE/Updates/Storage/${v/#%1/1.0}/$A/update_debug/
+
+sle-11-webyast
+  gm $H/update/zypp-patches.suse.de/$A/update/SLE-WEBYAST/$v-POOL/
+  up $H/update/build-ncc.suse.de/SUSE/Updates/SLE-WEBYAST/$v/$A/update
+
+sle-bsk
+  gm $H/ibs/SUSE/Products/$P/$V/$A/product/
+  up $H/ibs/SUSE/Updates/$P/$V/$A/update/
+  dg $H/ibs/SUSE/Products/$P/$V/$A/product_debug/
+  du $H/ibs/SUSE/Updates/$P/$V/$A/update_debug/
+
+sle-ha:12
+  gm $H/ibs/SUSE/Products/$P/$V/$A/product/
+  up $H/ibs/SUSE/Updates/$P/$V/$A/update/
+  dg $H/ibs/SUSE/Products/$P/$V/$A/product_debug/
+  du $H/ibs/SUSE/Updates/$P/$V/$A/update_debug/
+
+sle-ha-geo:12
+  gm $H/ibs/SUSE/Products/$P/$V/$A/product/
+  up $H/ibs/SUSE/Updates/$P/$V/$A/update/
+  dg $H/ibs/SUSE/Products/$P/$V/$A/product_debug/
+  du $H/ibs/SUSE/Updates/$P/$V/$A/update_debug/
+
+sle-hae:11
+  gm $H/update/zypp-patches.suse.de/$A/update/$P/$V-POOL/
+  up $H/update/build-ncc.suse.de/SUSE/Updates/$P/$V/$A/update/
+
+sle-haegeo:11
+  gm $H/update/zypp-patches.suse.de/$A/update/SLE-HAE/$V-GEO-POOL/
+  up $H/update/build-ncc.suse.de/SUSE/Updates/SLE-HAE/$V-GEO/$A/update/
+
+sle-infra
+  gm $H/ibs/QA:/Maintenance:/Infrastructure/SLE_${V/-/_}/
+
+sle-manager-tools:12
+  gm $H/ibs/SUSE/Products/${${(C)P}/#Sle-/SLE-}/12/$A/product/
+  up $H/ibs/SUSE/Updates/${${(C)P}/#Sle-/SLE-}/12/$A/update/
+  dg $H/ibs/SUSE/Products/${${(C)P}/#Sle-/SLE-}/12/$A/product_debug/
+  du $H/ibs/SUSE/Updates/${${(C)P}/#Sle-/SLE-}/12/$A/update_debug/
+
+sle-module-adv-systems-management:12
+  gm $H/ibs/SUSE/Products/${${(C)P}/#Sle-/SLE-}/12/$A/product/
+  up $H/ibs/SUSE/Updates/${${(C)P}/#Sle-/SLE-}/12/$A/update/
+  dg $H/ibs/SUSE/Products/${${(C)P}/#Sle-/SLE-}/12/$A/product_debug/
+  du $H/ibs/SUSE/Updates/${${(C)P}/#Sle-/SLE-}/12/$A/update_debug/
+
+sle-module-containers:12
+  gm $H/ibs/SUSE/Products/${${(C)P}/#Sle-/SLE-}/12/$A/product/
+  up $H/ibs/SUSE/Updates/${${(C)P}/#Sle-/SLE-}/12/$A/update/
+  dg $H/ibs/SUSE/Products/${${(C)P}/#Sle-/SLE-}/12/$A/product_debug/
+  du $H/ibs/SUSE/Updates/${${(C)P}/#Sle-/SLE-}/12/$A/update_debug/
+
+sle-module-legacy:12
+  gm $H/ibs/SUSE/Products/${${(C)P}/#Sle-/SLE-}/12/$A/product/
+  up $H/ibs/SUSE/Updates/${${(C)P}/#Sle-/SLE-}/12/$A/update/
+  dg $H/ibs/SUSE/Products/${${(C)P}/#Sle-/SLE-}/12/$A/product_debug/
+  du $H/ibs/SUSE/Updates/${${(C)P}/#Sle-/SLE-}/12/$A/update_debug/
+
+sle-live-patching:12
+  gm $H/ibs/SUSE/Products/${${(C)P}/#Sle-/SLE-}/12/$A/product/
+  up $H/ibs/SUSE/Updates/${${(C)P}/#Sle-/SLE-}/12/$A/update/
+  dg $H/ibs/SUSE/Products/${${(C)P}/#Sle-/SLE-}/12/$A/product_debug/
+  du $H/ibs/SUSE/Updates/${${(C)P}/#Sle-/SLE-}/12/$A/update_debug/
+
+sle-module-public-cloud:12
+  gm $H/ibs/SUSE/Products/${${(C)P}/#Sle-/SLE-}/12/$A/product/
+  up $H/ibs/SUSE/Updates/${${(C)P}/#Sle-/SLE-}/12/$A/update/
+  dg $H/ibs/SUSE/Products/${${(C)P}/#Sle-/SLE-}/12/$A/product_debug/
+  du $H/ibs/SUSE/Updates/${${(C)P}/#Sle-/SLE-}/12/$A/update_debug/
+
+sle-module-toolchain:12
+  gm $H/ibs/SUSE/Products/${${(C)P}/#Sle-/SLE-}/12/$A/product/
+  up $H/ibs/SUSE/Updates/${${(C)P}/#Sle-/SLE-}/12/$A/update/
+  dg $H/ibs/SUSE/Products/${${(C)P}/#Sle-/SLE-}/12/$A/product_debug/
+  du $H/ibs/SUSE/Updates/${${(C)P}/#Sle-/SLE-}/12/$A/update_debug/
+
+sle-module-web-scripting:12
+  gm $H/ibs/SUSE/Products/${${(C)P}/#Sle-/SLE-}/12/$A/product/
+  up $H/ibs/SUSE/Updates/${${(C)P}/#Sle-/SLE-}/12/$A/update/
+  dg $H/ibs/SUSE/Products/${${(C)P}/#Sle-/SLE-}/12/$A/product_debug/
+  du $H/ibs/SUSE/Updates/${${(C)P}/#Sle-/SLE-}/12/$A/update_debug/
+
+sle-qa:12
+  gm $H/ibs/QA:/SLE${V/-}/standard/
+  up $H/ibs/QA:/SLE${V/-}/update/
+
+sle-qa:11
+  gm $H/ibs/QA:/SLE${V/-}/standard/
+  up $H/ibs/QA:/SLE${V/-}/update/
+
+sle-qa:10
+  gm $H/ibs/QA:/SLE${V/-}/SLE_${V/-/_}_Update/
+
+sle-sdk:12
+  gm $H/ibs/SUSE/Products/$P/$V/$A/product/
+  up $H/ibs/SUSE/Updates/$P/$V/$A/update/
+  dg $H/ibs/SUSE/Products/$P/$V/$A/product_debug/
+  du $H/ibs/SUSE/Updates/$P/$V/$A/update_debug/
+
+sle-sdk:11
+  gm $H/update/zypp-patches.suse.de/$A/update/$P/$V-POOL/
+  up $H/update/build-ncc.suse.de/SUSE/Updates/$P/$V/$A/update/
+
+sle-sdk:10
+  gm $H/update/zypp-patches.suse.de/$A/update/$P/$V-POOL/
+  up http://update.suse.de/zypp/$A/update/$P/$V/
+  yo http://you.suse.de/download/$A/update/$P/$V/
+
+sle-slms:1.3
+  gm $H/update/zypp-patches.suse.de/$A/update/$P/$V-POOL/
+  up $H/update/build-ncc.suse.de/SUSE/Updates/$P/$V/$A/update/
+
+sle-smt:11
+  gm $H/update/zypp-patches.suse.de/$A/update/$P/$V-POOL/
+  up $H/update/build-ncc.suse.de/SUSE/Updates/$P/$V/$A/update/
+
+sle-studioonsite:1.3
+  gm $H/update/zypp-patches.suse.de/$A/update/$P/$V-POOL/
+  up $H/update/zypp-patches.suse.de/$A/update/$P/$V/
+
+sle-studioonsiterunner:1.3
+  gm $H/update/zypp-patches.suse.de/$A/update/$P/$V-POOL/
+  up $H/update/build-ncc.suse.de/SUSE/Updates/$P/$V/$A/update/
+
+sle-we:12
+  gm $H/ibs/SUSE/Products/$P/$V/$A/product/
+  up $H/ibs/SUSE/Updates/$P/$V/$A/update/
+  dg $H/ibs/SUSE/Products/$P/$V/$A/product_debug/
+  du $H/ibs/SUSE/Updates/$P/$V/$A/update_debug/
+  nv http://download.nvidia.com/novell/sle${(L)V/-}/
+  at http://www2.ati.com/suse/sle${(L)V/-}/
+
+
+sled:12
+  gm $H/ibs/SUSE/Products/SLE-DESKTOP/$V/$A/product/
+  up $H/ibs/SUSE/Updates/SLE-DESKTOP/$V/$A/update/
+  dg $H/ibs/SUSE/Products/SLE-DESKTOP/$V/$A/product_debug/
+  du $H/ibs/SUSE/Updates/SLE-DESKTOP/$V/$A/update_debug/
+  nv http://download.nvidia.com/novell/sle${(L)V/-}/
+  at http://www2.ati.com/suse/sle${(L)V/-}/
+
+sled:11
+  gm $H/update/zypp-patches.suse.de/$A/update/SLE-DESKTOP/$V-POOL/
+  up $H/update/build-ncc.suse.de/SUSE/Updates/SLE-DESKTOP/$V/$A/update/
+  nv http://download.nvidia.com/novell/sle${(L)V/-}/
+  at http://www2.ati.com/suse/sle${(L)V/-}/
+
+
+sles:12
+  gm $H/ibs/SUSE/Products/SLE-SERVER/$V/$A/product/
+  up $H/ibs/SUSE/Updates/SLE-SERVER/$V/$A/update/
+  dg $H/ibs/SUSE/Products/SLE-SERVER/$V/$A/product_debug/
+  du $H/ibs/SUSE/Updates/SLE-SERVER/$V/$A/update_debug/
+
+sles:11.[1-3]
+  gm $H/update/zypp-patches.suse.de/$A/update/SLE-SERVER/$V-POOL/
+  up $H/update/build-ncc.suse.de/SUSE/Updates/SLE-SERVER/$V/$A/update/
+  up $H/update/build-ncc.suse.de/SUSE/Updates/SLE-SERVER/${V/-*}-SECURITY/$A/update/
+  up $H/update/build-ncc.suse.de/SUSE/Updates/SLE-SERVER/$V-LTSS/$A/update/
+
+sles:11.4
+  gm $H/update/zypp-patches.suse.de/$A/update/SLE-SERVER/$V-POOL/
+  up $H/update/build-ncc.suse.de/SUSE/Updates/SLE-SERVER/$V/$A/update/
+  up $H/update/build-ncc.suse.de/SUSE/Updates/SLE-SERVER/${V/-*}-SECURITY/$A/update/
+
+sles-for-vmware:11
+  gm $H/update/zypp-patches.suse.de/$A/update/SLES4VMWARE/$V-POOL/
+  up $H/update/build-ncc.suse.de/SUSE/Updates/SLES4VMWARE/$V/$A/update/
+
+suse-linux-enterprise-rt:11.4
+  gm $H/update/zypp-patches.suse.de/$A/update/SLE-RT/$V-POOL/
+  up $H/update/build-ncc.suse.de/SUSE/Updates/SLE-RT/$V/$A/update/
+
+suse-manager-proxy:<-2>
+  gm $H/update/zypp-patches.suse.de/$A/update/$P/$v-POOL/
+  up $H/update/build-ncc.suse.de/SUSE/Updates/$P/$v/$A/update/
+
+suse-manager-proxy:<3->
+  gm $H/ibs/SUSE/Products/${${(C)P}/#Suse-/SUSE-}/$v/$A/product/
+  up $H/ibs/SUSE/Updates/${${(C)P}/#Suse-/SUSE-}/$v/$A/update/
+
+suse-manager-server:<-2>
+  gm $H/update/zypp-patches.suse.de/$A/update/${P%-SERVER}/$v-POOL/
+  up $H/update/build-ncc.suse.de/SUSE/Updates/${P%-SERVER}/$v/$A/update/
+
+suse-manager-server:<3->
+  gm $H/ibs/SUSE/Products/${${(C)P}/#Suse-/SUSE-}/$v/$A/product/
+  up $H/ibs/SUSE/Updates/${${(C)P}/#Suse-/SUSE-}/$v/$A/update/
+
+suse-cloud:<-5> # 11sp3
+  gm $H/update/zypp-patches.suse.de/$A/update/$P/$V-POOL/
+  up $H/update/build-ncc.suse.de/SUSE/Updates/$P/$V/$A/update/
+
+suse-openstack-cloud:<6-> # the artist formerly known as suse-cloud
+  gm $H/ibs/SUSE/Products/OpenStack-Cloud/$V/$A/product/
+  up $H/ibs/SUSE/Updates/OpenStack-Cloud/$V/$A/update/
+
+suse-sle12-cloud-compute:5
+  gm $H/ibs/SUSE/Products/${(C)P/#SUSE-SLE}/$v/$A/product/
+  up $H/ibs/SUSE/Updates/${(C)P/#SUSE-SLE}/$v/$A/update/
+  dg $H/ibs/SUSE/Products/${(C)P/#SUSE-SLE}/$V/$A/product_debug/
+  du $H/ibs/SUSE/Updates/${(C)P/#SUSE-SLE}/$V/$A/update_debug/

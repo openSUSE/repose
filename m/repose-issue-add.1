@@ -1,0 +1,84 @@
+.\" vim: tw=72 fdm=marker cms=.\\"\ %s
+.
+.\" FRONT MATTER {{{
+.Dd Feb 04, 2016
+.Os
+.Dt REPOSE-ISSUE-ADD 1
+.
+.Sh NAME
+.Nm repose-issue-add
+.Nd Add issue-specific repositories
+.\" FRONT MATTER }}}
+.
+.\" SYNOPSIS {{{
+.Sh SYNOPSIS
+.Nm
+.Fl h | \-help
+.Nm
+.Op Fl n | \-print
+.Ar HOST Ns ...
+.Oo
+.Li --
+.Ar ISSUEDIR Ns ...
+.Oc
+.\" SYNOPSIS }}}
+.
+.\" DESCRIPTION {{{
+.Sh DESCRIPTION
+.Nm
+adds package repositories for specified maintenance updates.
+.\" }}}
+.
+.\" OPTIONS {{{
+.Sh OPTIONS
+.
+.Bl -tag -width "xx"
+. It Fl h
+Display usage instructions.
+. It Fl \-help
+Display this manual page.
+. It Fl n Ns , Fl \-print
+Write destructive operations to standard output,
+do not actually perform them.
+.El
+.\" }}}
+.
+.\" OPERANDS {{{
+.Sh OPERANDS
+.
+.Bl -tag -width "xx"
+. It Ar HOST
+Machine to operate on.
+. It Ar ISSUEDIR
+Directory containing metadata for the maintenance issue to add
+repositories for.
+See
+. Xr sumaxy 1 .
+.El
+.\" }}}
+.
+.\" EXAMPLES {{{
+.Sh EXAMPLES
+.Bd -literal
+$ cd SUSE:Maintenance:1234:56789
+$ repose issue-add root@{fubar,snafu}.example.org -- .
+.Ed
+.\" }}}
+.
+.\" SEE ALSO {{{
+.Sh SEE ALSO
+.Xr repoq 1 ,
+.Xr repose 1 ,
+.Xr repose-issue-rm 1 ,
+.Xr smrt 1 ,
+.Xr ssh 1 ,
+.Xr sumaxy 1 ,
+.Xr zypper 8 .
+.\" }}}
+.
+.\" REPOSE {{{
+.Sh REPOSE
+.Nm
+is part of
+.Xr repose 1 .
+.\" }}}

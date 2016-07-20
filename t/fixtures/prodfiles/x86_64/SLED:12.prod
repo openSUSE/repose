@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<product schemeversion="0">
+  <vendor>SUSE</vendor>
+  <name>SLED</name>
+  <version>12</version>
+  <baseversion>12</baseversion>
+  <patchlevel>0</patchlevel>
+  <predecessor>SUSE_SLED</predecessor>
+  <release>0</release>
+  <endoflife>2019-10-31</endoflife>
+  <arch>x86_64</arch>
+  <cpeid>cpe:/o:suse:sled:12</cpeid>
+  <productline>sled</productline>
+  <register>
+      <target>sle-12-x86_64</target>
+    <updates>
+      <repository repoid="obsrepository://build.suse.de/SUSE:Updates:SLE-DESKTOP:12:x86_64/update" />
+      <repository repoid="obsrepository://build.suse.de/SUSE:Updates:SLE-DESKTOP:12:x86_64/update_debug" />
+    </updates>
+  </register>
+  <upgrades />
+  <updaterepokey>A43242FFF</updaterepokey>
+  <summary>SUSE Linux Enterprise Desktop 12</summary>
+  <shortsummary>SLED12</shortsummary>
+  <description>SUSE Linux Enterprise offers a comprehensive
+        suite of products built on a single code base.
+        The platform addresses business needs from
+        the smallest thin-client devices to the world's
+        most powerful high-performance computing
+        and mainframe servers. SUSE Linux Enterprise
+        offers common management tools and technology
+        certifications across the platform, and
+        each product is enterprise-class. SUSE Linux
+        Enterprise provides more than a cute desktop
+        product or a basic server offering. It is the
+        only Linux platform for enterprise computing,
+        and it is now replacing UNIX* and Windows*
+        as well.</description>
+  <linguas>
+    <language>cs</language>
+    <language>da</language>
+    <language>de</language>
+    <language>en</language>
+    <language>en_GB</language>
+    <language>en_US</language>
+    <language>es</language>
+    <language>fi</language>
+    <language>fr</language>
+    <language>hu</language>
+    <language>it</language>
+    <language>ja</language>
+    <language>nb</language>
+    <language>nl</language>
+    <language>pl</language>
+    <language>pt</language>
+    <language>pt_BR</language>
+    <language>ru</language>
+    <language>sv</language>
+    <language>zh</language>
+    <language>zh_CN</language>
+    <language>zh_TW</language>
+  </linguas>
+  <urls>
+    <url name="releasenotes">https://www.suse.com/releasenotes/x86_64/SUSE-SLED/12/release-notes-sled.rpm</url>
+  </urls>
+  <buildconfig>
+    <producttheme>SLED</producttheme>
+    <allowresolving>false</allowresolving>
+  </buildconfig>
+  <installconfig>
+    <defaultlang>en_US</defaultlang>
+    <datadir>suse</datadir>
+    <descriptiondir>suse/setup/descr</descriptiondir>
+    <releasepackage name="sled-release" flag="EQ" version="12" release="5.1" />
+    <distribution>SUSE_SLE</distribution>
+  </installconfig>
+  <runtimeconfig />
+  <productdependency relationship="provides" name="SUSE_SLE" baseversion="12" patchlevel="0" flag="EQ" />
+  <productdependency relationship="provides" name="SUSE_SLE-SP0" baseversion="12" patchlevel="0" flag="EQ" />
+</product>
+

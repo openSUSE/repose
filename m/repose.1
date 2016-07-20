@@ -1,0 +1,145 @@
+.\" vim: tw=72 fdm=marker cms=.\\"\ %s
+.
+.\" FRONT MATTER {{{
+.Dd Feb 04, 2016
+.Os
+.Dt REPOSE 1
+.
+.Sh NAME
+.Nm repose
+.Nd Manipulate products and repositories
+.\" FRONT MATTER }}}
+.
+.\" SYNOPSIS {{{
+.Sh SYNOPSIS
+.Nm
+.Fl h | \-help
+.Nm
+.Cm COMMAND
+.Op Ar options
+.Op Ar operands
+.\" SYNOPSIS }}}
+.
+.\" DESCRIPTION {{{
+.Sh DESCRIPTION
+.Nm
+combines
+.Xr repoq 1 ,
+.Xr sumaxy 1 ,
+.Xr ssh 1
+and
+.Xr zypper 8
+to
+query and manipulate products and package repositories
+in one or more machines.
+.\" }}}
+.
+.\" OPTIONS {{{
+.Sh OPTIONS
+.
+.Bl -tag -width "xx"
+. It Fl h
+Display usage instructions.
+. It Fl \-help
+Display full help.
+.El
+.\" }}}
+.
+.\" COMMANDS {{{
+.Sh COMMANDS
+.
+.Bl -tag -width "xx"
+. It Xr repose-add 1
+Add requested repositories.
+. It Xr repose-clear 1
+Remove all repositories.
+. It Xr repose-install 1
+Install a product, add its repositories.
+. It Xr repose-issue-add 1
+Add issue-specific repositories.
+. It Xr repose-issue-rm 1
+Remove issue-specific repositories.
+. It Xr repose-list 1
+List matching repositories.
+. It Xr repose-list-products 1
+List matching products.
+. It Xr repose-remove 1
+Remove matching repositories.
+. It Xr repose-reset 1
+Remove stray repositories.
+. It Xr repose-switch-to 1
+Enable specified repositories, disable others.
+.El
+.\" }}}
+.
+.\" REPOSITORY NAMES {{{
+.Sh REPOSITORY NAMES
+.
+.Nm
+assumes repository names as defined in
+.Xr repoq 1 .
+.\" }}}
+.
+.\" REPOSITORY PATTERNS {{{
+.Sh REPOSITORY PATTERNS
+.
+.Sy Repository patterns
+accepted by
+.Nm
+are a variation on
+.Xr repoq 1
+repository patterns:
+.
+.\" [P][:[V][:[A][:[T]]]]
+.Bd -literal -offset "xx"
+.Oo Cm P Oc Ns Op Li : Ns Oo Cm V Oc Ns Op Li : Ns Oo Cm A Oc Ns Op Li : Ns Op Cm T
+.Ed
+.Pp
+Commonly used variants include:
+.Pp
+.Bl -bullet -compact -offset "xx"
+.\" P:V:A:T
+.It
+. Sy P Ns Li : Ns Sy V Ns Li : Ns Sy A Ns Li : Ns Sy T
+.\" P:V:A
+.It
+. Sy P Ns Li : Ns Sy V Ns Li : Ns Sy A
+.\" P:V
+.It
+. Sy P Ns Li : Ns Sy V
+.\" P:V::T
+.It
+. Sy P Ns Li : Ns Sy V Ns Li :: Ns Sy T
+.\" P:::T
+.It
+. Sy P Ns Li ::: Ns Sy T
+.\" :::T
+.It
+. Sy Li ::: Ns Sy T
+.El
+.Pp
+Empty segments are treated as wildcards.
+.\" }}}
+.
+.\" SEE ALSO {{{
+.Sh SEE ALSO
+.Xr repoq 1 ,
+.Xr scp 1 ,
+.Xr smrt 1 ,
+.Xr ssh 1 ,
+.Xr ssh-copy-id 1 ,
+.Xr zypper 8 .
+.\" }}}
+.
+.\" AUTHORS {{{
+.Sh AUTHORS
+.An Roman Neuhauser Aq Mt rneuhauser+repose@suse.cz
+.Lk https://gitlab.suse.de/rneuhauser/repose
+.\" AUTHORS }}}
+.
+.\" BUGS {{{
+.Sh BUGS
+No doubt plentiful.
+Please report them at
+.Lk https://gitlab.suse.de/rneuhauser/repose/issues
+.\" BUGS }}}

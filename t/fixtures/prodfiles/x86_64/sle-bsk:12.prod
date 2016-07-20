@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<product schemeversion="0">
+  <vendor>SUSE</vendor>
+  <name>sle-bsk</name>
+  <version>12</version>
+  <baseversion>12</baseversion>
+  <patchlevel>0</patchlevel>
+  <release>0</release>
+  <endoflife>2024-10-31</endoflife>
+  <arch>x86_64</arch>
+  <cpeid>cpe:/o:suse:sle-bsk:12</cpeid>
+  <productline>sle</productline>
+  <register>
+      <target>sle-12-x86_64</target>
+    <updates>
+      <repository repoid="obsrepository://build.suse.de/SUSE:Updates:SLE-BSK:12:x86_64/update" />
+      <repository repoid="obsrepository://build.suse.de/SUSE:Updates:SLE-BSK:12:x86_64/update_debug" />
+    </updates>
+  </register>
+  <upgrades />
+  <summary>SUSE Linux Enterprise Software Bootstrap Kit 12</summary>
+  <shortsummary>BSK12</shortsummary>
+  <description>This is the SUSE Linux Enterprise Software Bootstrap Kit</description>
+  <urls>
+    <url name="bugtracker">https://bugzilla.novell.com/</url>
+  </urls>
+  <buildconfig>
+    <producttheme>SLES</producttheme>
+  </buildconfig>
+  <installconfig>
+    <defaultlang>en_US</defaultlang>
+    <datadir>suse</datadir>
+    <descriptiondir>suse/setup/descr</descriptiondir>
+    <releasepackage name="sle-bsk-release" flag="EQ" version="12" release="1.103" />
+    <distribution>SUSE_BSK</distribution>
+  </installconfig>
+  <runtimeconfig />
+  <productdependency relationship="requires" name="SLES" baseversion="12" patchlevel="0" flag="EQ" />
+</product>
+

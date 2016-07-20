@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<product schemeversion="0">
+  <vendor>SUSE</vendor>
+  <name>sle-module-legacy</name>
+  <version>12</version>
+  <baseversion>12</baseversion>
+  <patchlevel>0</patchlevel>
+  <release>0</release>
+  <endoflife>2017-10-31</endoflife>
+  <arch>x86_64</arch>
+  <cpeid>cpe:/o:suse:sle-module-legacy:12</cpeid>
+  <productline>sle-module-legacy</productline>
+  <register>
+      <target>sle-12-x86_64</target>
+    <flavor>module</flavor>
+    <updates>
+      <repository repoid="obsrepository://build.suse.de/SUSE:Updates:SLE-Module-Legacy:12:x86_64/update" />
+      <repository repoid="obsrepository://build.suse.de/SUSE:Updates:SLE-Module-Legacy:12:x86_64/update_debug" />
+    </updates>
+  </register>
+  <upgrades />
+  <summary>Legacy Module</summary>
+  <shortsummary>Legacy-module</shortsummary>
+  <description>&lt;p&gt;
+      The Legacy Module helps you migrating applications from SUSE Linux
+      Enterprise 10 and 11 and other systems to SUSE Linux Enterprise 12, by
+      providing packages which are discontinued on SUSE Linux Enterprise
+      Server, such as: sendmail, syslog-ng, IBM Java6, and a number of
+      libraries (for example openssl-0.9.8).
+	&lt;/p&gt;
+	&lt;p&gt;
+      Access to the Legacy Module is included in your SUSE Linux Enterprise
+      Server subscription. The module has a different lifecycle than SUSE Linux
+      Enterprise Server itself. Packages in the this module are usually
+      supported for at most three years. Support for Sendmail and IBM Java 6
+      will end in September 2017 the latest.
+	&lt;/p&gt;</description>
+  <urls>
+    <url name="bugtracker">https://bugzilla.novell.com/</url>
+  </urls>
+  <buildconfig>
+    <producttheme>SLES</producttheme>
+  </buildconfig>
+  <installconfig>
+    <defaultlang>en_US</defaultlang>
+    <datadir>suse</datadir>
+    <descriptiondir>suse/setup/descr</descriptiondir>
+    <releasepackage name="sle-module-legacy-release" flag="EQ" version="12" release="3.1" />
+    <distribution>SUSE_SLE</distribution>
+  </installconfig>
+  <runtimeconfig />
+  <productdependency relationship="requires" name="SLES" baseversion="12" patchlevel="0" flag="GE" />
+</product>
+

@@ -1,0 +1,97 @@
+<patchinfo incident="1085">
+  <issue id="946236" tracker="bnc">[JeOS] root / filesystem not mounted by label</issue>
+  <issue id="946387" tracker="bnc">s390x: SLES12 LVM can't expand logical volume on appliance first boot</issue>
+  <issue id="959713" tracker="bnc">kiwi templates are broken for x86_64</issue>
+  <issue id="944017" tracker="bnc">L3: SLE12 s390x appliances have incorrect bootloader configuration</issue>
+  <issue id="931436" tracker="bnc">kiwi: OEM image fails to load parmfile</issue>
+  <issue id="931634" tracker="bnc">FATE 319010 Loopback mounting of Images with 4k blocksize</issue>
+  <issue id="319430" tracker="fate"/>
+  <category>recommended</category>
+  <rating>moderate</rating>
+  <packager>wally</packager>
+  <description>
+This update provides KIWI v5.06.195, which brings several fixes and enhancements:
+
+- Follow up fix for Rename SLE JeOS descriptions: Fixed merge conflict to fit
+  schema of this kiwi version. (bsc#959713)
+
+- Rename SLE JeOS descriptions: In order to avoid a naming conflict with the JeOS
+  product we agreed on renaming the SLE JeOS description in kiwi to contain the
+  community keyword to separate this descriptions from the SUSE JeOS product.
+  (fate#319430)
+
+- Add root filesystem label to images: To allow devicepersistency="by-label" also
+  for the root filesystem, the setupFilesystem method has been extended for all
+  supported filesystems to add a root label too. The default name for the root
+  label is 'ROOT'. (bsc#946236)
+
+- Make sure kiwi_BootPart variable is written: kiwi_BootPart is expected to exist
+  in the initrd environment. Thus it's required to write it in config.partids in
+  any case. If there is no extra boot partition kiwi_BootPart equals kiwi_RootPart.
+  (bsc#946387)
+
+- Embed LOADER_TYPE into double quotes: This is required by perl-bootloader.
+  (bsc#944017)
+
+- Fixed setup of /var/run location: /var/run is a symbolic link to /run on newer
+  systems and a directory on older systems. Handle this difference properly.
+
+- Renamed bootloader ziplgrub to grub2_s390x_emu: We don't want to populate a
+  non-existing bootloader. Thus the decision was to use the grub2 platform name
+  for the SLE-12 s390x boot workflow. (bsc#944017)
+
+- Added required packages to SLE-12 s390x images: grub2 and grub2-s390x-emu for
+  vmx|oem boot images; grub2, grub2-s390x-emu and kexec-tools for JeOS templates.
+  Additionally, extend JeOS template with some useful tools (parted, ip, less).
+
+- Implemented support for stacked zipl plus grub2 boot: In SLE-12, zipl and btrfs
+  are incompatible because the block where the initrd and the kernel live could
+  change in a btrfs filesystem. To work with btrfs, a new boot process has been
+  invented by the SLES team which impacts kiwi too.
+
+- Fixed zipl setup: zipl does not allow a targetgeometry if the target type is
+  different from CDL or LDL.
+
+- Fixed diskOffset calculation for s390: zipl wants the number of blocks to indicate
+  the start of the first partition, not the number of tracks.
+
+- Fixed zipl installation for LDL/CDL on loop device: Installing zipl on the LDL/CDL
+  target device types requires to specify the disk geometry. zipl is not able to get
+  that information from a loop device. Therefore we need to hand over a targetgeometry
+  which matches the loop geometry.
+
+- Update selector for partitioner tool: If we are building a dasd image using the new
+  loop driver which supports 4k devices, we need a way to select fdasd as partitioner
+  on s390. This can be done via commandline options but is now also auto selected if
+  a zipl_targettype of CDL or LDL is specified.
+
+- Implement setup of loop logical sector size: The new loop driver capability allows
+  to set a custom blocksize on setup of the loop device. The attribute value from the
+  target_blocksize attribute is used in losetup as follows: "-L target_blocksize".
+  (bsc#931634)
+
+- Fixed zipl installBootLoader blocksize usage: There is now the target_blocksize
+  attribute which is used. If not specified the default blocksize of 512 bytes applies.
+  (bsc#931634)
+
+- Fixed zipl installBootLoader blocksize retrieval: In order to find the target blocksize
+  for the zipl configuration kiwi asked for the physical blocksize. However the logical
+  block size should be used when zipl accesses the device. (bsc#931634)
+
+- Added target_blocksize attribute in type section: In preparation to support custom
+  blocksize values for loops the attribute target_blocksize was implemented like the
+  following example shows: &lt;type ... target_blocksize="4096"/&gt;.  This will set
+  a 4k blocksize used for all loops setup during image build and on first boot of the
+  image. (bsc#931634)
+
+- Deleted fixed parmfile name PARM-S11 on s390: Instead a new OEM element called:
+  &lt;oem-vmcp-parmfile&gt; has been added. Using this element allows to specify the
+  parmfile name without the userid. The userid is queried on demand. If no parmfile
+  name is specified the default name PARM-S11 applies for backward compatibility.
+  (bsc#931436)
+
+- Fixed loading of vmcp on s390: In SLE12 vmcp is compiled into the kernel, thus loading
+  it as a module will cause an exception which is misleading. (bsc#931436)
+</description>
+  <summary>Recommended update for kiwi</summary>
+</patchinfo>

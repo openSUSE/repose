@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<product schemeversion="0">
+  <vendor>SUSE</vendor>
+  <name>sle-live-patching</name>
+  <version>12</version>
+  <baseversion>12</baseversion>
+  <patchlevel>0</patchlevel>
+  <release>0</release>
+  <endoflife>2017-10-31</endoflife>
+  <arch>x86_64</arch>
+  <cpeid>cpe:/o:suse:sle-live-patching:12</cpeid>
+  <productline>sle-live-patching</productline>
+  <register>
+      <target>sle-12-x86_64</target>
+    <flavor>extension</flavor>
+    <updates>
+      <repository repoid="obsrepository://build.suse.de/SUSE:Updates:SLE-Live-Patching:12:x86_64/update" />
+      <repository repoid="obsrepository://build.suse.de/SUSE:Updates:SLE-Live-Patching:12:x86_64/update_debug" />
+    </updates>
+  </register>
+  <upgrades />
+  <summary>SUSE Linux Enterprise Live Patching</summary>
+  <shortsummary>Live-Patching</shortsummary>
+  <description>&lt;p&gt;
+SUSE Linux Enterprise Live Patching provides packages to update critical kernel
+modules live in SUSE Linux Enterprise.  With SUSE Linux Enterprise Live
+Patching, you can perform critical kernel patching without shutting down your
+system, reducing the need for planned downtime and increasing service
+availability.
+	&lt;p&gt;</description>
+  <urls>
+    <url name="bugtracker">https://bugzilla.novell.com/</url>
+  </urls>
+  <buildconfig>
+    <producttheme>SLES</producttheme>
+  </buildconfig>
+  <installconfig>
+    <defaultlang>en_US</defaultlang>
+    <datadir>suse</datadir>
+    <descriptiondir>suse/setup/descr</descriptiondir>
+    <releasepackage name="sle-live-patching" flag="EQ" version="12" release="2.1" />
+    <distribution>SUSE_SLE</distribution>
+  </installconfig>
+  <runtimeconfig />
+  <productdependency relationship="requires" name="SLES" baseversion="12" patchlevel="0" flag="GE" />
+</product>
+

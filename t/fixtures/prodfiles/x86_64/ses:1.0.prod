@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<product schemeversion="0">
+  <vendor>SUSE</vendor>
+  <name>ses</name>
+  <version>1</version>
+  <baseversion>1</baseversion>
+  <patchlevel>0</patchlevel>
+  <release>0</release>
+  <endoflife>2017-02-28</endoflife>
+  <arch>x86_64</arch>
+  <cpeid>cpe:/o:suse:ses:1</cpeid>
+  <productline>ses</productline>
+  <register>
+      <target>sle-12-x86_64</target>
+    <updates>
+      <repository repoid="obsrepository://build.suse.de/SUSE:Updates:Storage:1.0:x86_64/update" />
+      <repository repoid="obsrepository://build.suse.de/SUSE:Updates:Storage:1.0:x86_64/update_debug" />
+    </updates>
+  </register>
+  <upgrades />
+  <summary>SUSE Enterprise Storage 1.0</summary>
+  <shortsummary>SES1.0</shortsummary>
+  <description>SUSE Enterprise Storage 1.0 for SUSE Linux Enterprise Server 12, powered by Ceph.</description>
+  <urls>
+    <url name="bugtracker">https://bugzilla.suse.com/</url>
+    <url name="releasenotes">https://www.suse.com/releasenotes/x86_64/SUSE-Enterprise-Storage/1/release-notes-ses.rpm</url>
+  </urls>
+  <buildconfig>
+    <producttheme>SLES</producttheme>
+    <betaversion>GM</betaversion>
+  </buildconfig>
+  <installconfig>
+    <defaultlang>en_US</defaultlang>
+    <datadir>suse</datadir>
+    <descriptiondir>suse/setup/descr</descriptiondir>
+    <releasepackage name="ses-release" flag="EQ" version="1" release="1.9" />
+    <distribution>SUSE_SLE</distribution>
+  </installconfig>
+  <runtimeconfig />
+  <productdependency relationship="requires" name="SLES" baseversion="12" patchlevel="0" flag="EQ" />
+</product>
+

@@ -1,0 +1,189 @@
+# vim: ft=zsh sw=2 sts=2 et fdm=marker cms=\ #\ %s
+
+setopt extended_glob
+setopt hist_subst_pattern
+setopt no_unset
+setopt warn_create_global
+
+PATH="$PWD/.bin:$BUILDDIR:$TESTROOT:$PATH"
+HOME="$PWD"
+export MANWIDTH=80
+export REPOSE_PRELUDE="$BUILDDIR/repose.prelude.zsh"
+
+declare -Tgx REPOSE_CHATTY repose_chatty \|
+declare -Tgx REPOSE_DRYRUN repose_dryrun \|
+
+declare -Tgx REPOQ_CHATTY repoq_chatty \|
+declare -Tgx REPOQ_DRYRUN repoq_dryrun \|
+
+declare -gx FIXTURES=$TESTROOT/fixtures
+
+repoq_chatty+=('exec%man%*')
+repoq_dryrun+=('exec%man%*')
+repose_chatty+=($repoq_chatty)
+repose_dryrun+=($repoq_dryrun)
+repose_dryrun+=('ssh%*')
+
+[[ $TESTDIR:t == usage ]] || {
+  declare -gx REPOQ_RULES=$BUILDDIR/repoq.rules
+}
+
+declare -gx SUMAXYRC=$FIXTURES/sumaxyrc
+
+function compare-with-fixture # {{{
+{
+  local slug=$1 mine orig result
+  for mine in $slug/**/*(.); do
+    orig=$FIXTURES/$mine
+    result=good
+    cmp -s $orig $mine || result=DIFF!
+    print -rf '%s: %s\n' -- $result $mine
+  done
+} # }}}
+
+function update-fixture # {{{
+{
+  local slug=$1 mine orig
+  for mine in $slug/**/*(.); do
+    orig=$FIXTURES/$mine
+    [[ -e $orig ]] || {
+      mkdir -p $orig:h
+    }
+    cp $mine $orig
+  done
+} # }}}
+
+function reify-fixture # {{{
+{
+  local slug=${1?}
+  cp -r $FIXTURES/$slug .
+} # }}}
+
+function fake # {{{
+{
+  local arg cmd=~/.bin/$1; shift
+  mkdir -p $cmd:h
+  {
+    print "#!/usr/bin/zsh -f"
+    cat
+  } > $cmd
+  chmod u+x $cmd
+} # }}}
+
+function fake-repo-xml # {{{
+# as long as this uses repoq it can only be used
+# in repose tests on the condition that repoq own
+# tests are "green".
+{
+  local arch=$1 rn=$2
+  local -a order; order=(
+    alias
+    name
+    type
+    priority
+    enabled
+    autorefresh
+    gpgcheck
+    repo_gpgcheck
+    pkg_gpgcheck
+  )
+  local -A attrs; attrs=(
+    alias         $rn
+    name          $rn
+    type          rpm-md
+    priority      99
+    enabled       1
+    autorefresh   1
+    gpgcheck      1
+    repo_gpgcheck 1
+    pkg_gpgcheck  0
+  )
+  local attr
+  print -f '<repo'
+  for attr in $order; do
+    print -f ' %s=%s' $attr ${(qqq)attrs[$attr]}
+  done
+  print -f '>\n'
+  print -f '<url>%s</url>\n' $(repoq --arch=$arch $rn)
+  print -f '</repo>\n'
+} # }}}
+
+function fake-zypper-lr-output # {{{
+{
+  local arch=$1; shift
+  print -f '%s\n' \
+    "<?xml version='1.0'?>" \
+    "<stream>" \
+    '<message type="info">Refreshing service &apos;cloud_update&apos;.</message>' \
+    "<repo-list>"
+  local spec
+  for spec in "$@"; do
+    fake-repo-xml $arch $spec
+  done
+  print -f '%s\n' \
+    '</repo-list>' \
+    '</stream>'
+} # }}}
+
+function fake-refhost # {{{
+{
+  local spec h=$1 arch=$2; shift 2
+  local -i sep="${@[(i)--]}"
+  local -a products; products=("${@[1,$((sep-1))]}")
+  local -a repos; repos=("${@[$((sep+1)),-1]}")
+  fake-products-d $h $arch $products
+  fake-zypper-lr-output $arch $repos > .fake-ssh/$h+zypper+-x+lr
+} # }}}
+
+function fake-products-d # {{{
+{
+  # $s, $bp must be arrays for zsh-5.0.5 (sle12),
+  # otherwise it bitches about bad patterns
+  local h=$1 arch=$2; shift 2
+  local d=.fake-ssh/$h:/etc/products.d
+  mkdir -p $d
+  local p
+  local -a s
+  for p in "$@"; do
+    s=($FIXTURES/prodfiles/$arch/(#l)$p.prod)
+    cp $s $d/
+  done
+  (( $# )) || return 0
+  local -a bp; bp=($FIXTURES/prodfiles/$arch/(#l)$1.prod)
+  ln -sf $bp:t $d/baseproduct
+} # }}}
+
+mkdir -p .bin
+fake zypper <<\EOF
+  local f="${(j:+:)${@/#${TMPDIR}*/TMP}}"
+  local p=~/.fake-ssh/\$local+zypper+$f
+  [[ -e $p ]] || {
+    print "ENOENT: $p"
+    print -l ~/.fake-ssh/**/*(.)
+  } >&2
+  cat $p
+EOF
+
+fake ssh <<\EOF
+  while [[ $1 == -* ]]; do
+    case $1 in
+    -o) shift 2 ;;
+    -*) shift   ;;
+    esac
+  done
+  local f="${(j:+:)${@/#${TMPDIR}*/TMP}}"
+  local p=~/.fake-ssh/$f
+  [[ -e $p ]] || {
+    print "ENOENT: $p"
+    print -l ~/.fake-ssh/**/*(.)
+  } >&2
+  cat $p
+EOF
+
+fake scp <<\EOF
+  [[ $1 == -Bq ]] && shift
+  local f="${(@j:+:)@[1,-2]}"
+  local -a s; s=(~/.fake-ssh/$~f(N))
+  (( $#s )) || return 0
+  cp $s ${(P)#}
+EOF

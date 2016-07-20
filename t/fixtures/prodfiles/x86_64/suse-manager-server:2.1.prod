@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<product id="suse-manager-server-201" schemeversion="0">
+  <vendor>SUSE LINUX Products GmbH, Nuernberg, Germany</vendor>
+  <name>SUSE-Manager-Server</name>
+  <version>2.1</version>
+  <patchlevel>0</patchlevel>
+  <release>1.2</release>
+  <arch>x86_64</arch>
+  <productline>manager</productline>
+  <register>
+    <target>sle-11-x86_64</target>
+    <release></release>
+    <repositories>
+      <repository path="obs://build.suse.de/SUSE:SLE-11-SP3:Update/standard" />
+      <repository path="obs://build.suse.de/SUSE:SLE-11-SP3:GA/standard" />
+      <repository path="obs://build.suse.de/SUSE:SLE-11-SP2:Update/standard" />
+      <repository path="obs://build.suse.de/SUSE:SLE-11-SP2:GA/standard" />
+      <repository path="obs://build.suse.de/SUSE:SLE-11-SP1:Update/standard" />
+      <repository path="obs://build.suse.de/SUSE:SLE-11-SP1:GA/standard" />
+      <repository path="obs://build.suse.de/SUSE:SLE-11:Update/snapshot-SP1" />
+      <repository path="obs://build.suse.de/SUSE:SLE-11:GA/standard" />
+    </repositories>
+  </register>
+  <upgrades />
+  <summary>SUSE Manager Server</summary>
+  <description>SUSE Manager Server appliance</description>
+  <urls>
+    <url name="bugtracker">https://bugzilla.novell.com/</url>
+    <url name="releasenotes">http://www.novell.com/linux/releasenotes/x86_64/SUSE-MANAGER/2.1/release-notes-suse-manager.rpm</url>
+  </urls>
+  <buildconfig>
+    <producttheme>SLES</producttheme>
+  </buildconfig>
+  <installconfig>
+    <defaultlang>en_US</defaultlang>
+    <datadir>suse</datadir>
+    <descriptiondir>suse/setup/descr</descriptiondir>
+    <releasepackage name="suse-manager-server-release" flag="EQ" version="2.1" release="1.2" />
+    <distribution>SUSE_SLE</distribution>
+  </installconfig>
+  <runtimeconfig />
+</product>
+

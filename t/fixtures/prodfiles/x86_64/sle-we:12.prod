@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<product schemeversion="0">
+  <vendor>SUSE</vendor>
+  <name>sle-we</name>
+  <version>12</version>
+  <baseversion>12</baseversion>
+  <patchlevel>0</patchlevel>
+  <release>0</release>
+  <endoflife>2019-10-31</endoflife>
+  <arch>x86_64</arch>
+  <cpeid>cpe:/o:suse:sle-we:12</cpeid>
+  <productline>sle-we</productline>
+  <register>
+      <target>sle-12-x86_64</target>
+    <flavor>extension</flavor>
+    <updates>
+      <repository repoid="obsrepository://build.suse.de/SUSE:Updates:SLE-WE:12:x86_64/update" />
+      <repository repoid="obsrepository://build.suse.de/SUSE:Updates:SLE-WE:12:x86_64/update_debug" />
+    </updates>
+  </register>
+  <upgrades />
+  <summary>SUSE Linux Enterprise Workstation Extension 12</summary>
+  <shortsummary>SLEWE12</shortsummary>
+  <description>SUSE Linux Enterprise Workstation Extension extends the functionality
+        of SUSE Linux Enterprise Server with packages of SUSE Linux Enterprise Desktop,
+        like additional desktop applications (office suite, email client, graphical editor ...) and libraries.
+        It allows to combine both products to create a full featured Workstation.</description>
+  <urls>
+    <url name="bugtracker">https://bugzilla.novell.com/</url>
+    <url name="releasenotes">https://www.suse.com/releasenotes/x86_64/SLE-SLED/12/release-notes-sled.rpm</url>
+  </urls>
+  <buildconfig>
+    <producttheme>SLED</producttheme>
+  </buildconfig>
+  <installconfig>
+    <defaultlang>en_US</defaultlang>
+    <datadir>suse</datadir>
+    <descriptiondir>suse/setup/descr</descriptiondir>
+    <releasepackage name="sle-we-release" flag="EQ" version="12" release="1.74" />
+    <distribution>SUSE_SLE</distribution>
+  </installconfig>
+  <runtimeconfig />
+  <productdependency relationship="requires" name="SLES" baseversion="12" patchlevel="0" flag="EQ" />
+</product>
+

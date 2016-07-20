@@ -1,0 +1,55 @@
+# vim: ft=zsh sw=2 sts=2 et
+
+sapaio:12     P=SLE-SAP
+ses           P=Storage # SUSE Enterprise Storage
+sle-ha:12
+sle-ha-geo:12
+sle-sdk:12
+sle-we:12
+sled:12       P=SLE-DESKTOP
+sles:12       P=SLE-SERVER
+  gm http://dl.example.org/SUSE/Products/$P/$V/$A/product/
+  up http://dl.example.org/SUSE/Updates/$P/$V/$A/update/
+
+: V=${V/-}
+sle-qa:12
+sle-qa:11
+  gm http://dl.example.org/QA:/SLE$V/standard/
+  up http://dl.example.org/QA:/SLE$V/update/
+
+sle-qa:10
+  up http://dl.example.org/QA:/SLE${V/-}/SLE_${V/-/_}_Update/
+
+sle-we:12 V=${(L)V/-}
+sled:12   V=${(L)V/-}
+  nv http://download.nvidia.com/novell/sle$V/
+  at http://www2.ati.com/suse/sle$V/
+
+: P=${${(C)P}/#(Sle|Suse)-/SLE-}
+sle-live-patching:12
+sle-module-adv-systems-management:12
+sle-module-containers:12
+sle-module-legacy:12
+sle-module-public-cloud:12
+sle-module-toolchain:12
+sle-module-web-scripting:12
+suse-manager-tools:12 # not a real product
+  gm http://dl.example.org/SUSE/Products/$P/$V/$A/product/
+  up http://dl.example.org/SUSE/Updates/$P/$V/$A/update/
+
+sapaio:11                     P=SLE-SAP-AIO
+sle-11-webyast                P=SLE-WEBYAST
+sle-haegeo:11                 P=SLE-HAE V=$V-GEO
+sle-sdk:11
+sle-slms:1.3
+sle-smt:11
+sle-studioonsite:1.3
+sle-studioonsiterunner:1.3
+sled:11                       P=SLE-DESKTOP
+sles:11                       P=SLE-SERVER
+sles-for-vmware:11            P=SLES4VMWARE
+suse-linux-enterprise-rt:11.4 P=SLE-RT
+suse-cloud # 11sp3
+suse-manager-server           P=SUSE-MANAGER
+  gm http://dl.example.org/update/zypp-patches.suse.de/$A/update/$P/$V-POOL/
+  up http://dl.example.org/update/build-ncc.suse.de/SUSE/Updates/$P/$V/$A/update

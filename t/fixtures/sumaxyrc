@@ -1,0 +1,24 @@
+# $i is the name of the BS project defining
+#    the maintenance update at hand, aka:
+#    xml sel -T -t -m /project -v @name -n project.xml
+# $r is the basename of the BS buildtarget repo, aka:
+#    xml sel -T -t -m /project/repository\[...\] -v @name -n project.xml
+repo_urls+=(
+  SUSE 'http://dl.example.org/ibs/${i:gs,:,:/}/$r/'
+)
+
+# FIXME this needs to be replaced with a lookup in the IBS,
+# FIXME most probably a wholesale prefetch and cache
+# FIXME see osc -A ibs '/source/SUSE?view=verboseproductlist&expand=1'
+product_names+=(
+  SUSE:12-Cloud-Compute suse-sle12-cloud-compute
+  SUSE:OpenStack-Cloud  suse-openstack-cloud
+  SUSE:SLE-DESKTOP      sled
+  SUSE:SLE-RT           suse-linux-enterprise-rt
+  SUSE:SLE-SAP          sapaio
+  SUSE:SLE-SAP-AIO      sapaio
+  SUSE:SLE-SERVER       sles
+  SUSE:SLES4VMWARE      sles-for-vmware
+  SUSE:SUSE-MANAGER     suse-manager-server
+  SUSE:Storage          ses
+)

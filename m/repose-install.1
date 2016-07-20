@@ -1,0 +1,99 @@
+.\" vim: tw=72 fdm=marker cms=.\\"\ %s
+.
+.\" FRONT MATTER {{{
+.Dd Feb 04, 2016
+.Os
+.Dt REPOSE-INSTALL 1
+.
+.Sh NAME
+.Nm repose-install
+.Nd Install a product, add its repositories
+.\" FRONT MATTER }}}
+.
+.\" SYNOPSIS {{{
+.Sh SYNOPSIS
+.Nm
+.Fl h | \-help
+.Nm
+.Op Fl n | \-print
+.Ar HOST Ns ...
+.Li --
+.Ar REPA Ns ...
+.\" SYNOPSIS }}}
+.
+.\" DESCRIPTION {{{
+.Sh DESCRIPTION
+.Nm
+adds package repositories for specified addon products,
+and installs their respective
+.Sy P Ns Li -release
+packages.
+.\" }}}
+.
+.\" OPTIONS {{{
+.Sh OPTIONS
+.
+.Bl -tag -width "xx"
+. It Fl h
+Display usage instructions.
+. It Fl \-help
+Display this manual page.
+. It Fl n Ns , Fl \-print
+Write destructive operations to standard output,
+do not actually perform them.
+.El
+.\" }}}
+.
+.\" OPERANDS {{{
+.Sh OPERANDS
+.
+.Bl -tag -width "xx"
+.It Ar HOST
+Machine to operate on.
+.It Ar REPA
+Repository pattern (see
+. Xr repose 1 Ns )
+with these extra requirements:
+. Pp
+. Bl -bullet -compact -offset "xx"
+. It
+. Sy P
+cannot be empty, and should name an addon product
+(in other words, there should be a package named
+. Sy P Ns Li -release Ns ).
+. It
+. Sy V
+can be empty, in which case version string of the
+. Em baseproduct
+is used
+. It
+. Sy A
+can be empty, in which case architecture name of the
+. Em baseproduct
+is used
+. El
+.El
+.\" }}}
+.
+.\" EXAMPLES {{{
+.Sh EXAMPLES
+.Bd -literal
+$ repose install root@{fubar,snafu}.example.org -- ses:2.1 sle-ha
+.Ed
+.\" }}}
+.
+.\" SEE ALSO {{{
+.Sh SEE ALSO
+.Xr repoq 1 ,
+.Xr repose 1 ,
+.Xr smrt 1 ,
+.Xr ssh 1 ,
+.Xr zypper 8 .
+.\" }}}
+.
+.\" REPOSE {{{
+.Sh REPOSE
+.Nm
+is part of
+.Xr repose 1 .
+.\" }}}

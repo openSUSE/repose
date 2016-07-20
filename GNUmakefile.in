@@ -1,0 +1,138 @@
+prefix      = @prefix@
+bindir      = @bindir@
+datarootdir = @datarootdir@
+mandir      = @mandir@
+man1dir     = $(mandir)/man1
+man5dir     = $(mandir)/man5
+sysconfdir  = @sysconfdir@
+
+etcdir      = @etcdir@
+preludedir  = @preludedir@
+
+CRAM = cram
+CRAMFLAGS =
+INSTALL = install
+LN = ln
+RST2HTML = rst2html5
+RST2HTMLFLAGS = --strict
+
+rootdir = $(dir $(firstword $(MAKEFILE_LIST)))
+cfgdir  = $(rootdir)c
+docdir  = $(rootdir)d
+smandir = $(rootdir)m
+srcdir  = $(rootdir)s
+testdir = $(rootdir)t
+testroot = $(abspath $(testdir))
+
+commands  =
+commands += repoq
+commands += repose
+commands += repose-add
+commands += repose-clear
+commands += repose-install
+commands += repose-issue-add
+commands += repose-issue-rm
+commands += repose-list
+commands += repose-list-products
+commands += repose-remove
+commands += repose-reset
+commands += repose-switch-to
+
+auxfiles  =
+auxfiles += repose.prelude.zsh
+
+cfgfiles  =
+cfgfiles += repoq.rules
+
+man1pages  = $(addsuffix .1,$(commands))
+man5pages  = repoq.rules.5
+
+htmlfiles  = INSTALL.html README.html d/REP-CLEAN.html
+
+tests  =
+tests += $(testdir)/usage
+tests += $(testdir)/effects
+tests += $(testdir)/traces
+
+revname = $(shell git describe --always --first-parent)
+
+.PHONY: all
+all: $(commands) $(auxfiles) $(cfgfiles) $(man1pages) $(man5pages)
+
+$(commands): %: $(srcdir)/%.zsh
+	$(call subst_vars)
+
+$(man1pages) $(man5pages): %: $(smandir)/%
+	$(call subst_vars)
+
+define subst_vars
+	sed \
+		-e 's![@]etcdir[@]!$(etcdir)!g' \
+		-e 's![@]preludedir[@]!$(preludedir)!g' \
+		< $< > $@
+	chmod 0755 $@
+endef
+
+$(auxfiles): %: $(srcdir)/%
+	$(INSTALL) -m 0644 $< $@
+
+repoq.rules: $(cfgdir)/repoq.rules
+	$(INSTALL) -m 0644 $< $@
+
+.PHONY: html
+html: $(htmlfiles)
+
+$(htmlfiles): %.html: %.rst
+	$(RST2HTML) $(RST2HTMLFLAGS) $< $@
+
+
+.PHONY: check
+check: all
+	env -i PATH="$$PATH" TESTROOT=$(testroot) BUILDDIR="$$PWD" $(CRAM) --shell=zsh $(CRAMFLAGS) $(tests)
+
+
+.PHONY: clean
+clean:
+	$(RM) $(commands) $(auxfiles) $(cfgfiles) $(htmlfiles) $(man1pages) $(man5pages) repose.spec PKGBUILD
+
+
+.PHONY: install
+install: all installdirs
+	$(INSTALL) -m 0755 -t $(DESTDIR)$(bindir) $(commands)
+	$(INSTALL) -m 0644 -t $(DESTDIR)$(etcdir) $(cfgfiles)
+	$(INSTALL) -m 0644 -t $(DESTDIR)$(preludedir) $(auxfiles)
+	$(INSTALL) -m 0644 -t $(DESTDIR)$(man1dir) $(man1pages)
+	$(INSTALL) -m 0644 -t $(DESTDIR)$(man5dir) $(man5pages)
+
+
+.PHONY: installdirs
+installdirs:
+	$(INSTALL) -m 0755 -d $(DESTDIR)$(bindir)
+	$(INSTALL) -m 0755 -d $(DESTDIR)$(etcdir)
+	$(INSTALL) -m 0755 -d $(DESTDIR)$(preludedir)
+	$(INSTALL) -m 0755 -d $(DESTDIR)$(man1dir)
+	$(INSTALL) -m 0755 -d $(DESTDIR)$(man5dir)
+
+
+pkgname = repose
+
+.PHONY: tarball
+tarball: .git
+	git archive \
+	  --format tar.gz \
+	  --prefix $(pkgname)-$(fix_version)/ \
+	  --output $(pkgname)-$(fix_version).tar.gz \
+	  HEAD
+
+$(pkgname).spec: p/$(pkgname).spec.in
+	$(call subst_version,^Version:)
+
+PKGBUILD: p/PKGBUILD.in
+	$(call subst_version,^pkgver=)
+
+define subst_version
+	sed -e "/$(1)/s/__VERSION__/$(fix_version)/" \
+	    $< | tee $@ >/dev/null
+endef
+
+fix_version = $(subst -,+,$(patsubst v%,%,$(revname)))
