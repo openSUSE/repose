@@ -22,7 +22,6 @@ repoq_chatty+=('exec%man%*')
 repoq_dryrun+=('exec%man%*')
 repose_chatty+=($repoq_chatty)
 repose_dryrun+=($repoq_dryrun)
-repose_dryrun+=('ssh%*')
 
 [[ $TESTDIR:t == usage ]] || {
   declare -gx REPOQ_RULES=$BUILDDIR/repoq.rules
@@ -104,7 +103,16 @@ function fake-repo-xml # {{{
     print -f ' %s=%s' $attr ${(qqq)attrs[$attr]}
   done
   print -f '>\n'
-  print -f '<url>%s</url>\n' $(repoq --arch=$arch $rn)
+  local url
+  case $rn in
+  sles:12::p=1085)
+    url="http://dl.example.org/ibs/SUSE:/Maintenance:/1085/SUSE_Updates_SLE-SERVER_12_x86_64/"
+  ;;
+  *)
+    url=$(repoq --arch=$arch $rn)
+  ;;
+  esac
+  print -f '<url>%s</url>\n' "$url"
   print -f '</repo>\n'
 } # }}}
 
