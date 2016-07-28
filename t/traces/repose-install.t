@@ -6,6 +6,7 @@ setup::
   $ . $TESTROOT/setup
 
   $ repose_chatty+=('repoq%*' 'scp%*' 'ssh%*')
+  $ repose_dryrun+=('ssh%*')
 
   $ fake-refhost root@omg.example.org x86_64 \
   >   sles:12 \

@@ -5,8 +5,6 @@ setup::
 
   $ . $TESTROOT/setup
 
-  $ exit 80
-
   $ fake-refhost fubar.example.org x86_64 \
   >   sles:12 \
   >   -- \
