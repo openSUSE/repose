@@ -16,13 +16,15 @@ LN = ln
 RST2HTML = rst2html5
 RST2HTMLFLAGS = --strict
 
-rootdir = $(dir $(firstword $(MAKEFILE_LIST)))
-cfgdir  = $(rootdir)c
-docdir  = $(rootdir)d
-smandir = $(rootdir)m
-srcdir  = $(rootdir)s
-testdir = $(rootdir)t
-testroot = $(abspath $(testdir))
+VPATH = $(rootdir)
+
+rootdir = @rootdir@
+cfgdir  = c
+docdir  = d
+smandir = m
+srcdir  = s
+testdir = t
+testroot = $(rootdir)/$(testdir)
 
 commands  =
 commands += repoq
@@ -87,8 +89,8 @@ $(htmlfiles): %.html: %.rst
 
 
 .PHONY: check
-check: all
-	env -i PATH="$$PATH" TESTROOT=$(testroot) BUILDDIR="$$PWD" $(CRAM) --shell=zsh $(CRAMFLAGS) $(tests)
+check: $(tests) | all
+	env -i PATH="$$PATH" TESTROOT=$(testroot) BUILDDIR="$$PWD" $(CRAM) --shell=zsh $(CRAMFLAGS) $^
 
 
 .PHONY: clean
@@ -118,10 +120,12 @@ pkgname = repose
 
 .PHONY: tarball
 tarball: .git
+	wd=$$(pwd) && \
+	cd $(rootdir) && \
 	git archive \
 	  --format tar.gz \
 	  --prefix $(pkgname)-$(fix_version)/ \
-	  --output $(pkgname)-$(fix_version).tar.gz \
+	  --output $$wd/$(pkgname)-$(fix_version).tar.gz \
 	  HEAD
 
 $(pkgname).spec: p/$(pkgname).spec.in
