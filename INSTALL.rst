@@ -5,29 +5,15 @@
 =======================================================================
 
 
-SUSE Linux Enterprise
-=====================
+SUSE, openSUSE
+==============
 
 ::
 
-  zypper ar -f http://download.suse.de/ibs/home:/rneuhauser/SLE_12/home:rneuhauser.repo
-
-
-openSUSE Tumbleweed
-===================
-
-::
-
-  zypper ar -f http://download.suse.de/ibs/home:/rneuhauser/openSUSE_Tumbleweed/home:rneuhauser.repo
-
-
-Common Steps
-============
-
-::
-
-  zypper in cram curl haveopt make openssh sumaxy xmlstarlet zsh
-  git clone gitlab@gitlab.suse.de:rneuhauser/repose.git
-  cd repose
+  zypper install cram curl haveopt make openssh sumaxy xmlstarlet zsh
+  git clone https://github.com/openSUSE/repose.git
+  mkdir repose-build
+  cd repose-build
+  ../repose/configure
   make check
   sudo make install

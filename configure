@@ -3,6 +3,7 @@
 populate() # {{{
 {
   sed \
+    -e "s@rootdir@$rootdirg" \
     -e "s@prefix@$prefixg" \
     -e "s@bindir@$bindirg" \
     -e "s@etcdir@$etcdirg" \
