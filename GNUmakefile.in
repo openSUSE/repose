@@ -46,6 +46,7 @@ auxfiles += repose.prelude.zsh
 cfgfiles  =
 cfgfiles += repoq.rules
 
+manpages   = $(man1pages) $(man5pages)
 man1pages  = $(addsuffix .1,$(commands))
 man5pages  = repoq.rules.5
 
@@ -59,12 +60,12 @@ tests += $(testdir)/traces
 revname = $(shell git describe --always --first-parent)
 
 .PHONY: all
-all: $(commands) $(auxfiles) $(cfgfiles) $(man1pages) $(man5pages)
+all: $(commands) $(auxfiles) $(cfgfiles) $(manpages)
 
 $(commands): %: $(srcdir)/%.zsh
 	$(call subst_vars)
 
-$(man1pages) $(man5pages): %: $(smandir)/%
+$(manpages): %: $(smandir)/%
 	$(call subst_vars)
 
 define subst_vars
@@ -95,7 +96,7 @@ check: $(tests) | all
 
 .PHONY: clean
 clean:
-	$(RM) $(commands) $(auxfiles) $(cfgfiles) $(htmlfiles) $(man1pages) $(man5pages) repose.spec PKGBUILD
+	$(RM) $(commands) $(auxfiles) $(cfgfiles) $(htmlfiles) $(manpages) repose.spec PKGBUILD
 
 
 .PHONY: install
