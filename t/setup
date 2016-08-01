@@ -109,7 +109,7 @@ function fake-repo-xml # {{{
     url="http://dl.example.org/ibs/SUSE:/Maintenance:/1085/SUSE_Updates_SLE-SERVER_12_x86_64/"
   ;;
   *)
-    url=$(repoq --arch=$arch $rn)
+    url=$(repoq -N --arch=$arch $rn)
   ;;
   esac
   print -f '<url>%s</url>\n' "$url"
