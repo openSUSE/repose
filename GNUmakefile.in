@@ -36,8 +36,8 @@ commands += repose-issue-add
 commands += repose-issue-rm
 commands += repose-list
 commands += repose-list-products
+commands += repose-prune
 commands += repose-remove
-commands += repose-reset
 commands += repose-switch-to
 
 auxfiles  =
