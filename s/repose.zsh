@@ -33,8 +33,8 @@ Manipulate zypper repositories based on /etc/products.d
     issue-rm              Remove issue-specific repositories
     list                  List matching repositories
     list-products         List matching products
+    prune                 Remove stray repositories
     remove                Remove matching repositories
-    reset                 Remove stray repositories
     switch-to             Enable requested repositories, disable their complementary set
 "
 

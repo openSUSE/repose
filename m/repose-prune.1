@@ -3,10 +3,10 @@
 .\" FRONT MATTER {{{
 .Dd Feb 04, 2016
 .Os
-.Dt REPOSE-RESET 1
+.Dt REPOSE-PRUNE 1
 .
 .Sh NAME
-.Nm repose-reset
+.Nm repose-prune
 .Nd Remove stray repositories
 .\" FRONT MATTER }}}
 .
@@ -60,7 +60,7 @@ Matching repositories will be kept.
 .\" EXAMPLES {{{
 .Sh EXAMPLES
 .Bd -literal
-$ repose reset root@{fubar,snafu}.example.org -- sled
+$ repose prune root@{fubar,snafu}.example.org -- sled
 .Ed
 .\" }}}
 .

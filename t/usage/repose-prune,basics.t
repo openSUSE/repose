@@ -8,8 +8,8 @@ setup::
 
 help::
 
-  $ repose reset -h
-  usage: repose reset -h | --help | [-n] HOST... [-- REPA...]
+  $ repose prune -h
+  usage: repose prune -h | --help | [-n] HOST... [-- REPA...]
   Remove stray repositories
     Options:
       -h                    Display this message
@@ -20,5 +20,5 @@ help::
       HOST                  Machine to operate on
       REPA                  Repository to whitelist
 
-  $ repose reset --help
-  o exec man 1 repose-reset
+  $ repose prune --help
+  o exec man 1 repose-prune
