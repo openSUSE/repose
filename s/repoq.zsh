@@ -20,13 +20,14 @@ declare -gr cmdname=$0:t
 
 # help strings {{{
 declare -gr cmdusage=$'
-usage: #c -h | --help | [-F RULES][-A|-R][-a ARCH][-t TAG]... SPEC...
+usage: #c -h | --help | [-F RULES][-A|-R][-N][-a ARCH][-t TAG]... SPEC...
 Output repository information for given products
   Options:
     -h                    Display this message
     --help                Display full help
     -A,--addrepo          Output `zypper addrepo` commands
     -F,--file=RULES       Use product/repository information from RULES
+    -N,--no-name          Omit repository names
     -R,--removerepo       Output `zypper removerepo` commands
     -a,--arch=ARCH        Default architecture of requested repositories
     -t,--tag=TAG          Imply TAG for SPECs with no tagset
@@ -53,6 +54,7 @@ function repoq-main # {{{
     h  help
     A  ar
     F= file=
+    N  no-name
     R  rr
     a= arch=
     t= tag=
@@ -61,6 +63,7 @@ function repoq-main # {{{
   local o_rules=${REPOQ_RULES:-$cfgdir/repoq.rules}
   local o_arch
   local -a o_tags
+  local o_named=x
   local o_zypper
 
   local -i oi=0
@@ -70,6 +73,7 @@ function repoq-main # {{{
   h | help    ) display-help $on ;;
   A | ar      ) o_zypper=ar ;;
   F | file    ) o_rules=$oa ;;
+  N | no-name ) o_named= ;;
   R | rr      ) o_zypper=rr ;;
   a | arch    ) o_arch=$oa ;;
   t | tag     ) o_tags+=($oa) ;;
@@ -155,15 +159,15 @@ function display-match # {{{
 {
   local H=$vars[H]
   local P=${(U)1} V=${2/./-SP} v=$2 A=$3 tag=$4 url=$5
+  local rname=$1:$v::$tag
   [[ -n $A ]] \
   || o complain 1 'no architecture requested'
   case $o_zypper in
-  ar) local rname=$1:$v::$tag
-      print zypper -n $o_zypper -cgkn $rname ${(e)url} $rname
+  ar) print ${o_named:+$rname} zypper -n $o_zypper -cgkn $rname ${(e)url} $rname
   ;;
-  rr) print zypper -n $o_zypper ${(e)url}
+  rr) print ${o_named:+$rname} zypper -n $o_zypper ${(e)url}
   ;;
-  '') print ${(e)url}
+  '') print ${o_named:+$rname} ${(e)url}
   ;;
   * ) complain 2 "internal error: invalid \$o_zypper value (${(qq)o_zypper})"
   ;;

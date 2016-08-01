@@ -17,6 +17,7 @@
 .Nm
 .Op Fl F Ar RULES
 .Op Fl A | R
+.Op Fl N
 .Op Fl a Ar ARCH
 .Oo Fl t Ar TAG Oc Ns ...
 .Ar REPA Ns ...
@@ -25,9 +26,21 @@
 .\" DESCRIPTION {{{
 .Sh DESCRIPTION
 .Nm
-writes to standard output repository URLs (or zypper commands to add
-or remove said repositories) for given
+writes to standard output information about repositories
+named in
 .Ar REPA Ns s.
+By default, each line of output consist of two fields:
+.Sy Repository name
+and
+.Sy Repository URL ,
+separated by a space.
+.Fl N
+suppresses the first column, and
+.Fl A , R
+output
+.Xr zypper 8
+commands
+in the second column.
 .\" }}}
 .
 .\" OPTIONS {{{
@@ -53,6 +66,9 @@ Use product/repository information from
 This option overrides the
 .Ev $REPOQ_RULES
 environment variable.
+.
+.It Fl N , Fl \-no-name
+Omit the first column (repository names) from output.
 .
 .It Fl R , Fl \-removerepo
 Output

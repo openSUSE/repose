@@ -95,7 +95,7 @@ function main-add-install # {{{
   (( $#patts )) || reject-misuse
 
   local -a parts
-  local arch basev arg h zcmd
+  local arch basev arg h rn zcmd
   for h in $hosts; do
     o rh-get-arch-basev $h \
     | read arch basev
@@ -106,7 +106,7 @@ function main-add-install # {{{
       [[ $parts[2] == (|'*') ]] \
       && parts[2]=$basev
       o repoq -A -a $arch -t gm -t up "${${(@j.:.)parts}%%:##}" \
-      | while read zcmd; do
+      | while read rn zcmd; do
           o $print ssh -n -o BatchMode=yes $h $zcmd
         done
       if (( DO_INSTALL )); then
