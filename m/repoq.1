@@ -193,27 +193,18 @@ emits only the lowercase variants.
 .\" Version strings {{{
 .Sy Version strings
 use the
-.Sy MAJOR Ns Li . Ns Sy MINOR
+.Sy MAJOR Ns Op Li . Ns Sy MINOR
 format,
-.Sy MINOR
-may have the form
-.Li sp Ns Sy N
 where
-.Sy N
-is a number.
-.Dq Li 12 ,
-.Dq Li 12.0 ,
-.Dq Li 12.sp0 ,
-.Dq Li 12.SP0
-are equivalent, as are
-.Dq Li 12.1 ,
-.Dq Li 12.sp1 ,
-.Dq Li 12.SP1 .
-.Nm
-emits only the numeric variants and elides
+.Sy MAJOR
+is the value of
+.Pa /product/baseversion/text() Ns ,
+and
 .Sy MINOR
-if it is
-.Li 0 .
+is the value of
+.Pa /product/patchlevel/text()
+(omitted if it's empty or
+.Li 0 Ns ).
 .\" }}}
 .Pp
 .\" Architecture names {{{
