@@ -68,10 +68,18 @@ Remove stray repositories.
 . It Xr repose-remove 1
 Remove matching repositories.
 . It Xr repose-reset 1
-Remove stray repositories, add missing ones
+Remove stray repositories, add missing ones.
 . It Xr repose-switch-to 1
 Enable specified repositories, disable others.
 .El
+.\" }}}
+.
+.\" PRODUCT NAMES {{{
+.Sh PRODUCT NAMES
+.
+.Nm
+assumes product names as specified in
+.Xr repoq 1 .
 .\" }}}
 .
 .\" REPOSITORY NAMES {{{
@@ -97,7 +105,11 @@ repository patterns:
 .Oo Cm P Oc Ns Op Li : Ns Oo Cm V Oc Ns Op Li : Ns Oo Cm A Oc Ns Op Li : Ns Op Cm T
 .Ed
 .Pp
-Commonly used variants include:
+Empty segments are treated as wildcards
+or default to information gleaned from
+.Pa /etc/products.d/baseproduct ,
+depending on context.
+Some useful variants:
 .Pp
 .Bl -bullet -compact -offset "xx"
 .\" P:V:A:T
@@ -120,7 +132,6 @@ Commonly used variants include:
 . Sy Li ::: Ns Sy T
 .El
 .Pp
-Empty segments are treated as wildcards.
 .\" }}}
 .
 .\" SEE ALSO {{{
