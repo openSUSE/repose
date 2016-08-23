@@ -9,7 +9,7 @@ setup::
 help::
 
   $ repose install -h
-  usage: repose install -h | --help | [-n] HOST... -- ADDON...
+  usage: repose install -h | --help | [-n] HOST... -- REPA...
   Install a product, add its repositories
     Options:
       -h                    Display this message
@@ -18,7 +18,7 @@ help::
   
     Operands:
       HOST                  Machine to operate on
-      ADDON                 Product to install
+      REPA                  Repository pattern
 
   $ repose install --help
   o exec man 1 repose-install

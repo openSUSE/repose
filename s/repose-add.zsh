@@ -19,8 +19,8 @@
 declare -gr cmdname=$0:t
 
 declare -gr cmdhelp=$'
-usage: #c -h | --help | [-n] HOST... [-- REPA...]
-Add requested repositories
+usage: #c -h | --help | [-n] HOST... -- REPA...
+Add matching repositories
   Options:
     -h                    Display this message
     --help                Display full help
@@ -28,7 +28,7 @@ Add requested repositories
 
   Operands:
     HOST                  Machine to operate on
-    REPA                  Repository to add
+    REPA                  Repository pattern
 '
 
 . ${REPOSE_PRELUDE:-@preludedir@/repose.prelude.zsh} || exit 2

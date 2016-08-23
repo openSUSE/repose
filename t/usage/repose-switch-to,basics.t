@@ -10,7 +10,7 @@ help::
 
   $ repose switch-to -h
   usage: repose switch-to -h | --help | [-n] HOST... -- REPA...
-  Enable requested repositories, disable their complementary set
+  Enable matching repositories, disable their complementary set
     Options:
       -h                    Display this message
       --help                Display full help
@@ -18,7 +18,7 @@ help::
   
     Operands:
       HOST                  Machine to operate on
-      REPA                  Repository to enable
+      REPA                  Repository pattern
 
   $ repose switch-to --help
   o exec man 1 repose-switch-to

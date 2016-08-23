@@ -9,7 +9,7 @@ setup::
 help::
 
   $ repose issue-rm -h
-  usage: repose issue-rm -h | --help | [-n] HOST... [-- ISSUE...]
+  usage: repose issue-rm -h | --help | [-n] HOST... -- ISSUE...
   Remove issue-specific repositories
     Options:
       -h                    Display this message

@@ -59,7 +59,7 @@ Display full help.
 .
 .Bl -tag -width "xx"
 . It Cm add
-Add requested repositories.
+Add matching repositories.
 See
 . Xr repose-add 1 .
 . It Cm clear
@@ -99,7 +99,7 @@ Remove stray repositories, add missing ones.
 See
 . Xr repose-reset 1 .
 . It Cm switch-to
-Enable specified repositories, disable others.
+Enable matching repositories, disable their complementary set.
 See
 . Xr repose-switch-to 1 .
 .El

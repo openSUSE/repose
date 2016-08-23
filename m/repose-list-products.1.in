@@ -7,7 +7,7 @@
 .
 .Sh NAME
 .Nm repose\ list-products
-.Nd Display matching products
+.Nd List matching products
 .\" FRONT MATTER }}}
 .
 .\" SYNOPSIS {{{

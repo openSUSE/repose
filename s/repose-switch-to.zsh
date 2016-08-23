@@ -20,7 +20,7 @@ declare -gr cmdname=$0:t
 
 declare -gr cmdhelp=$'
 usage: #c -h | --help | [-n] HOST... -- REPA...
-Enable requested repositories, disable their complementary set
+Enable matching repositories, disable their complementary set
   Options:
     -h                    Display this message
     --help                Display full help
@@ -28,7 +28,7 @@ Enable requested repositories, disable their complementary set
 
   Operands:
     HOST                  Machine to operate on
-    REPA                  Repository to enable
+    REPA                  Repository pattern
 '
 
 . ${REPOSE_PRELUDE:-@preludedir@/repose.prelude.zsh} || exit 2

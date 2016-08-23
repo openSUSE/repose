@@ -7,7 +7,7 @@
 .
 .Sh NAME
 .Nm repose\ switch-to
-.Nd Enable specified repositories, disable others
+.Nd Enable matching repositories, disable their complementary set
 .\" FRONT MATTER }}}
 .
 .\" SYNOPSIS {{{
