@@ -6,7 +6,7 @@
 .Dt REPOSE-LIST-PRODUCTS 1
 .
 .Sh NAME
-.Nm repose-list-products
+.Nm repose\ list-products
 .Nd Display matching products
 .\" FRONT MATTER }}}
 .

@@ -6,7 +6,7 @@
 .Dt REPOSE-ISSUE-ADD 1
 .
 .Sh NAME
-.Nm repose-issue-add
+.Nm repose\ issue-add
 .Nd Add issue-specific repositories
 .\" FRONT MATTER }}}
 .

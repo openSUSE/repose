@@ -6,7 +6,7 @@
 .Dt REPOSE-ADD 1
 .
 .Sh NAME
-.Nm repose-add
+.Nm repose\ add
 .Nd Add requested repositories
 .\" FRONT MATTER }}}
 .

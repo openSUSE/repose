@@ -6,7 +6,7 @@
 .Dt REPOSE-LIST 1
 .
 .Sh NAME
-.Nm repose-list
+.Nm repose\ list
 .Nd Display matching repositories
 .\" FRONT MATTER }}}
 .

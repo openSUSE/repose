@@ -6,7 +6,7 @@
 .Dt REPOSE-INSTALL 1
 .
 .Sh NAME
-.Nm repose-install
+.Nm repose\ install
 .Nd Install a product, add its repositories
 .\" FRONT MATTER }}}
 .

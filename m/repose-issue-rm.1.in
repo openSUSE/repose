@@ -6,7 +6,7 @@
 .Dt REPOSE-ISSUE-RM 1
 .
 .Sh NAME
-.Nm repose-issue-rm
+.Nm repose\ issue-rm
 .Nd Remove issue-specific repositories
 .\" FRONT MATTER }}}
 .
