@@ -7,7 +7,7 @@
 .
 .Sh NAME
 .Nm repose\ add
-.Nd Add requested repositories
+.Nd Add matching repositories
 .\" FRONT MATTER }}}
 .
 .\" SYNOPSIS {{{
@@ -26,7 +26,13 @@
 .Nm
 adds, in each
 .Ar HOST ,
-package repositories.
+any number of package repositories.
+.Nm
+uses
+.Xr repoq 1
+to generate
+.Nm zypper Cm addrepo
+commands.
 .\" }}}
 .
 .\" OPTIONS {{{
@@ -48,7 +54,8 @@ do not actually perform them.
 .
 .Bl -tag -width "xx"
 . It Ar HOST
-Machine to operate on.
+Machine to operate on
+.Pq see Xr repose 1 .
 . It Ar REPA
 Repository pattern (see
 . Xr repose 1 Ns )
@@ -74,10 +81,25 @@ is used
 .
 .\" EXAMPLES {{{
 .Sh EXAMPLES
-.Bd -literal
+Add the
+.Sy at Ns -
+and
+.Sy nv Ns -tagged
+repositories for whatever
+.Sy sled
+version and architecture
+.Sy fubar.example.org
+is on.
+.Bd -literal -offset "xxx"
 $ repose add root@fubar.example.org -- sled:::at,nv
 .Ed
-.Bd -literal
+.Pp
+Add default-tagged repositories for
+.Sy sle-sdk, sle-we
+addons.
+As in the previous example,
+queries both hosts for their baseproduct versions and architectures.
+.Bd -literal -offset "xxx"
 $ repose add root@{fubar,snafu}.example.org -- sle-sdk sle-we
 .Ed
 .\" }}}

@@ -15,7 +15,6 @@
 .Nm
 .Fl h | \-help
 .Nm
-.Op Fl n | \-print
 .Ar HOST Ns ...
 .Oo
 . Li --
@@ -26,7 +25,11 @@
 .\" DESCRIPTION {{{
 .Sh DESCRIPTION
 .Nm
-displays information about package repositories.
+displays information about package repositories installed in each
+.Ar HOST .
+Each line of output contains the appropriate
+.Ar HOST
+followed by a single space, followed by a repository URL.
 .\" }}}
 .
 .\" OPTIONS {{{
@@ -45,7 +48,8 @@ Display this manual page.
 .
 .Bl -tag -width "xx"
 . It Ar HOST
-Machine to operate on.
+Machine to operate on
+.Pq see Xr repose 1 .
 . It Ar REPA
 Repository pattern, see
 . Xr repose 1 .
@@ -55,7 +59,12 @@ Report only repositories whose names match this pattern.
 .
 .\" EXAMPLES {{{
 .Sh EXAMPLES
-.Bd -literal
+Exclude repositories whose names have the
+.Li gm
+or
+.Li up
+tag.
+.Bd -literal -offset "xxx"
 $ repose list root@{fubar,snafu}.example.org -- :::~gm,up
 .Ed
 .\" }}}

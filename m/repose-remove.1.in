@@ -24,7 +24,15 @@
 .\" DESCRIPTION {{{
 .Sh DESCRIPTION
 .Nm
-removes specified package repositories.
+removes, from each
+.Ar HOST ,
+any number of package repositories.
+.Nm
+uses
+.Xr repoq 1
+to generate
+.Nm zypper Cm removerepo
+commands.
 .\" }}}
 .
 .\" OPTIONS {{{
@@ -46,7 +54,8 @@ do not actually perform them.
 .
 .Bl -tag -width "xx"
 . It Ar HOST
-Machine to operate on.
+Machine to operate on
+.Pq see Xr repose 1 .
 . It Ar REPA
 Repository pattern (see
 . Xr repose 1 Ns ).
@@ -56,9 +65,20 @@ Matching repositories will be removed.
 .
 .\" EXAMPLES {{{
 .Sh EXAMPLES
-.Bd -literal
-$ repose remove root@fubar.example.org -- sled:::at,nv
+Remove repositories whose names have the
+.Sy gm
+or
+.Sy up
+tag.
+.Bd -literal -offset "xxx"
+$ repose remove root@fubar.example.org -- :::at,nv
 .Ed
+.
+Remove, from both hosts, repositories for
+.Sy sle-sdk
+and
+.Sy sle-we
+products.
 .Bd -literal
 $ repose remove root@{fubar,snafu}.example.org -- sle-sdk sle-we
 .Ed
