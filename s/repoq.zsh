@@ -194,35 +194,69 @@ function read-rules # {{{
       # comment
       \#*) continue ;;
 
-      define[[:space:]]*)
+      # define VAR VAL
+      define[[:space:]]#)
+        o complain 1 \
+          "syntax error in ${1:a} line $lino:" \
+          "$s" \
+          "missing variable name"
+      ;;
+      define([[:space:]]##[[:IDENT:]]##*)#*)
         words=(${(Z:C:)s})
+        local -a messages; messages=(
+          "missing varname"
+          "missing value"
+          --
+          "trailing garbage after value"
+        )
+
         (( $#words == 3 )) \
-        || o complain 1 "syntax error on line $1: ${(qq)s}"
+        || o complain 1 \
+            "syntax error in ${1:a} line $lino:" \
+            "$s" \
+            $messages[$#words]
 
         patt="define|$words[2]"
         (( ${+rv[$patt]} == 0 )) \
-        || o complain 1 "line $lino: duplicate declaration of $patt"
+        || o complain 1 "syntax error in ${1:a} line $lino:" \
+            "$s" \
+            "duplicate definition"
         rv[$patt]=$words[3]
       ;;
 
-      # project
+      # product
       [![:space:]]*)
         words=(${(Z:C:)s})
         (( $#words == 1 )) \
-        || o complain 1 "syntax error on line $1: ${(qq)s}"
+        || o complain 1 "syntax error in ${1:a} line $lino:" \
+            "$s" \
+            "trailing garbage after product pattern"
 
         patt=$words
         (( ${+rv[$patt]} == 0 )) \
-        || o complain 1 "line $lino: duplicate declaration of $patt"
+        || o complain 1 "syntax error in ${1:a} line $lino:" \
+            "$s" \
+            "duplicate definition"
         rv[$patt]=''
       ;;
 
       # repository
-      [[:space:]]*)
+      [[:space:]]##[![:space:]]*)
         words=(${(Z:C:)s})
+        local -a messages; messages=(
+          --
+          "missing repository url"
+          "trailing garbage after repository url"
+        )
         (( $#words == 2 )) \
-        || o complain 1 "syntax error on line $1: ${(qq)s}"
+        || o complain 1 "syntax error in ${1:a} line $lino:" \
+            "$s" \
+            $messages[$#words]
 
+        [[ ${rv[$patt]-} != (* ${(j.:.)words}*) ]] \
+        || o complain 1 "syntax error in ${1:a} line $lino:" \
+            "$s" \
+            "duplicate definition"
         rv[$patt]+=" ${(j.:.)words}"
       ;;
       esac
@@ -266,10 +300,7 @@ function complain # {{{
     ex=$1
   fi
   shift
-  print -u 2 -f "%s: %s\n" $cmdname $1
-  if (( $# > 1 )); then
-    print -u 2 -f "%s\n" "$@[2,-1]"
-  fi
+  print -u 2 -f "$cmdname: %s\n" "$@"
   exit $ex
 } # }}}
 
