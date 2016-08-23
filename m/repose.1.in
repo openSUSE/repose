@@ -49,28 +49,50 @@ Display full help.
 .Sh COMMANDS
 .
 .Bl -tag -width "xx"
-. It Xr repose-add 1
+. It Cm add
 Add requested repositories.
-. It Xr repose-clear 1
+See
+. Xr repose-add 1 .
+. It Cm clear
 Remove all repositories.
-. It Xr repose-install 1
+See
+. Xr repose-clear 1 .
+. It Cm install
 Install a product, add its repositories.
-. It Xr repose-issue-add 1
+See
+. Xr repose-install 1 .
+. It Cm issue-add
 Add issue-specific repositories.
-. It Xr repose-issue-rm 1
+See
+. Xr repose-issue-add 1 .
+. It Cm issue-rm
 Remove issue-specific repositories.
-. It Xr repose-list 1
+See
+. Xr repose-issue-rm 1 .
+. It Cm list
 List matching repositories.
-. It Xr repose-list-products 1
+See
+. Xr repose-list 1 .
+. It Cm list-products
 List matching products.
-. It Xr repose-prune 1
+See
+. Xr repose-list-products 1 .
+. It Cm prune
 Remove stray repositories.
-. It Xr repose-remove 1
+See
+. Xr repose-prune 1 .
+. It Cm remove
 Remove matching repositories.
-. It Xr repose-reset 1
+See
+. Xr repose-remove 1 .
+. It Cm reset
 Remove stray repositories, add missing ones.
-. It Xr repose-switch-to 1
+See
+. Xr repose-reset 1 .
+. It Cm switch-to
 Enable specified repositories, disable others.
+See
+. Xr repose-switch-to 1 .
 .El
 .\" }}}
 .
