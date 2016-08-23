@@ -19,7 +19,7 @@
 declare -gr cmdname=$0:t
 
 declare -gr cmdhelp=$'
-usage: #c -h | --help | [-n] HOST... -- ADDON...
+usage: #c -h | --help | [-n] HOST... -- REPA...
 Install a product, add its repositories
   Options:
     -h                    Display this message
@@ -28,7 +28,7 @@ Install a product, add its repositories
 
   Operands:
     HOST                  Machine to operate on
-    ADDON                 Product to install
+    REPA                  Repository pattern
 '
 
 . ${REPOSE_PRELUDE:-@preludedir@/repose.prelude.zsh} || exit 2

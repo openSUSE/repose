@@ -26,16 +26,17 @@ Manipulate products and repositories
     --help                Display full help
 
   Commands:
-    add                   Add requested repositories
+    add                   Add matching repositories
     clear                 Remove all repositories
-    install               Install an addon, add its repositories
+    install               Install a product, add its repositories
     issue-add             Add issue-specific repositories
     issue-rm              Remove issue-specific repositories
     list                  List matching repositories
     list-products         List matching products
     prune                 Remove stray repositories
     remove                Remove matching repositories
-    switch-to             Enable requested repositories, disable their complementary set
+    reset                 Remove stray repositories, add missing ones
+    switch-to             Enable matching repositories, disable their complementary set
 "
 
 . ${REPOSE_PRELUDE:-@preludedir@/repose.prelude.zsh} || exit 2

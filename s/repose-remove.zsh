@@ -19,7 +19,7 @@
 declare -gr cmdname=$0:t
 
 declare -gr cmdhelp=$'
-usage: #c -h | --help | [-n] HOST... [-- REPA...]
+usage: #c -h | --help | [-n] HOST... -- REPA...
 Remove matching repositories
   Options:
     -h                    Display this message
@@ -28,7 +28,7 @@ Remove matching repositories
 
   Operands:
     HOST                  Machine to operate on
-    REPA                  Repository to remove
+    REPA                  Repository pattern
 '
 
 . ${REPOSE_PRELUDE:-@preludedir@/repose.prelude.zsh} || exit 2

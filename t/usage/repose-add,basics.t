@@ -9,8 +9,8 @@ setup::
 help::
 
   $ repose add -h
-  usage: repose add -h | --help | [-n] HOST... [-- REPA...]
-  Add requested repositories
+  usage: repose add -h | --help | [-n] HOST... -- REPA...
+  Add matching repositories
     Options:
       -h                    Display this message
       --help                Display full help
@@ -18,7 +18,7 @@ help::
   
     Operands:
       HOST                  Machine to operate on
-      REPA                  Repository to add
+      REPA                  Repository pattern
 
   $ repose add --help
   o exec man 1 repose-add

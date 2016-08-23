@@ -19,7 +19,7 @@
 declare -gr cmdname=$0:t
 
 declare -gr cmdhelp=$'
-usage: #c -h | --help | [-n] HOST... [-- ISSUE...]
+usage: #c -h | --help | [-n] HOST... -- ISSUE...
 Remove issue-specific repositories
   Options:
     -h                    Display this message

@@ -9,7 +9,7 @@ setup::
 help::
 
   $ repose remove -h
-  usage: repose remove -h | --help | [-n] HOST... [-- REPA...]
+  usage: repose remove -h | --help | [-n] HOST... -- REPA...
   Remove matching repositories
     Options:
       -h                    Display this message
@@ -18,7 +18,7 @@ help::
   
     Operands:
       HOST                  Machine to operate on
-      REPA                  Repository to remove
+      REPA                  Repository pattern
 
   $ repose remove --help
   o exec man 1 repose-remove
