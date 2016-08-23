@@ -52,49 +52,7 @@ sle-haegeo:11
 sle-infra
   gm $H/ibs/QA:/Maintenance:/Infrastructure/SLE_${V/-/_}/
 
-sle-manager-tools:12
-  gm $H/ibs/SUSE/Products/${${(C)P}/#Sle-/SLE-}/12/$A/product/
-  up $H/ibs/SUSE/Updates/${${(C)P}/#Sle-/SLE-}/12/$A/update/
-  dg $H/ibs/SUSE/Products/${${(C)P}/#Sle-/SLE-}/12/$A/product_debug/
-  du $H/ibs/SUSE/Updates/${${(C)P}/#Sle-/SLE-}/12/$A/update_debug/
-
-sle-module-adv-systems-management:12
-  gm $H/ibs/SUSE/Products/${${(C)P}/#Sle-/SLE-}/12/$A/product/
-  up $H/ibs/SUSE/Updates/${${(C)P}/#Sle-/SLE-}/12/$A/update/
-  dg $H/ibs/SUSE/Products/${${(C)P}/#Sle-/SLE-}/12/$A/product_debug/
-  du $H/ibs/SUSE/Updates/${${(C)P}/#Sle-/SLE-}/12/$A/update_debug/
-
-sle-module-containers:12
-  gm $H/ibs/SUSE/Products/${${(C)P}/#Sle-/SLE-}/12/$A/product/
-  up $H/ibs/SUSE/Updates/${${(C)P}/#Sle-/SLE-}/12/$A/update/
-  dg $H/ibs/SUSE/Products/${${(C)P}/#Sle-/SLE-}/12/$A/product_debug/
-  du $H/ibs/SUSE/Updates/${${(C)P}/#Sle-/SLE-}/12/$A/update_debug/
-
-sle-module-legacy:12
-  gm $H/ibs/SUSE/Products/${${(C)P}/#Sle-/SLE-}/12/$A/product/
-  up $H/ibs/SUSE/Updates/${${(C)P}/#Sle-/SLE-}/12/$A/update/
-  dg $H/ibs/SUSE/Products/${${(C)P}/#Sle-/SLE-}/12/$A/product_debug/
-  du $H/ibs/SUSE/Updates/${${(C)P}/#Sle-/SLE-}/12/$A/update_debug/
-
-sle-live-patching:12
-  gm $H/ibs/SUSE/Products/${${(C)P}/#Sle-/SLE-}/12/$A/product/
-  up $H/ibs/SUSE/Updates/${${(C)P}/#Sle-/SLE-}/12/$A/update/
-  dg $H/ibs/SUSE/Products/${${(C)P}/#Sle-/SLE-}/12/$A/product_debug/
-  du $H/ibs/SUSE/Updates/${${(C)P}/#Sle-/SLE-}/12/$A/update_debug/
-
-sle-module-public-cloud:12
-  gm $H/ibs/SUSE/Products/${${(C)P}/#Sle-/SLE-}/12/$A/product/
-  up $H/ibs/SUSE/Updates/${${(C)P}/#Sle-/SLE-}/12/$A/update/
-  dg $H/ibs/SUSE/Products/${${(C)P}/#Sle-/SLE-}/12/$A/product_debug/
-  du $H/ibs/SUSE/Updates/${${(C)P}/#Sle-/SLE-}/12/$A/update_debug/
-
-sle-module-toolchain:12
-  gm $H/ibs/SUSE/Products/${${(C)P}/#Sle-/SLE-}/12/$A/product/
-  up $H/ibs/SUSE/Updates/${${(C)P}/#Sle-/SLE-}/12/$A/update/
-  dg $H/ibs/SUSE/Products/${${(C)P}/#Sle-/SLE-}/12/$A/product_debug/
-  du $H/ibs/SUSE/Updates/${${(C)P}/#Sle-/SLE-}/12/$A/update_debug/
-
-sle-module-web-scripting:12
+sle-(live-patching|manager-tools|module(-[[:IDENT:]]##)##):12
   gm $H/ibs/SUSE/Products/${${(C)P}/#Sle-/SLE-}/12/$A/product/
   up $H/ibs/SUSE/Updates/${${(C)P}/#Sle-/SLE-}/12/$A/update/
   dg $H/ibs/SUSE/Products/${${(C)P}/#Sle-/SLE-}/12/$A/product_debug/
