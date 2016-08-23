@@ -98,6 +98,8 @@ sled:12
 sled:11
   gm $H/update/zypp-patches.suse.de/$A/update/SLE-DESKTOP/$V-POOL/
   up $H/update/build-ncc.suse.de/SUSE/Updates/SLE-DESKTOP/$V/$A/update/
+  dg $H/update/zypp-patches.suse.de/$A/update/SLE-DEBUGINFO/$V-POOL/
+  du $H/update/build-ncc.suse.de/SUSE/Updates/SLE-DEBUGINFO/$V/
   nv http://download.nvidia.com/novell/sle${(L)V/-}/
   at http://www2.ati.com/suse/sle${(L)V/-}/
 
@@ -113,11 +115,15 @@ sles:11.[1-3]
   up $H/update/build-ncc.suse.de/SUSE/Updates/SLE-SERVER/$V/$A/update/
   up $H/update/build-ncc.suse.de/SUSE/Updates/SLE-SERVER/${V/-*}-SECURITY/$A/update/
   up $H/update/build-ncc.suse.de/SUSE/Updates/SLE-SERVER/$V-LTSS/$A/update/
+  dg $H/update/zypp-patches.suse.de/$A/update/SLE-DEBUGINFO/$V-POOL/
+  du $H/update/build-ncc.suse.de/SUSE/Updates/SLE-DEBUGINFO/$V/
 
 sles:11.4
   gm $H/update/zypp-patches.suse.de/$A/update/SLE-SERVER/$V-POOL/
   up $H/update/build-ncc.suse.de/SUSE/Updates/SLE-SERVER/$V/$A/update/
   up $H/update/build-ncc.suse.de/SUSE/Updates/SLE-SERVER/${V/-*}-SECURITY/$A/update/
+  dg $H/update/zypp-patches.suse.de/$A/update/SLE-DEBUGINFO/$V-POOL/
+  du $H/update/build-ncc.suse.de/SUSE/Updates/SLE-DEBUGINFO/$V/
 
 sles-for-vmware:11
   gm $H/update/zypp-patches.suse.de/$A/update/SLES4VMWARE/$V-POOL/
