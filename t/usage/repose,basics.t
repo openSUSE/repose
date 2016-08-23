@@ -10,7 +10,7 @@ help::
 
   $ repose -h
   usage: repose -h | --help | COMMAND [options] [operands]
-  Manipulate zypper repositories based on /etc/products.d
+  Manipulate products and repositories
     Options:
       -h                    Display this message
       --help                Display full help

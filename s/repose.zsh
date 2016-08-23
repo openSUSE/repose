@@ -20,7 +20,7 @@ declare -gr cmdname=$0:t
 
 declare -gr cmdhelp="
 usage: #c -h | --help | COMMAND [options] [operands]
-Manipulate zypper repositories based on /etc/products.d
+Manipulate products and repositories
   Options:
     -h                    Display this message
     --help                Display full help
