@@ -24,10 +24,20 @@
 .\" DESCRIPTION {{{
 .Sh DESCRIPTION
 .Nm
-adds package repositories for specified addon products,
-and installs their respective
+adds, in each
+.Ar HOST ,
+any number of package repositories for one or more addon products
+and, for each given product
+.Sy P ,
+installs the
 .Sy P Ns Li -release
-packages.
+package.
+.Nm
+uses
+.Xr repoq 1
+to generate
+.Nm zypper Cm addrepo
+commands.
 .\" }}}
 .
 .\" OPTIONS {{{
@@ -49,7 +59,8 @@ do not actually perform them.
 .
 .Bl -tag -width "xx"
 .It Ar HOST
-Machine to operate on.
+Machine to operate on
+.Pq see Xr repose 1 .
 .It Ar REPA
 Repository pattern (see
 . Xr repose 1 Ns )
@@ -77,8 +88,27 @@ is used
 .
 .\" EXAMPLES {{{
 .Sh EXAMPLES
-.Bd -literal
+.Bd
+Add repositories for
+.Sy Storage
+and
+.Sy SLE-HA
+to
+.Sy fubar.example.org
+and
+.Sy snafu.example.org Ns ,
+then install
+.Li ses-release
+and
+.Li sle-ha-release
+packages in both.
+.Sy SLE-HA
+versions are copied from the respective
+.Pa /etc/products.d/baseproduct
+files.
+.Bd -literal -offset "xxx"
 $ repose install root@{fubar,snafu}.example.org -- ses:2.1 sle-ha
+.Ed
 .Ed
 .\" }}}
 .

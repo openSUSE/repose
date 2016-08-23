@@ -30,8 +30,17 @@ combines
 and
 .Xr zypper 8
 to
-query and manipulate products and package repositories
-in one or more machines.
+query and manipulate multiple products and package repositories
+in one or more machines at once.
+.Pp
+.Cm COMMAND Ns s
+are listed below,
+.Ar options
+and
+.Ar operands
+are
+.Cm COMMAND Ns -specific
+and documented in their respective manpages.
 .\" }}}
 .
 .\" OPTIONS {{{
@@ -94,6 +103,23 @@ Enable specified repositories, disable others.
 See
 . Xr repose-switch-to 1 .
 .El
+.\" }}}
+.
+.\" HOSTS {{{
+.Sh HOSTS
+.
+.Ar HOST
+operands have the following syntax:
+.Bd -literal -offset "xxx"
+.Oo Ar user Ns Li @ Oc Ns Ar hostname
+.Ed
+.Pp
+.Nm
+uses
+.Xr ssh 1
+to access remote machines.
+.Qq Li ssh user@hostname
+must work without prompting for any passwords or passphrases.
 .\" }}}
 .
 .\" PRODUCT NAMES {{{

@@ -22,7 +22,8 @@
 .\" DESCRIPTION {{{
 .Sh DESCRIPTION
 .Nm
-removes all package repositories.
+removes all package repositories from each
+.Ar HOST .
 .\" }}}
 .
 .\" OPTIONS {{{
@@ -44,7 +45,8 @@ do not actually perform them.
 .
 .Bl -tag -width "xx"
 . It Ar HOST
-Machine to operate on.
+Machine to operate on
+.Pq see Xr repose 1 .
 .El
 .\" }}}
 .

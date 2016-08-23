@@ -49,7 +49,8 @@ do not actually perform them.
 .
 .Bl -tag -width "xx"
 . It Ar HOST
-Machine to operate on.
+Machine to operate on
+.Pq see Xr repose 1 .
 . It Ar REPA
 Repository pattern (see
 . Xr repose 1 Ns ).
@@ -59,6 +60,8 @@ Matching repositories will be kept.
 .
 .\" EXAMPLES {{{
 .Sh EXAMPLES
+Whitelist repositories for
+.Sy sled .
 .Bd -literal
 $ repose prune root@{fubar,snafu}.example.org -- sled
 .Ed

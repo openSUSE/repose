@@ -21,7 +21,27 @@
 .\" DESCRIPTION {{{
 .Sh DESCRIPTION
 .Nm
-displays information about installed products.
+displays information about products installed in each
+.Ar HOST .
+Each line of output contains the appropriate
+.Ar HOST
+followed by a single space, followed by
+.Sy P Ns Li : Ns Sy V Ns Li : Ns Sy A ,
+where
+.Sy P
+is a
+.Sy Product name ,
+.Sy V
+is a
+.Sy Version string ,
+and
+.Sy A
+is an
+.Sy Architecture name .
+.
+See
+.Xr repoq 1
+for details.
 .\" }}}
 .
 .\" OPTIONS {{{
@@ -40,7 +60,8 @@ Display this manual page.
 .
 .Bl -tag -width "xx"
 . It Ar HOST
-Machine to operate on.
+Machine to operate on
+.Pq see Xr repose 1 .
 .El
 .\" }}}
 .

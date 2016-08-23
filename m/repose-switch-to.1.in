@@ -47,7 +47,8 @@ do not actually perform them.
 .
 .Bl -tag -width "xx"
 . It Ar HOST
-Machine to operate on.
+Machine to operate on
+.Pq see Xr repose 1 .
 . It Ar REPA
 Repository pattern.
 See
@@ -57,6 +58,9 @@ See
 .
 .\" EXAMPLES {{{
 .Sh EXAMPLES
+Enable
+.Sy sled
+repositories, disable everything else.
 .Bd -literal
 $ repose switch-to root@{fubar,snafu}.example.org -- sled
 .Ed

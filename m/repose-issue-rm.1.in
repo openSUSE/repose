@@ -17,16 +17,24 @@
 .Nm
 .Op Fl n | \-print
 .Ar HOST Ns ...
-.Oo
 .Li --
 .Ar ISSUE Ns ...
-.Oc
 .\" SYNOPSIS }}}
 .
 .\" DESCRIPTION {{{
 .Sh DESCRIPTION
 .Nm
-removes package repositories for specified maintenance updates.
+removes, from each
+.Ar HOST ,
+any number of package repositories for one or more maintenance updates.
+Removes repositories with names matching
+.Li *:p= Ns Ar ISNO ,
+where
+an
+.Sy ISNO
+is derived from each
+.Ar ISSUE
+.Pq see below for details .
 .\" }}}
 .
 .\" OPTIONS {{{
@@ -48,7 +56,8 @@ do not actually perform them.
 .
 .Bl -tag -width "xx"
 . It Ar HOST
-Machine to operate on.
+Machine to operate on
+.Pq see Xr repose 1 .
 . It Ar ISSUE
 A string of the following format:
 . Bd -literal -offset "xx"
@@ -59,6 +68,14 @@ A string of the following format:
 .
 .\" EXAMPLES {{{
 .Sh EXAMPLES
+.
+Remove repositories created using
+.Xr repose-issue-add 1
+for
+.Li SUSE:Maintenance:1234
+and
+.Li SUSE:Maintenance:2345 .
+.
 .Bd -literal
 $ repose issue-rm root@{fubar,snafu}.example.org -- SUSE:Maintenance:1234 2345
 .Ed

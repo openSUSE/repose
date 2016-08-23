@@ -17,16 +17,25 @@
 .Nm
 .Op Fl n | \-print
 .Ar HOST Ns ...
-.Oo
 .Li --
 .Ar ISSUEDIR Ns ...
-.Oc
 .\" SYNOPSIS }}}
 .
 .\" DESCRIPTION {{{
 .Sh DESCRIPTION
 .Nm
-adds package repositories for specified maintenance updates.
+adds, in each
+.Ar HOST ,
+any number of package repositories for one or more maintenance updates.
+.Nm
+queries each
+.Ar HOST
+for its architecture and installed products
+and uses
+.Xr sumaxy 1
+to generate appropriate
+.Nm zypper Cm addrepo
+commands.
 .\" }}}
 .
 .\" OPTIONS {{{
@@ -48,18 +57,24 @@ do not actually perform them.
 .
 .Bl -tag -width "xx"
 . It Ar HOST
-Machine to operate on.
+Machine to operate on
+.Pq see Xr repose 1 .
 . It Ar ISSUEDIR
 Directory containing metadata for the maintenance issue to add
 repositories for.
 See
+. Xr smrt-fetch 1 ,
 . Xr sumaxy 1 .
 .El
 .\" }}}
 .
 .\" EXAMPLES {{{
 .Sh EXAMPLES
-.Bd -literal
+Install whatever issue repositories are appropriate
+(as identified by the maintenance update metadata
+in the current directory) for each of the two hosts:
+.Bd -literal -offset "xxx"
+$ smrt fetch SUSE:Maintenance:1234:56789
 $ cd SUSE:Maintenance:1234:56789
 $ repose issue-add root@{fubar,snafu}.example.org -- .
 .Ed
