@@ -23,19 +23,7 @@ sle-11-webyast
   gm $H/update/zypp-patches.suse.de/$A/update/SLE-WEBYAST/$v-POOL/
   up $H/update/build-ncc.suse.de/SUSE/Updates/SLE-WEBYAST/$v/$A/update
 
-sle-bsk
-  gm $H/ibs/SUSE/Products/$P/$V/$A/product/
-  up $H/ibs/SUSE/Updates/$P/$V/$A/update/
-  dg $H/ibs/SUSE/Products/$P/$V/$A/product_debug/
-  du $H/ibs/SUSE/Updates/$P/$V/$A/update_debug/
-
-sle-ha:12
-  gm $H/ibs/SUSE/Products/$P/$V/$A/product/
-  up $H/ibs/SUSE/Updates/$P/$V/$A/update/
-  dg $H/ibs/SUSE/Products/$P/$V/$A/product_debug/
-  du $H/ibs/SUSE/Updates/$P/$V/$A/update_debug/
-
-sle-ha-geo:12
+sle-(bsk|ha|ha-geo|sdk):12
   gm $H/ibs/SUSE/Products/$P/$V/$A/product/
   up $H/ibs/SUSE/Updates/$P/$V/$A/update/
   dg $H/ibs/SUSE/Products/$P/$V/$A/product_debug/
@@ -58,22 +46,12 @@ sle-(live-patching|manager-tools|module(-[[:IDENT:]]##)##):12
   dg $H/ibs/SUSE/Products/${${(C)P}/#Sle-/SLE-}/12/$A/product_debug/
   du $H/ibs/SUSE/Updates/${${(C)P}/#Sle-/SLE-}/12/$A/update_debug/
 
-sle-qa:12
-  gm $H/ibs/QA:/SLE${V/-}/standard/
-  up $H/ibs/QA:/SLE${V/-}/update/
-
-sle-qa:11
+sle-qa:1<1->
   gm $H/ibs/QA:/SLE${V/-}/standard/
   up $H/ibs/QA:/SLE${V/-}/update/
 
 sle-qa:10
   gm $H/ibs/QA:/SLE${V/-}/SLE_${V/-/_}_Update/
-
-sle-sdk:12
-  gm $H/ibs/SUSE/Products/$P/$V/$A/product/
-  up $H/ibs/SUSE/Updates/$P/$V/$A/update/
-  dg $H/ibs/SUSE/Products/$P/$V/$A/product_debug/
-  du $H/ibs/SUSE/Updates/$P/$V/$A/update_debug/
 
 sle-sdk:11
   gm $H/update/zypp-patches.suse.de/$A/update/$P/$V-POOL/
@@ -149,19 +127,11 @@ suse-linux-enterprise-rt:11.4
   gm $H/update/zypp-patches.suse.de/$A/update/SLE-RT/$V-POOL/
   up $H/update/build-ncc.suse.de/SUSE/Updates/SLE-RT/$V/$A/update/
 
-suse-manager-proxy:<-2>
-  gm $H/update/zypp-patches.suse.de/$A/update/$P/$v-POOL/
-  up $H/update/build-ncc.suse.de/SUSE/Updates/$P/$v/$A/update/
-
-suse-manager-proxy:<3->
-  gm $H/ibs/SUSE/Products/${${(C)P}/#Suse-/SUSE-}/$v/$A/product/
-  up $H/ibs/SUSE/Updates/${${(C)P}/#Suse-/SUSE-}/$v/$A/update/
-
-suse-manager-server:<-2>
+suse-manager-(proxy|server):<-2>
   gm $H/update/zypp-patches.suse.de/$A/update/${P%-SERVER}/$v-POOL/
   up $H/update/build-ncc.suse.de/SUSE/Updates/${P%-SERVER}/$v/$A/update/
 
-suse-manager-server:<3->
+suse-manager-(proxy|server):<3->
   gm $H/ibs/SUSE/Products/${${(C)P}/#Suse-/SUSE-}/$v/$A/product/
   up $H/ibs/SUSE/Updates/${${(C)P}/#Suse-/SUSE-}/$v/$A/update/
 
