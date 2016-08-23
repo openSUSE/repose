@@ -6,7 +6,7 @@
 .Dt REPOSE-REMOVE 1
 .
 .Sh NAME
-.Nm repose-remove
+.Nm repose\ remove
 .Nd Remove matching repositories
 .\" FRONT MATTER }}}
 .

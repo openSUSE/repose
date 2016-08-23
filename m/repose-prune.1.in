@@ -6,7 +6,7 @@
 .Dt REPOSE-PRUNE 1
 .
 .Sh NAME
-.Nm repose-prune
+.Nm repose\ prune
 .Nd Remove stray repositories
 .\" FRONT MATTER }}}
 .

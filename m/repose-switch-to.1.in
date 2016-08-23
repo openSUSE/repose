@@ -6,7 +6,7 @@
 .Dt REPOSE-SWITCH-TO 1
 .
 .Sh NAME
-.Nm repose-switch-to
+.Nm repose\ switch-to
 .Nd Enable specified repositories, disable others
 .\" FRONT MATTER }}}
 .

@@ -6,7 +6,7 @@
 .Dt REPOSE-RESET 1
 .
 .Sh NAME
-.Nm repose-reset
+.Nm repose\ reset
 .Nd Remove stray repositories, add missing ones
 .\" FRONT MATTER }}}
 .
