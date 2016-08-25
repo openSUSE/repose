@@ -46,6 +46,9 @@ sle-(live-patching|manager-tools|module(-[[:IDENT:]]##)##):12
   dg $H/ibs/SUSE/Products/${${(C)P}/#Sle-/SLE-}/12/$A/product_debug/
   du $H/ibs/SUSE/Updates/${${(C)P}/#Sle-/SLE-}/12/$A/update_debug/
 
+sle-module-pubcloud:11
+  up $H/update/build-ncc.suse.de/SUSE/Updates/SLE-SERVER/11-PUBCLOUD/$A/update
+
 sle-qa:1<1->
   gm $H/ibs/QA:/SLE${V/-}/standard/
   up $H/ibs/QA:/SLE${V/-}/update/
