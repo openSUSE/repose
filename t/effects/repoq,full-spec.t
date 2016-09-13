@@ -24,7 +24,7 @@ happy path::
   $ repoq sles:11.3:s390x sle-sdk:11.3:s390x
   sles:11.3::gm http://dl.example.org/update/zypp-patches.suse.de/s390x/update/SLE-SERVER/11-SP3-POOL/
   sles:11.3::up http://dl.example.org/update/build-ncc.suse.de/SUSE/Updates/SLE-SERVER/11-SP3/s390x/update/
-  sles:11.3::up http://dl.example.org/update/build-ncc.suse.de/SUSE/Updates/SLE-SERVER/11-SECURITY/s390x/update/
+  sles:11.3::se http://dl.example.org/update/build-ncc.suse.de/SUSE/Updates/SLE-SERVER/11-SECURITY/s390x/update/
   sles:11.3::up http://dl.example.org/update/build-ncc.suse.de/SUSE/Updates/SLE-SERVER/11-SP3-LTSS/s390x/update/
   sles:11.3::dg http://dl.example.org/update/zypp-patches.suse.de/s390x/update/SLE-DEBUGINFO/11-SP3-POOL/
   sles:11.3::du http://dl.example.org/update/build-ncc.suse.de/SUSE/Updates/SLE-DEBUGINFO/11-SP3/
@@ -54,7 +54,7 @@ happy path::
   $ repoq sles:11.4:s390x sle-sdk:12:ppc64le
   sles:11.4::gm http://dl.example.org/update/zypp-patches.suse.de/s390x/update/SLE-SERVER/11-SP4-POOL/
   sles:11.4::up http://dl.example.org/update/build-ncc.suse.de/SUSE/Updates/SLE-SERVER/11-SP4/s390x/update/
-  sles:11.4::up http://dl.example.org/update/build-ncc.suse.de/SUSE/Updates/SLE-SERVER/11-SECURITY/s390x/update/
+  sles:11.4::se http://dl.example.org/update/build-ncc.suse.de/SUSE/Updates/SLE-SERVER/11-SECURITY/s390x/update/
   sles:11.4::dg http://dl.example.org/update/zypp-patches.suse.de/s390x/update/SLE-DEBUGINFO/11-SP4-POOL/
   sles:11.4::du http://dl.example.org/update/build-ncc.suse.de/SUSE/Updates/SLE-DEBUGINFO/11-SP4/
   sle-sdk:12::gm http://dl.example.org/ibs/SUSE/Products/SLE-SDK/12/ppc64le/product/
