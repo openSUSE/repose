@@ -45,11 +45,11 @@ for a in "$@"; do
   esac
 done
 
-if [[ $prefix == /usr && $sysconfdir_set == 0 ]]; then
+if test "$prefix" = /usr && test $sysconfdir_set = 0; then
   sysconfdir=/etc
 fi
 
-if [[ $prefix == /usr/local && $mandir_set == 0 ]]; then
+if test "$prefix" = /usr/local && test $mandir_set = 0; then
   mandir=$prefix/man
 fi
 
