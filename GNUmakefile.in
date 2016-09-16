@@ -97,7 +97,7 @@ check: $(tests) | all
 
 .PHONY: clean
 clean:
-	$(RM) $(commands) $(auxfiles) $(cfgfiles) $(htmlfiles) $(manpages) repose.spec PKGBUILD
+	$(RM) $(commands) $(auxfiles) $(cfgfiles) $(htmlfiles) $(manpages) repose.spec
 
 
 .PHONY: install
@@ -132,9 +132,6 @@ tarball: .git
 
 $(pkgname).spec: p/$(pkgname).spec.in
 	$(call subst_version,^Version:)
-
-PKGBUILD: p/PKGBUILD.in
-	$(call subst_version,^pkgver=)
 
 define subst_version
 	sed -e "/$(1)/s/__VERSION__/$(fix_version)/" \
