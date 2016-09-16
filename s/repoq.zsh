@@ -163,7 +163,13 @@ function display-match # {{{
   [[ -n $A ]] \
   || o complain 1 'no architecture requested'
   case $o_zypper in
-  ar) print ${o_named:+$rname} zypper -n $o_zypper -cgkn $rname ${(e)url} $rname
+  ar)
+    if [[ $tag == 'gm' ]]
+    then
+      print ${o_named:+$rname} zypper -n $o_zypper -cgkn $rname ${(e)url} $rname
+    else
+      print ${o_named:+$rname} zypper -n $o_zypper -cgknf $rname ${(e)url} $rname
+    fi
   ;;
   rr) print ${o_named:+$rname} zypper -n $o_zypper ${(e)url}
   ;;
