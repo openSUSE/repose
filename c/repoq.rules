@@ -117,7 +117,7 @@ sles:11.[1-3]
   gm $H/update/zypp-patches.suse.de/$A/update/SLE-SERVER/$V-POOL/
   up $H/update/build-ncc.suse.de/SUSE/Updates/SLE-SERVER/$V/$A/update/
   se $H/update/build-ncc.suse.de/SUSE/Updates/SLE-SERVER/${V/-*}-SECURITY/$A/update/
-  up $H/update/build-ncc.suse.de/SUSE/Updates/SLE-SERVER/$V-LTSS/$A/update/
+  lt $H/update/build-ncc.suse.de/SUSE/Updates/SLE-SERVER/$V-LTSS/$A/update/
   dg $H/update/zypp-patches.suse.de/$A/update/SLE-DEBUGINFO/$V-POOL/
   du $H/update/build-ncc.suse.de/SUSE/Updates/SLE-DEBUGINFO/$V/
 

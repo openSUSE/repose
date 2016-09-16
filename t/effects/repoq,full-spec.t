@@ -25,7 +25,7 @@ happy path::
   sles:11.3::gm http://dl.example.org/update/zypp-patches.suse.de/s390x/update/SLE-SERVER/11-SP3-POOL/
   sles:11.3::up http://dl.example.org/update/build-ncc.suse.de/SUSE/Updates/SLE-SERVER/11-SP3/s390x/update/
   sles:11.3::se http://dl.example.org/update/build-ncc.suse.de/SUSE/Updates/SLE-SERVER/11-SECURITY/s390x/update/
-  sles:11.3::up http://dl.example.org/update/build-ncc.suse.de/SUSE/Updates/SLE-SERVER/11-SP3-LTSS/s390x/update/
+  sles:11.3::lt http://dl.example.org/update/build-ncc.suse.de/SUSE/Updates/SLE-SERVER/11-SP3-LTSS/s390x/update/
   sles:11.3::dg http://dl.example.org/update/zypp-patches.suse.de/s390x/update/SLE-DEBUGINFO/11-SP3-POOL/
   sles:11.3::du http://dl.example.org/update/build-ncc.suse.de/SUSE/Updates/SLE-DEBUGINFO/11-SP3/
   sle-sdk:11.3::gm http://dl.example.org/update/zypp-patches.suse.de/s390x/update/SLE-SDK/11-SP3-POOL/
