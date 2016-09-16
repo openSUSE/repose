@@ -79,7 +79,10 @@ function $cmdname-main # {{{
     done
     o rh-list-repos $h
     local ca=$'\001'
-    local -A rhrepos; rhrepos=("${(@pj:$ca:s:$ca:)reply}")
+    local -A rhrepos;
+    if [[ -n "$reply" ]]; then
+        rhrepos=("${(@pj:$ca:s:$ca:)reply}")
+    fi
     local -a rnames; rnames=("${(@ko)rhrepos}")
     for rn in $rnames; do
       [[ $rn == ${~${(j:|:)products}} ]] && continue
