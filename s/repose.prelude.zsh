@@ -105,7 +105,7 @@ function main-add-install # {{{
       parts=("${(@)parts[1,4]}")
       [[ $parts[2] == (|'*') ]] \
       && parts[2]=$basev
-      o repoq -A -a $arch -t gm -t up "${${(@j.:.)parts}%%:##}" \
+      o repoq -A -a $arch -t gm -t up -t se -t lt "${${(@j.:.)parts}%%:##}" \
       | while read rn zcmd; do
           o $print ssh -n -o BatchMode=yes $h $zcmd
         done
