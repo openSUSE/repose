@@ -29,4 +29,4 @@ test::
 
   $ repose reset -n wtf.example.org
   ssh -n -o BatchMode=yes wtf.example.org zypper -n rr http://dl.example.org/ibs/SUSE/Products/SLE-SDK/12/x86_64/product/
-  ssh -n -o BatchMode=yes wtf.example.org zypper -n ar -cgknf sled:12::up http://dl.example.org/ibs/SUSE/Updates/SLE-DESKTOP/12/x86_64/update/ sled:12::up
+  ssh -n -o BatchMode=yes wtf.example.org zypper -n ar -cgkfn sled:12::up http://dl.example.org/ibs/SUSE/Updates/SLE-DESKTOP/12/x86_64/update/ sled:12::up
