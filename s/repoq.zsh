@@ -168,7 +168,7 @@ function display-match # {{{
     then
       print ${o_named:+$rname} zypper -n $o_zypper -cgkn $rname ${(e)url} $rname
     else
-      print ${o_named:+$rname} zypper -n $o_zypper -cgknf $rname ${(e)url} $rname
+      print ${o_named:+$rname} zypper -n $o_zypper -cgkfn $rname ${(e)url} $rname
     fi
   ;;
   rr) print ${o_named:+$rname} zypper -n $o_zypper ${(e)url}
