@@ -88,7 +88,7 @@ function $cmdname-main # {{{
       [[ $rn == ${~${(j:|:)products}} ]] && continue
       o $print ssh -n -o BatchMode=yes $h zypper -n rr "${rhrepos[$rn]}"
     done
-    o repoq -A -a $arch -t gm -t up ${products/%:\*} \
+    o repoq -A -a $arch -t gm -t up -t se -t lt ${products/%:\*} \
     | while read rn zcmd; do
         [[ $rn == "${(~@kj:|:)~rhrepos}" ]] && continue
         run-in $h $zcmd
