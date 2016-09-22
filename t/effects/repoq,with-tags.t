@@ -41,6 +41,8 @@ complementary sets (negation)::
   sles:12::up http://dl.example.org/ibs/SUSE/Updates/SLE-SERVER/12/x86_64/update/
   sles:12::dg http://dl.example.org/ibs/SUSE/Products/SLE-SERVER/12/x86_64/product_debug/
   sles:12::du http://dl.example.org/ibs/SUSE/Updates/SLE-SERVER/12/x86_64/update_debug/
+  sles:12::lt http://dl.example.org/ibs/SUSE/Updates/SLE-SERVER/12-LTSS/x86_64/update/
+  sles:12::dl http://dl.example.org/ibs/SUSE/Updates/SLE-SERVER/12-LTSS/x86_64/update_debug/
   sled:12.1::gm http://dl.example.org/ibs/SUSE/Products/SLE-DESKTOP/12-SP1/x86_64/product/
   sled:12.1::up http://dl.example.org/ibs/SUSE/Updates/SLE-DESKTOP/12-SP1/x86_64/update/
   sled:12.1::dg http://dl.example.org/ibs/SUSE/Products/SLE-DESKTOP/12-SP1/x86_64/product_debug/
@@ -50,6 +52,8 @@ complementary sets (negation)::
   sles:12::up http://dl.example.org/ibs/SUSE/Updates/SLE-SERVER/12/x86_64/update/
   sles:12::dg http://dl.example.org/ibs/SUSE/Products/SLE-SERVER/12/x86_64/product_debug/
   sles:12::du http://dl.example.org/ibs/SUSE/Updates/SLE-SERVER/12/x86_64/update_debug/
+  sles:12::lt http://dl.example.org/ibs/SUSE/Updates/SLE-SERVER/12-LTSS/x86_64/update/
+  sles:12::dl http://dl.example.org/ibs/SUSE/Updates/SLE-SERVER/12-LTSS/x86_64/update_debug/
   sled:12.1::gm http://dl.example.org/ibs/SUSE/Products/SLE-DESKTOP/12-SP1/x86_64/product/
   sled:12.1::up http://dl.example.org/ibs/SUSE/Updates/SLE-DESKTOP/12-SP1/x86_64/update/
   sled:12.1::dg http://dl.example.org/ibs/SUSE/Products/SLE-DESKTOP/12-SP1/x86_64/product_debug/

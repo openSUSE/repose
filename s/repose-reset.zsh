@@ -91,7 +91,10 @@ function $cmdname-main # {{{
     o repoq -A -a $arch -t gm -t up -t se -t lt ${products/%:\*} \
     | while read rn zcmd; do
         [[ $rn == "${(~@kj:|:)~rhrepos}" ]] && continue
-        run-in $h $zcmd
+        if test-online-repo $zcmd
+        then
+          run-in $h $zcmd
+        fi
       done
   done
 } # }}}

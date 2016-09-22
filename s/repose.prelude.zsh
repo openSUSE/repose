@@ -107,7 +107,10 @@ function main-add-install # {{{
       && parts[2]=$basev
       o repoq -A -a $arch -t gm -t up -t se -t lt "${${(@j.:.)parts}%%:##}" \
       | while read rn zcmd; do
-          o $print ssh -n -o BatchMode=yes $h $zcmd
+          if test-online-repo $zcmd
+          then
+            o $print ssh -n -o BatchMode=yes $h $zcmd
+          fi
         done
       if (( DO_INSTALL )); then
         o $print ssh -n -o BatchMode=yes $h "zypper -n --gpg-auto-import-keys in -l ${parts[1]}-release"
@@ -115,6 +118,15 @@ function main-add-install # {{{
     done
   done
 } # }}}
+
+
+function test-online-repo # {{{
+{
+  local f_args=${1}
+  local -a url
+  url=(${(s: :)f_args})
+  curl -fIs ${url[6]} > /dev/null
+ } #}}}
 
 
 function rh-list-products # {{{
