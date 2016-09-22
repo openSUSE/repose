@@ -103,13 +103,16 @@ function run-query # {{{
   o read-rules $o_rules
   local -A rules vars
   local k v
+
   for k v in $reply; do
     case $k in
     define\|*) vars+=(${k#*\|} $v) ;;
     *)         rules+=($k $v) ;;
     esac
   done
+
   local arg
+
   for arg in "$@"; do
     :; o handle-arg $arg \
     || o complain 1 "no rule matches ${(qq)arg}"
@@ -124,6 +127,7 @@ function handle-arg # {{{
   o fixup-request $arg
   local req=$reply[1]
   local tags=$reply[2]
+
   local pat=
   for pat in ${(k)rules}; do
     [[ $req == $~pat* ]] || continue
@@ -136,6 +140,7 @@ function handle-arg # {{{
       o display-match "${(@s.:.)req}" $tag $url
     done
   done
+
   return $rv
 } # }}}
 
@@ -143,8 +148,7 @@ function fixup-request # {{{
 {
   local -a parts; parts=("${(@s.:.)1}" '' '' '')
   local tags="${${parts[4]:-${(j:,:)o_tags:-*}}//,/|}"
-  [[ $tags == [~^]?* ]] \
-  && tags="*~(${tags#?})"
+  [[ $tags == [~^]?* ]] && tags="*~(${tags#?})"
   tags="($tags)"
   parts=(
     "$parts[1]"
@@ -160,16 +164,13 @@ function display-match # {{{
   local H=$vars[H]
   local P=${(U)1} V=${2/./-SP} v=$2 A=$3 tag=$4 url=$5
   local rname=$1:$v::$tag
-  [[ -n $A ]] \
-  || o complain 1 'no architecture requested'
+  local arflags=cfgkn
+
+  [[ -n $A ]] || o complain 1 'no architecture requested'
+  [[ $tag == (gm|dg) ]] && arflags=${arflags/f}
+
   case $o_zypper in
-  ar)
-    if [[ $tag == 'gm' ]]
-    then
-      print ${o_named:+$rname} zypper -n $o_zypper -cgkn $rname ${(e)url} $rname
-    else
-      print ${o_named:+$rname} zypper -n $o_zypper -cgkfn $rname ${(e)url} $rname
-    fi
+  ar) print ${o_named:+$rname} zypper -n $o_zypper -$arflags $rname ${(e)url} $rname
   ;;
   rr) print ${o_named:+$rname} zypper -n $o_zypper ${(e)url}
   ;;
@@ -276,6 +277,7 @@ function display-help # {{{
     o display-helpstring cmdusage
     exit
   }
+
   o exec man 1 $cmdname
   exit # we get here in tests
 } # }}}
@@ -289,12 +291,14 @@ function display-helpstring # {{{
 function reject-misuse # {{{
 {
   local val=${1-} self=${cmdname/-/ } ex=1
+
   case $val in
   -?)  print -f "%s: unknown option '%s'\n" -- $self $val ;;
   -?*) print -f "%s: unknown option '%s'\n" -- $self -$val ;;
   ?*)  print -f "%s: no architecture requested for '%s'\n" -- $self $val ;;
   '')  print -f "%s: missing argument\n" -- $self ;;
   esac
+
   print -u 2 -f $msg_run_for_usage $self
   exit $ex
 } # }}}
@@ -302,9 +306,11 @@ function reject-misuse # {{{
 function complain # {{{
 {
   local ex=0
+
   if [[ $1 == <-> ]]; then
     ex=$1
   fi
+
   shift
   print -u 2 -f "$cmdname: %s\n" "$@"
   exit $ex
@@ -317,19 +323,23 @@ function o # {{{
     shift
     dryrun=1
   fi
+
   if (( $#REPOQ_CHATTY )); then
     if [[ "${(@j,%,)@}" == $~REPOQ_CHATTY ]]; then
       print -ru $logfd -- o "${(q-)@}"
     fi
   fi
+
   if (( $#REPOQ_DRYRUN )); then
     if [[ "${(@j,%,)@}" == $~REPOQ_DRYRUN ]]; then
       dryrun=1
     fi
   fi
+
   if (( dryrun )); then
     return 0
   fi
+
   "$@" || return $?
 } # }}}
 
