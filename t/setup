@@ -195,3 +195,7 @@ fake scp <<\EOF
   (( $#s )) || return 0
   cp $s ${(P)#}
 EOF
+
+fake curl <<\EOF
+  return 0
+EOF
