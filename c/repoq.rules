@@ -112,6 +112,8 @@ sles:12
   up $H/ibs/SUSE/Updates/SLE-SERVER/$V/$A/update/
   dg $H/ibs/SUSE/Products/SLE-SERVER/$V/$A/product_debug/
   du $H/ibs/SUSE/Updates/SLE-SERVER/$V/$A/update_debug/
+  lt $H/ibs/SUSE/Updates/SLE-SERVER/$V-LTSS/$A/update/
+  dl $H/ibs/SUSE/Updates/SLE-SERVER/$V-LTSS/$A/update_debug/
 
 sles:11.[1-3]
   gm $H/update/zypp-patches.suse.de/$A/update/SLE-SERVER/$V-POOL/
@@ -120,7 +122,7 @@ sles:11.[1-3]
   lt $H/update/build-ncc.suse.de/SUSE/Updates/SLE-SERVER/$V-LTSS/$A/update/
   dg $H/update/zypp-patches.suse.de/$A/update/SLE-DEBUGINFO/$V-POOL/
   du $H/update/build-ncc.suse.de/SUSE/Updates/SLE-DEBUGINFO/$V/
-
+  
 sles:11.4
   gm $H/update/zypp-patches.suse.de/$A/update/SLE-SERVER/$V-POOL/
   up $H/update/build-ncc.suse.de/SUSE/Updates/SLE-SERVER/$V/$A/update/
