@@ -71,16 +71,22 @@ function main-hosts-repas # {{{
 function main-add-install # {{{
 {
   local -a options; options=(
-    h help
-    n print
+    h   help
+    n   print
+    t=  tag=
   )
   local print
+  local -a tags; tags=(gm lt se up)
+  local -i first_tag=1
   local on oa
   local -i oi=0
   while haveopt oi on oa $=options -- "$@"; do
     case $on in
     h | help      ) display-help $on ;;
     n | print     ) print=print ;;
+    t | tag       ) (( first_tag )) && { first_tag=0; tags=() }
+                    tags+=($oa)
+                    ;;
     *             ) reject-misuse -$oa ;;
     esac
   done; shift $oi
@@ -105,7 +111,7 @@ function main-add-install # {{{
       parts=("${(@)parts[1,4]}")
       [[ $parts[2] == (|'*') ]] \
       && parts[2]=$basev
-      o repoq -A -a $arch -t gm -t up -t se -t lt "${${(@j.:.)parts}%%:##}" \
+      o repoq -A -a $arch ${(s: :)tags/#/-t }  "${${(@j.:.)parts}%%:##}" \
       | while read rn zcmd; do
           if test-online-repo $zcmd
           then
