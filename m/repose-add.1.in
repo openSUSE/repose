@@ -16,6 +16,7 @@
 .Fl h | \-help
 .Nm
 .Op Fl n | \-print
+.Oo Fl t Ar TAG Oc Ns ...
 .Ar HOST Ns ...
 .Li --
 .Ar REPA Ns ...
@@ -43,9 +44,22 @@ commands.
 Display usage instructions.
 . It Fl \-help
 Display this manual page.
+.
 . It Fl n Ns , Fl \-print
 Write destructive operations to standard output,
 do not actually perform them.
+.
+. It Fl t Ns , Fl \-tag Ns Li = Ns Ar TAG
+Override default
+.Ar TAG Ns s
+for tagless
+.Ar REPA Ns s.
+See
+.Ar REPA
+in
+.Sx OPERANDS
+below and
+.Fl t , \-tag No in Xr repoq 1 .
 .El
 .\" }}}
 .
@@ -75,6 +89,10 @@ is used
 can be empty, in which case architecture name of the
 . Em baseproduct
 is used
+. It
+. Sy T
+defaults to
+.Sy gm,lt,se,up .
 . El
 .El
 .\" }}}

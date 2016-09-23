@@ -16,6 +16,7 @@
 .Fl h | \-help
 .Nm
 .Op Fl n | \-print
+.Oo Fl t Ar TAG Oc Ns ...
 .Ar HOST Ns ...
 .Li --
 .Ar REPA Ns ...
@@ -51,6 +52,8 @@ Display this manual page.
 . It Fl n Ns , Fl \-print
 Write destructive operations to standard output,
 do not actually perform them.
+. It Fl t Ns , Fl \-tag Ns Li = Ns Ar TAG
+.No See Fl t , Fl \-tag No in Xr repose-add 1 .
 .El
 .\" }}}
 .

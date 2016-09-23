@@ -35,16 +35,23 @@ Remove stray repositories, add missing ones
 function $cmdname-main # {{{
 {
   local -a options; options=(
-    h help
-    n print
+    h   help
+    n   print
+    t=  tag=
   )
   local print
+  local -a tags; tags=(gm lt se up)
+  local -i first_tag=1
   local on oa
   local -i oi=0
+
   while haveopt oi on oa $=options -- "$@"; do
     case $on in
     h | help      ) display-help $on ;;
     n | print     ) print=print ;;
+    t | tag       ) (( first_tag )) && { first_tag=0; tags=() }
+                    tags+=($oa)
+                    ;;
     *             ) reject-misuse -$oa ;;
     esac
   done; shift $oi
@@ -71,24 +78,25 @@ function $cmdname-main # {{{
     | read arch basev
     o rh-list-products $h
     products=($reply)
+
     for ((i = 1; i <= $#products; ++i)); do
       p=$products[$i]
       parts=("${(@s.:.)p}")
       parts[3]=('*')
       products[$i]="${(@j.:.)parts}"
     done
+
     o rh-list-repos $h
-    local ca=$'\001'
-    local -A rhrepos;
-    if [[ -n "$reply" ]]; then
-        rhrepos=("${(@pj:$ca:s:$ca:)reply}")
-    fi
+
+    local -A rhrepos; rhrepos=("${(@)reply}")
     local -a rnames; rnames=("${(@ko)rhrepos}")
+    
     for rn in $rnames; do
       [[ $rn == ${~${(j:|:)products}} ]] && continue
       o $print ssh -n -o BatchMode=yes $h zypper -n rr "${rhrepos[$rn]}"
     done
-    o repoq -A -a $arch -t gm -t up -t se -t lt ${products/%:\*} \
+
+    o repoq -A -a $arch ${(s: :)tags/#/-t } ${products/%:\*} \
     | while read rn zcmd; do
         [[ $rn == "${(~@kj:|:)~rhrepos}" ]] && continue
         if test-online-repo $zcmd
@@ -96,6 +104,7 @@ function $cmdname-main # {{{
           run-in $h $zcmd
         fi
       done
+
   done
 } # }}}
 

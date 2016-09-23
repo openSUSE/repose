@@ -16,6 +16,7 @@
 .Fl h | \-help
 .Nm
 .Op Fl n | \-print
+.Oo Fl t Ar TAG Oc Ns ...
 .Ar HOST Ns ...
 .\" SYNOPSIS }}}
 .
@@ -38,6 +39,8 @@ Display this manual page.
 . It Fl n Ns , Fl \-print
 Write destructive operations to standard output,
 do not actually perform them.
+. It Fl t Ns , Fl \-tag Ns Li = Ns Ar TAG
+.No See Fl t , Fl \-tag No in Xr repose-add 1 .
 .El
 .\" }}}
 .
@@ -61,8 +64,7 @@ $ repose reset root@{fubar,snafu}.example.org
 .\" SEE ALSO {{{
 .Sh SEE ALSO
 .Xr repoq 1 ,
-.Xr repose-prune 1 ,
-.Xr repose-remove 1 ,
+.Xr repose 1 ,
 .Xr smrt 1 ,
 .Xr ssh 1 ,
 .Xr zypper 8 .
