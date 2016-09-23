@@ -50,7 +50,7 @@ sle-haegeo:11
 infra
   gm $H/ibs/QA:/Maintenance:/Infrastructure/SLE_${V/-/_}/
 
-sle-(live-patching|manager-tools|module(-[[:IDENT:]]##)##):12
+sle-(live-patching|manager-tools|module(-[[:lower:]]##)##):12
   gm $H/ibs/SUSE/Products/${${(C)P}/#Sle-/SLE-}/12/$A/product/
   up $H/ibs/SUSE/Updates/${${(C)P}/#Sle-/SLE-}/12/$A/update/
   dg $H/ibs/SUSE/Products/${${(C)P}/#Sle-/SLE-}/12/$A/product_debug/

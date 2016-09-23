@@ -99,6 +99,12 @@ test::
   ssh -n -q -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no fubar.example.org zypper -n --gpg-auto-import-keys in --force -l sle-sdk-release
 
 
+test case-mismatch::
+
+  $ repose install -n fubar.example.org -- sle-module-Web-Scripting
+  repoq: no rule matches 'sle-module-Web-Scripting:12'
+  [1]
+
 FIXME: installs already present products::
 
   $ repose install -n {snafu,fubar}.example.org -- sle-we
