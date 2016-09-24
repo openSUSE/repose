@@ -6,7 +6,8 @@
 ========================================================================
                 Manipulate repositories in QAM refhosts
 ========================================================================
-
+.. image:: https://travis-ci.org/openSUSE/repose.svg?branch=master
+    :target: https://travis-ci.org/openSUSE/repose
 
 Big Picture
 ===========
