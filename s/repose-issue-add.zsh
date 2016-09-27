@@ -77,7 +77,7 @@ function $cmdname-main # {{{
     for issue in $issues; do
       o sumaxy $issue:a $arch $products \
       | while read rn ru; do
-          o $print ssh -n -o BatchMode=yes $h "zypper -n ar -cgkn $rn $ru $rn"
+          run-in $h "zypper -n ar -cgkn $rn $ru $rn"
         done
     done
   done

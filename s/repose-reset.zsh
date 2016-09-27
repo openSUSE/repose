@@ -93,7 +93,7 @@ function $cmdname-main # {{{
     
     for rn in $rnames; do
       [[ $rn == ${~${(j:|:)products}} ]] && continue
-      o $print ssh -n -o BatchMode=yes $h zypper -n rr "${rhrepos[$rn]}"
+      run-in $h zypper -n rr "${rhrepos[$rn]}"
     done
 
     o repoq -A -a $arch ${(s: :)tags/#/-t } ${products/%:\*} \
