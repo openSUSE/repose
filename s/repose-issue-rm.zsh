@@ -73,7 +73,7 @@ function $cmdname-main # {{{
     repos=($reply)
     for rn ru in $repos; do
       [[ $rn == *:p=(${(j:|:)~issues}) ]] || continue
-      o $print ssh -n -o BatchMode=yes $h "zypper -n rr $ru"
+      run-in $h "zypper -n rr $ru"
     done
   done
 } # }}}

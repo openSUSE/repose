@@ -42,7 +42,7 @@ function do-switch-to # {{{
   if [[ $rn == ${(j:|:)~repas} ]]; then
     state=e
   fi
-  o $print ssh -n -o BatchMode=yes $h "zypper -n mr -$state $ru"
+  run-in $h "zypper -n mr -$state $ru"
 } # }}}
 
 main-hosts-repas "$@"
