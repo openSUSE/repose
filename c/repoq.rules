@@ -37,7 +37,7 @@ sle-haegeo:11
   gm $H/update/zypp-patches.suse.de/$A/update/SLE-HAE/$V-GEO-POOL/
   up $H/update/build-ncc.suse.de/SUSE/Updates/SLE-HAE/$V-GEO/$A/update/
 
-sle-infra
+infra
   gm $H/ibs/QA:/Maintenance:/Infrastructure/SLE_${V/-/_}/
 
 sle-(live-patching|manager-tools|module(-[[:IDENT:]]##)##):12
