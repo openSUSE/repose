@@ -115,11 +115,11 @@ function main-add-install # {{{
       | while read rn zcmd; do
           if test-online-repo $zcmd
           then
-            o $print ssh -n -o BatchMode=yes $h $zcmd
+            run-in $h $zcmd
           fi
         done
       if (( DO_INSTALL )); then
-        o $print ssh -n -o BatchMode=yes $h "zypper -n --gpg-auto-import-keys in -l ${parts[1]}-release"
+        run-in $h "zypper -n --gpg-auto-import-keys in -l ${parts[1]}-release"
       fi
     done
   done

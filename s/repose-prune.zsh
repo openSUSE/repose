@@ -79,7 +79,7 @@ function $cmdname-main # {{{
     for rn ru in "${(@)reply}"; do
       [[ $rn == ${(j:|:)~products} ]] && continue
       [[ $rn == ${(j:|:)~repas} ]] && continue
-      o $print ssh -n -o BatchMode=yes $h "zypper -n rr $ru"
+      run-in  $h "zypper -n rr $ru"
     done
   done
 } # }}}
