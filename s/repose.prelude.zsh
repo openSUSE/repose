@@ -269,7 +269,7 @@ function run-in # {{{
   local h=$1 print=${print-}; shift
   case $h in
   .) o $print "$@" ;;
-  *) o $print ssh -n -o BatchMode=yes $h "$@" ;;
+  *) o $print ssh -n -q -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no $h "$@" ;;
   esac
 } # }}}
 

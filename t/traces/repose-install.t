@@ -21,19 +21,19 @@ test::
   $ repose install root@{omg,wtf}.example.org -- sle-{module-toolchain,sdk}:12
   o scp -Bq root@omg.example.org:/etc/products.d/baseproduct * (glob)
   o repoq -A -a x86_64 -t gm -t lt -t se -t up sle-module-toolchain:12
-  o ssh -n -o BatchMode=yes root@omg.example.org 'zypper -n ar -cgkn sle-module-toolchain:12::gm http://*/SLE-Module-Toolchain/12/x86_64/product/ sle-module-toolchain:12::gm' (glob)
-  o ssh -n -o BatchMode=yes root@omg.example.org 'zypper -n ar -cfgkn sle-module-toolchain:12::up http://dl.example.org/ibs/SUSE/Updates/SLE-Module-Toolchain/12/x86_64/update/ sle-module-toolchain:12::up'
-  o ssh -n -o BatchMode=yes root@omg.example.org 'zypper -n --gpg-auto-import-keys in -l sle-module-toolchain-release'
+  o ssh -n -q -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no root@omg.example.org 'zypper -n ar -cgkn sle-module-toolchain:12::gm http://*/SLE-Module-Toolchain/12/x86_64/product/ sle-module-toolchain:12::gm' (glob)
+  o ssh -n -q -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no root@omg.example.org 'zypper -n ar -cfgkn sle-module-toolchain:12::up http://dl.example.org/ibs/SUSE/Updates/SLE-Module-Toolchain/12/x86_64/update/ sle-module-toolchain:12::up'
+  o ssh -n -q -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no root@omg.example.org 'zypper -n --gpg-auto-import-keys in -l sle-module-toolchain-release'
   o repoq -A -a x86_64 -t gm -t lt -t se -t up sle-sdk:12
-  o ssh -n -o BatchMode=yes root@omg.example.org 'zypper -n ar -cgkn sle-sdk:12::gm http://*/SLE-SDK/12/x86_64/product/ sle-sdk:12::gm' (glob)
-  o ssh -n -o BatchMode=yes root@omg.example.org 'zypper -n ar -cfgkn sle-sdk:12::up http://dl.example.org/ibs/SUSE/Updates/SLE-SDK/12/x86_64/update/ sle-sdk:12::up'
-  o ssh -n -o BatchMode=yes root@omg.example.org 'zypper -n --gpg-auto-import-keys in -l sle-sdk-release'
+  o ssh -n -q -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no root@omg.example.org 'zypper -n ar -cgkn sle-sdk:12::gm http://*/SLE-SDK/12/x86_64/product/ sle-sdk:12::gm' (glob)
+  o ssh -n -q -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no root@omg.example.org 'zypper -n ar -cfgkn sle-sdk:12::up http://dl.example.org/ibs/SUSE/Updates/SLE-SDK/12/x86_64/update/ sle-sdk:12::up'
+  o ssh -n -q -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no root@omg.example.org 'zypper -n --gpg-auto-import-keys in -l sle-sdk-release'
   o scp -Bq root@wtf.example.org:/etc/products.d/baseproduct * (glob)
   o repoq -A -a x86_64 -t gm -t lt -t se -t up sle-module-toolchain:12
-  o ssh -n -o BatchMode=yes root@wtf.example.org 'zypper -n ar -cgkn sle-module-toolchain:12::gm http://*/SLE-Module-Toolchain/12/x86_64/product/ sle-module-toolchain:12::gm' (glob)
-  o ssh -n -o BatchMode=yes root@wtf.example.org 'zypper -n ar -cfgkn sle-module-toolchain:12::up http://dl.example.org/ibs/SUSE/Updates/SLE-Module-Toolchain/12/x86_64/update/ sle-module-toolchain:12::up'
-  o ssh -n -o BatchMode=yes root@wtf.example.org 'zypper -n --gpg-auto-import-keys in -l sle-module-toolchain-release'
+  o ssh -n -q -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no root@wtf.example.org 'zypper -n ar -cgkn sle-module-toolchain:12::gm http://*/SLE-Module-Toolchain/12/x86_64/product/ sle-module-toolchain:12::gm' (glob)
+  o ssh -n -q -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no root@wtf.example.org 'zypper -n ar -cfgkn sle-module-toolchain:12::up http://dl.example.org/ibs/SUSE/Updates/SLE-Module-Toolchain/12/x86_64/update/ sle-module-toolchain:12::up'
+  o ssh -n -q -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no root@wtf.example.org 'zypper -n --gpg-auto-import-keys in -l sle-module-toolchain-release'
   o repoq -A -a x86_64 -t gm -t lt -t se -t up sle-sdk:12
-  o ssh -n -o BatchMode=yes root@wtf.example.org 'zypper -n ar -cgkn sle-sdk:12::gm http://*/SLE-SDK/12/x86_64/product/ sle-sdk:12::gm' (glob)
-  o ssh -n -o BatchMode=yes root@wtf.example.org 'zypper -n ar -cfgkn sle-sdk:12::up http://dl.example.org/ibs/SUSE/Updates/SLE-SDK/12/x86_64/update/ sle-sdk:12::up'
-  o ssh -n -o BatchMode=yes root@wtf.example.org 'zypper -n --gpg-auto-import-keys in -l sle-sdk-release'
+  o ssh -n -q -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no root@wtf.example.org 'zypper -n ar -cgkn sle-sdk:12::gm http://*/SLE-SDK/12/x86_64/product/ sle-sdk:12::gm' (glob)
+  o ssh -n -q -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no root@wtf.example.org 'zypper -n ar -cfgkn sle-sdk:12::up http://dl.example.org/ibs/SUSE/Updates/SLE-SDK/12/x86_64/update/ sle-sdk:12::up'
+  o ssh -n -q -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no root@wtf.example.org 'zypper -n --gpg-auto-import-keys in -l sle-sdk-release'
