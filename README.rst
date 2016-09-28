@@ -9,9 +9,6 @@
 .. image:: https://travis-ci.org/openSUSE/repose.svg?branch=master
     :target: https://travis-ci.org/openSUSE/repose
 
-.. image:: https://coveralls.io/repos/github/openSUSE/repose/badge.svg?branch=master
-    :target: https://coveralls.io/github/openSUSE/repose?branch=master
-
 Big Picture
 ===========
 
