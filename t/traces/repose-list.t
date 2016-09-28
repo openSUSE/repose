@@ -24,7 +24,7 @@ test::
   o rh-list-repos fubar.example.org
   o redir -1 * rh-fetch-repos fubar.example.org (glob)
   o rh-fetch-repos fubar.example.org
-  o ssh -n -o BatchMode=yes fubar.example.org zypper -x lr
+  o ssh -n -q -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no fubar.example.org zypper -x lr
   o xml-get-repos * (glob)
   o xml sel -t -m /stream/repo-list/repo -v @name -o \x01 -v url --nl * (glob)
   o rm -f * (glob)
@@ -35,7 +35,7 @@ test::
   o rh-list-repos snafu.example.org
   o redir -1 * rh-fetch-repos snafu.example.org (glob)
   o rh-fetch-repos snafu.example.org
-  o ssh -n -o BatchMode=yes snafu.example.org zypper -x lr
+  o ssh -n -q -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no snafu.example.org zypper -x lr
   o xml-get-repos * (glob)
   o xml sel -t -m /stream/repo-list/repo -v @name -o \x01 -v url --nl * (glob)
   o rm -f * (glob)

@@ -13,4 +13,4 @@ setup::
 test::
 
   $ repose issue-rm -n fubar.example.org -- SUSE:Maintenance:1085
-  ssh -n -o BatchMode=yes fubar.example.org zypper -n rr http://dl.example.org/ibs/SUSE:/Maintenance:/1085/SUSE_Updates_SLE-SERVER_12_x86_64/
+  ssh -n -q -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no fubar.example.org zypper -n rr http://dl.example.org/ibs/SUSE:/Maintenance:/1085/SUSE_Updates_SLE-SERVER_12_x86_64/
