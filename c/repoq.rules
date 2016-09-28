@@ -3,6 +3,16 @@
 
 define H http://dl.example.org
 
+opensuse:42.2
+  gm http://download.opensuse.org/distribution/leap/$v/repo/oss/
+  up http://download.opensuse.org/update/leap/$v/oss/
+  dg http://download.opensuse.org/debug/distribution/leap/$v/repo/oss/
+  du http://download.opensuse.org/debug/update/leap/$v/oss/
+
+opensuse-addon-nonoss:42.2
+  gm http://download.opensuse.org/distribution/leap/$v/repo/non-oss/
+  up http://download.opensuse.org/update/leap/$v/non-oss/
+
 sapaio:12
   gm $H/ibs/SUSE/Products/SLE-SAP/$V/$A/product/
   up $H/ibs/SUSE/Updates/SLE-SAP/$V/$A/update/
