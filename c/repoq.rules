@@ -3,13 +3,13 @@
 
 define H http://dl.example.org
 
-opensuse:42.2
+opensuse-leap
   gm http://download.opensuse.org/distribution/leap/$v/repo/oss/
   up http://download.opensuse.org/update/leap/$v/oss/
   dg http://download.opensuse.org/debug/distribution/leap/$v/repo/oss/
   du http://download.opensuse.org/debug/update/leap/$v/oss/
 
-opensuse-addon-nonoss:42.2
+opensuse-leap-nonoss
   gm http://download.opensuse.org/distribution/leap/$v/repo/non-oss/
   up http://download.opensuse.org/update/leap/$v/non-oss/
 
