@@ -252,8 +252,6 @@ are arbitrary words used to label repositories in
 Currently used tags are:
 .Pp
 .Bl -hang -compact -offset "xx"
-. It Li at
-ATI/AMD driver repository
 . It Li dg
 release repository with
 .Em -debuginfo , -debugsource
@@ -273,7 +271,10 @@ update repository
 SECURITY Module repository
 .El
 . It Li lt
-LTS update repository
+LTSS update repository
+.El
+. It Li dl
+LTSS debug update repository
 .El
 .\" }}}
 .\" }}}
@@ -329,7 +330,7 @@ $ repoq -a ppc64le -t gm -t up sles:12.1 sle-sdk:12.1::gm sled:12
 .Pp
 Show all but the GPU-specific repositories for SUSE-DESKTOP 12:
 .Bd -literal -offset "xx"
-$ repoq sled:12:x86_64:~at,nv
+$ repoq sled:12:x86_64:~nv
 .Ed
 .\" }}}
 .

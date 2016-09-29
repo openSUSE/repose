@@ -41,13 +41,13 @@ test adds only requested repos::
 
 test that `-t/--tag` provides defaults to tagless patterns::
 
-  $ repose add -n -t gm -t dg fubar.example.org snafu.example.org -- sles:12 sled:12::at
+  $ repose add -n -t gm -t dg fubar.example.org snafu.example.org -- sles:12 sled:12::nv
   ssh -n -q -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no fubar.example.org zypper -n ar -cgkn sles:12::gm http://dl.example.org/ibs/SUSE/Products/SLE-SERVER/12/x86_64/product/ sles:12::gm
   ssh -n -q -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no fubar.example.org zypper -n ar -cgkn sles:12::dg http://dl.example.org/ibs/SUSE/Products/SLE-SERVER/12/x86_64/product_debug/ sles:12::dg
-  ssh -n -q -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no fubar.example.org zypper -n ar -cfgkn sled:12::at http://www2.ati.com/suse/sle12/ sled:12::at
+  ssh -n -q -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no fubar.example.org zypper -n ar -cfgkn sled:12::nv http://download.nvidia.com/novell/sle12/ sled:12::nv
   ssh -n -q -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no snafu.example.org zypper -n ar -cgkn sles:12::gm http://dl.example.org/ibs/SUSE/Products/SLE-SERVER/12/x86_64/product/ sles:12::gm
   ssh -n -q -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no snafu.example.org zypper -n ar -cgkn sles:12::dg http://dl.example.org/ibs/SUSE/Products/SLE-SERVER/12/x86_64/product_debug/ sles:12::dg
-  ssh -n -q -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no snafu.example.org zypper -n ar -cfgkn sled:12::at http://www2.ati.com/suse/sle12/ sled:12::at
+  ssh -n -q -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no snafu.example.org zypper -n ar -cfgkn sled:12::nv http://download.nvidia.com/novell/sle12/ sled:12::nv
 
 
 test that tag negation means "all tags but these"::

@@ -97,8 +97,6 @@ sle-we:12
   dg $H/ibs/SUSE/Products/$P/$V/$A/product_debug/
   du $H/ibs/SUSE/Updates/$P/$V/$A/update_debug/
   nv http://download.nvidia.com/novell/sle${(L)V/-}/
-  at http://www2.ati.com/suse/sle${(L)V/-}/
-
 
 sled:12
   gm $H/ibs/SUSE/Products/SLE-DESKTOP/$V/$A/product/
@@ -106,7 +104,6 @@ sled:12
   dg $H/ibs/SUSE/Products/SLE-DESKTOP/$V/$A/product_debug/
   du $H/ibs/SUSE/Updates/SLE-DESKTOP/$V/$A/update_debug/
   nv http://download.nvidia.com/novell/sle${(L)V/-}/
-  at http://www2.ati.com/suse/sle${(L)V/-}/
 
 sled:11
   gm $H/update/zypp-patches.suse.de/$A/update/SLE-DESKTOP/$V-POOL/
@@ -114,8 +111,6 @@ sled:11
   dg $H/update/zypp-patches.suse.de/$A/update/SLE-DEBUGINFO/$V-POOL/
   du $H/update/build-ncc.suse.de/SUSE/Updates/SLE-DEBUGINFO/$V/
   nv http://download.nvidia.com/novell/sle${(L)V/-}/
-  at http://www2.ati.com/suse/sle${(L)V/-}/
-
 
 sles:12
   gm $H/ibs/SUSE/Products/SLE-SERVER/$V/$A/product/

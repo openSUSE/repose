@@ -9,7 +9,7 @@ setup::
   >   sles:12 \
   >   sle-sdk:12 \
   >   -- \
-  >   sled:12::{nv,at} \
+  >   sled:12::nv \
   >   sles:12::{gm,up} \
   >   sle-sdk:12::{gm,up}
 
@@ -17,11 +17,10 @@ setup::
 funky repository patterns
 -------------------------
 
-asterisk is what you'd expect::
+asterisk is what you expect::
 
   $ repose list . -- \*
   . http://download.nvidia.com/novell/sle12/
-  . http://www2.ati.com/suse/sle12/
   . http://dl.example.org/ibs/SUSE/Products/SLE-SERVER/12/x86_64/product/
   . http://dl.example.org/ibs/SUSE/Updates/SLE-SERVER/12/x86_64/update/
   . http://dl.example.org/ibs/SUSE/Products/SLE-SDK/12/x86_64/product/
@@ -29,7 +28,6 @@ asterisk is what you'd expect::
 
   $ repose list . -- 'sle*:12*'
   . http://download.nvidia.com/novell/sle12/
-  . http://www2.ati.com/suse/sle12/
   . http://dl.example.org/ibs/SUSE/Products/SLE-SERVER/12/x86_64/product/
   . http://dl.example.org/ibs/SUSE/Updates/SLE-SERVER/12/x86_64/update/
   . http://dl.example.org/ibs/SUSE/Products/SLE-SDK/12/x86_64/product/
@@ -50,23 +48,19 @@ complementary set, simplified syntax::
 
   $ noglob repose list . -- :::^gm
   . http://download.nvidia.com/novell/sle12/
-  . http://www2.ati.com/suse/sle12/
   . http://dl.example.org/ibs/SUSE/Updates/SLE-SERVER/12/x86_64/update/
   . http://dl.example.org/ibs/SUSE/Updates/SLE-SDK/12/x86_64/update/
 
   $ noglob repose list . -- :::^gm,nv
-  . http://www2.ati.com/suse/sle12/
   . http://dl.example.org/ibs/SUSE/Updates/SLE-SERVER/12/x86_64/update/
   . http://dl.example.org/ibs/SUSE/Updates/SLE-SDK/12/x86_64/update/
 
   $ noglob repose list . -- :::~gm
   . http://download.nvidia.com/novell/sle12/
-  . http://www2.ati.com/suse/sle12/
   . http://dl.example.org/ibs/SUSE/Updates/SLE-SERVER/12/x86_64/update/
   . http://dl.example.org/ibs/SUSE/Updates/SLE-SDK/12/x86_64/update/
 
   $ noglob repose list . -- :::~gm,nv
-  . http://www2.ati.com/suse/sle12/
   . http://dl.example.org/ibs/SUSE/Updates/SLE-SERVER/12/x86_64/update/
   . http://dl.example.org/ibs/SUSE/Updates/SLE-SDK/12/x86_64/update/
 
@@ -74,12 +68,10 @@ complementary set, extended_glob syntax::
 
   $ noglob repose list . -- :::(*~gm)
   . http://download.nvidia.com/novell/sle12/
-  . http://www2.ati.com/suse/sle12/
   . http://dl.example.org/ibs/SUSE/Updates/SLE-SERVER/12/x86_64/update/
   . http://dl.example.org/ibs/SUSE/Updates/SLE-SDK/12/x86_64/update/
 
   $ noglob repose list . -- :::(*~(gm|nv))
-  . http://www2.ati.com/suse/sle12/
   . http://dl.example.org/ibs/SUSE/Updates/SLE-SERVER/12/x86_64/update/
   . http://dl.example.org/ibs/SUSE/Updates/SLE-SDK/12/x86_64/update/
 
