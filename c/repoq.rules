@@ -63,9 +63,6 @@ QA:1<1->
   gm $H/ibs/QA:/SLE${V/-}/standard/
   up $H/ibs/QA:/SLE${V/-}/update/
 
-sle-qa:10
-  gm $H/ibs/QA:/SLE${V/-}/SLE_${V/-/_}_Update/
-
 sle-sdk:11
   gm $H/update/zypp-patches.suse.de/$A/update/$P/$V-POOL/
   up $H/update/build-ncc.suse.de/SUSE/Updates/$P/$V/$A/update/
