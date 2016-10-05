@@ -131,7 +131,7 @@ function test-online-repo # {{{
   local f_args=${1}
   local -a url
   url=(${(s: :)f_args})
-  curl -fIs ${url[6]} > /dev/null
+  curl -fIs ${url[6]}/repodata/repomd.xml > /dev/null
  } #}}}
 
 
