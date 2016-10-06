@@ -119,7 +119,7 @@ function main-add-install # {{{
           fi
         done
       if (( DO_INSTALL )); then
-        run-in $h "zypper -n --gpg-auto-import-keys in -l ${parts[1]}-release"
+        run-in $h "zypper -n --gpg-auto-import-keys in --force -l ${parts[1]}-release"
       fi
     done
   done
