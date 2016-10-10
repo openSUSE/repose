@@ -16,11 +16,17 @@ setup::
 
   $ fake-refhost snafu.example.org x86_64
 
+  $ fake-refhost osuse.example.org x86_64 \
+  >   openSUSE:42.2 \
+  >   -- \
+  >   openSUSE:42.2::{gm,up} \
+  >   openSUSE-Addons-NonOss:42.2::{gm,up}
+
 test::
 
-  $ repose list fubar.example.org snafu.example.org
+  $ repose list fubar.example.org snafu.example.org osuse.example.org
   O find-cmd list
-  o run-cmd */repose-list fubar.example.org snafu.example.org (glob)
+  o run-cmd */repose-list fubar.example.org snafu.example.org osuse.example.org (glob)
   o rh-list-repos fubar.example.org
   o redir -1 * rh-fetch-repos fubar.example.org (glob)
   o rh-fetch-repos fubar.example.org
@@ -39,3 +45,14 @@ test::
   o xml-get-repos * (glob)
   o xml sel -t -m /stream/repo-list/repo -v @name -o \x01 -v url --nl * (glob)
   o rm -f * (glob)
+  o rh-list-repos osuse.example.org
+  o redir -1 * rh-fetch-repos osuse.example.org (glob)
+  o rh-fetch-repos osuse.example.org
+  o ssh -n -q -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no osuse.example.org zypper -x lr
+  o xml-get-repos * (glob)
+  o xml sel -t -m /stream/repo-list/repo -v @name -o \x01 -v url --nl * (glob)
+  o rm -f * (glob)
+  osuse.example.org http://download.opensuse.org/distribution/leap/42.2/repo/oss/
+  osuse.example.org http://download.opensuse.org/update/leap/42.2/oss/
+  osuse.example.org http://download.opensuse.org/distribution/leap/42.2/repo/oss/
+  osuse.example.org http://download.opensuse.org/update/leap/42.2/oss/

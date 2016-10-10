@@ -21,6 +21,12 @@ setup::
   >   sled:12::{gm,up,nv} \
   >   sle-sdk:12::gm
 
+  $ fake-refhost osuse.example.org x86_64 \
+  >   openSUSE:42.2 \
+  >   -- \
+  >   openSUSE:42.2::{gm,up} \
+  >   openSUSE-Addon-NonOss:42.2::{gm,up}
+
 test::
 
   $ repose remove -n fubar.example.org snafu.example.org -- '*'
@@ -96,3 +102,21 @@ test::
   o do-remove snafu.example.org sle-sdk:12::gm http://dl.example.org/ibs/SUSE/Products/SLE-SDK/12/x86_64/product/ 'sle-sdk:*:*:(*)'
   o print ssh -n -q -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no snafu.example.org zypper -n rr http://dl.example.org/ibs/SUSE/Products/SLE-SDK/12/x86_64/product/
   ssh -n -q -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no snafu.example.org zypper -n rr http://dl.example.org/ibs/SUSE/Products/SLE-SDK/12/x86_64/product/
+
+  $ repose remove -n osuse.example.org -- openSUSE-Addon-NonOss
+  O find-cmd remove
+  o run-cmd */repose-remove -n osuse.example.org -- openSUSE-Addon-NonOss (glob)
+  o rh-list-repos osuse.example.org
+  o redir -1 * rh-fetch-repos osuse.example.org (glob)
+  o rh-fetch-repos osuse.example.org
+  o ssh -n -q -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no osuse.example.org zypper -x lr
+  o xml-get-repos * (glob)
+  o xml sel -t -m /stream/repo-list/repo -v @name -o \x01 -v url --nl * (glob)
+  o rm -f * (glob)
+  o do-remove osuse.example.org openSUSE:42.2::gm http://download.opensuse.org/distribution/leap/42.2/repo/oss/ 'openSUSE-Addon-NonOss:*:*:(*)'
+  o do-remove osuse.example.org openSUSE:42.2::up http://download.opensuse.org/update/leap/42.2/oss/ 'openSUSE-Addon-NonOss:*:*:(*)'
+  o do-remove osuse.example.org openSUSE-Addon-NonOss:42.2::gm http://download.opensuse.org/distribution/leap/42.2/repo/oss/ 'openSUSE-Addon-NonOss:*:*:(*)'
+  o print ssh -n -q -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no osuse.example.org zypper -n rr http://download.opensuse.org/distribution/leap/42.2/repo/oss/
+  ssh -n -q -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no osuse.example.org zypper -n rr http://download.opensuse.org/distribution/leap/42.2/repo/oss/
+  o do-remove osuse.example.org http://download.opensuse.org/distribution/leap/42.2/repo/non-oss/ openSUSE-Addon-NonOss:42.2::up 'openSUSE-Addon-NonOss:*:*:(*)'
+  o do-remove osuse.example.org http://download.opensuse.org/update/leap/42.2/oss/ http://download.opensuse.org/update/leap/42.2/non-oss/ 'openSUSE-Addon-NonOss:*:*:(*)'

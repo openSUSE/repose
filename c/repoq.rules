@@ -9,7 +9,7 @@ openSUSE
   dg http://download.opensuse.org/debug/distribution/leap/$v/repo/oss/
   du http://download.opensuse.org/debug/update/leap/$v/oss/
 
-openSUSE-addon-nonoss
+openSUSE-Addon-NonOss
   gm http://download.opensuse.org/distribution/leap/$v/repo/non-oss/
   up http://download.opensuse.org/update/leap/$v/non-oss/
 
