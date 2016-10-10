@@ -15,10 +15,16 @@ setup::
   > sles:12 \
   > sle-sdk:12
 
+  $ fake-refhost osuse.example.org x86_64 \
+  > openSUSE:42.2 \
+  > openSUSE-Addon-NonOss:42.2
+
 test::
 
-  $ repose list-products {wtf,omg}.example.org
+  $ repose list-products {wtf,omg,osuse}.example.org
   wtf.example.org sles:12:x86_64
   wtf.example.org sle-sdk:12:x86_64
   omg.example.org sled:12:x86_64
   omg.example.org sle-module-web-scripting:12:x86_64
+  osuse.example.org opensuse-addon-nonoss:42.2:x86_64
+  osuse.example.org opensuse:42.2:x86_64
