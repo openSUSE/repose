@@ -157,6 +157,8 @@ function xform-product # {{{
   case $r[1] in
   SLED|SUSE_SLED) r[1]=(sled) ;;
   SLES|SUSE_SLES) r[1]=(sles) ;;
+  openSUSE) r[1]=(openSUSE) ;;
+  openSUSE-Addon-NonOss) r[1]=(openSUSE-Addon-NonOss) ;;
   esac
   REPLY="${(j.:.L)r}"
 } # }}}

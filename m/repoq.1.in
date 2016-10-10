@@ -204,6 +204,10 @@ and
 .Dq Li sled .
 .Nm
 emits only the lowercase variants.
+.Nm for use with openSUSE product is
+.Dq Li openSUSE
+and
+.Dq Li openSUSE-Addons-NonOss
 .\" }}}
 .Pp
 .\" Version strings {{{
