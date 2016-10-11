@@ -26,5 +26,5 @@ test::
   wtf.example.org sle-sdk:12:x86_64
   omg.example.org sled:12:x86_64
   omg.example.org sle-module-web-scripting:12:x86_64
-  osuse.example.org opensuse-addon-nonoss:42.2:x86_64
-  osuse.example.org opensuse:42.2:x86_64
+  osuse.example.org openSUSE-Addon-NonOss:42.2:x86_64
+  osuse.example.org openSUSE:42.2:x86_64
