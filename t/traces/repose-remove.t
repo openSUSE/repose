@@ -115,8 +115,9 @@ test::
   o rm -f * (glob)
   o do-remove osuse.example.org openSUSE:42.2::gm http://download.opensuse.org/distribution/leap/42.2/repo/oss/ 'openSUSE-Addon-NonOss:*:*:(*)'
   o do-remove osuse.example.org openSUSE:42.2::up http://download.opensuse.org/update/leap/42.2/oss/ 'openSUSE-Addon-NonOss:*:*:(*)'
-  o do-remove osuse.example.org openSUSE-Addon-NonOss:42.2::gm http://download.opensuse.org/distribution/leap/42.2/repo/oss/ 'openSUSE-Addon-NonOss:*:*:(*)'
-  o print ssh -n -q -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no osuse.example.org zypper -n rr http://download.opensuse.org/distribution/leap/42.2/repo/oss/
-  ssh -n -q -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no osuse.example.org zypper -n rr http://download.opensuse.org/distribution/leap/42.2/repo/oss/
-  o do-remove osuse.example.org http://download.opensuse.org/distribution/leap/42.2/repo/non-oss/ openSUSE-Addon-NonOss:42.2::up 'openSUSE-Addon-NonOss:*:*:(*)'
-  o do-remove osuse.example.org http://download.opensuse.org/update/leap/42.2/oss/ http://download.opensuse.org/update/leap/42.2/non-oss/ 'openSUSE-Addon-NonOss:*:*:(*)'
+  o do-remove osuse.example.org openSUSE-Addon-NonOss:42.2::gm http://download.opensuse.org/distribution/leap/42.2/repo/non-oss/ 'openSUSE-Addon-NonOss:*:*:(*)'
+  o print ssh -n -q -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no osuse.example.org zypper -n rr http://download.opensuse.org/distribution/leap/42.2/repo/non-oss/
+  ssh -n -q -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no osuse.example.org zypper -n rr http://download.opensuse.org/distribution/leap/42.2/repo/non-oss/
+  o do-remove osuse.example.org openSUSE-Addon-NonOss:42.2::up http://download.opensuse.org/update/leap/42.2/non-oss/ 'openSUSE-Addon-NonOss:*:*:(*)'
+  o print ssh -n -q -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no osuse.example.org zypper -n rr http://download.opensuse.org/update/leap/42.2/non-oss/
+  ssh -n -q -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no osuse.example.org zypper -n rr http://download.opensuse.org/update/leap/42.2/non-oss/
