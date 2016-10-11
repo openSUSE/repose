@@ -37,4 +37,4 @@ test::
   o xml sel -t -m /product -v ./name -o : --if ./baseversion -v ./baseversion --if ./patchlevel!=0 -o . -v ./patchlevel --break --else -v ./version --break -o : -v ./arch --nl */openSUSE:42.2.prod (glob)
   o xform-product openSUSE:42.2:x86_64
   o rm -rf * (glob)
-  osuse.example.org opensuse:42.2:x86_64
+  osuse.example.org openSUSE:42.2:x86_64
