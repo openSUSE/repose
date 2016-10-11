@@ -20,7 +20,7 @@ setup::
   >   openSUSE:42.2 \
   >   -- \
   >   openSUSE:42.2::{gm,up} \
-  >   openSUSE-Addons-NonOss:42.2::{gm,up}
+  >   openSUSE-Addon-NonOss:42.2::{gm,up}
 
 test::
 
@@ -54,5 +54,5 @@ test::
   o rm -f * (glob)
   osuse.example.org http://download.opensuse.org/distribution/leap/42.2/repo/oss/
   osuse.example.org http://download.opensuse.org/update/leap/42.2/oss/
-  osuse.example.org http://download.opensuse.org/distribution/leap/42.2/repo/oss/
-  osuse.example.org http://download.opensuse.org/update/leap/42.2/oss/
+  osuse.example.org http://download.opensuse.org/distribution/leap/42.2/repo/non-oss/
+  osuse.example.org http://download.opensuse.org/update/leap/42.2/non-oss/
