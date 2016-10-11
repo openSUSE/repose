@@ -3,7 +3,7 @@
 
 define H http://dl.example.org
 
-openSUSE
+openSUSE:
   gm http://download.opensuse.org/distribution/leap/$v/repo/oss/
   up http://download.opensuse.org/update/leap/$v/oss/
   dg http://download.opensuse.org/debug/distribution/leap/$v/repo/oss/

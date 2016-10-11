@@ -35,12 +35,14 @@ Remove all repositories
 function $cmdname-main # {{{
 {
   local -a options; options=(
-    h help
-    n print
+    h   help
+    n   print
+    t=  tag=
   )
   local print
   local on oa
   local -i oi=0
+
   while haveopt oi on oa $=options -- "$@"; do
     case $on in
     h | help      ) display-help $on ;;
@@ -51,7 +53,25 @@ function $cmdname-main # {{{
 
   (( $# )) || reject-misuse
 
-  o repose remove ${print:+-n} "$@" -- :
+  local -i seppos="$@[(i)--]"
+  local -a hosts; hosts=("$@[1,$((seppos - 1))]")
+  local -a repas; repas=("$@[$((seppos + 1)),-1]")
+
+  local REPLY
+  local -a reply parts products
+  local h rn  
+  local -i i
+
+  for h in $hosts; do
+    o rh-list-repos $h
+    local -A rhrepos; rhrepos=("${(@)reply}")
+    local -a rnames; rnames=("${(@ko)rhrepos}")
+    
+    for rn in $rnames; do
+      run-in $h zypper -n rr "${rhrepos[$rn]}"
+    done
+  done
+
 } # }}}
 
 $cmdname-main "$@"
