@@ -25,7 +25,7 @@ Add matching repositories
     -h                    Display this message
     --help                Display full help
     -n,--print            Display, do not perform destructive commands
-
+    -t,--tag              Set default tags (standard are gm up lt se)
   Operands:
     HOST                  Machine to operate on
     REPA                  Repository pattern
