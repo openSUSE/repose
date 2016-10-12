@@ -19,11 +19,11 @@ RST2HTMLFLAGS = --strict
 VPATH = $(rootdir)
 
 rootdir = @rootdir@
-cfgdir  = c
-docdir  = d
-smandir = m
-srcdir  = s
-testdir = t
+cfgdir  = cfg
+docdir  = doc
+smandir = man
+srcdir  = src
+testdir = tests
 testroot = $(rootdir)/$(testdir)
 
 commands  =
@@ -97,7 +97,7 @@ check: $(tests) | all
 
 .PHONY: clean
 clean:
-	$(RM) $(commands) $(auxfiles) $(cfgfiles) $(htmlfiles) $(manpages) repose.spec
+	$(RM) $(commands) $(auxfiles) $(cfgfiles) $(htmlfiles) $(manpages)
 
 
 .PHONY: install
@@ -129,9 +129,6 @@ tarball: .git
 	  --prefix $(pkgname)-$(fix_version)/ \
 	  --output $$wd/$(pkgname)-$(fix_version).tar.gz \
 	  HEAD
-
-$(pkgname).spec: p/$(pkgname).spec.in
-	$(call subst_version,^Version:)
 
 define subst_version
 	sed -e "/$(1)/s/__VERSION__/$(fix_version)/" \
