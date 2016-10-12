@@ -38,7 +38,9 @@ function do-remove # {{{
 {
   local h=$1 rn=$2 ru=$3; shift 3
   local -a repas; repas=("$@")
+
   [[ $rn == ${(j:|:)~repas} ]] || return 0
+
   rh-repo-remove $h $rn $ru
 } # }}}
 

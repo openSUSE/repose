@@ -19,45 +19,32 @@
 declare -gr cmdname=$0:t
 
 declare -gr cmdhelp=$'
-usage: #c -h | --help | HOST...
-List matching products
+usage: #c -h | --help | [-n] HOST... -- REPA...
+Enable matching repositories, disable their complementary set
   Options:
     -h                    Display this message
     --help                Display full help
+    -n,--print            Display, do not perform destructive commands
 
   Operands:
     HOST                  Machine to operate on
+    REPA                  Repository pattern
 '
 
 . ${REPOSE_PRELUDE:-@preludedir@/repose.prelude.zsh} || exit 2
 
-function $cmdname-main # {{{
+
+function do-switch-to # {{{
 {
-  local -a options; options=(
-    h help
-  )
-  local on oa
-  local -i oi=0
-  while haveopt oi on oa $=options -- "$@"; do
-    case $on in
-    h | help      ) display-help $on ;;
-    *             ) reject-misuse -$oa ;;
-    esac
-  done; shift $oi
+  local h=$1 rn=$2 ru=$3; shift 3
+  local -a repas; repas=("$@")
+  local state=d
 
-  (( $# )) || reject-misuse
+  if [[ $rn == ${(j:|:)~repas} ]]; then
+    state=e
+  fi
 
-  local -a hosts; hosts=("$@")
-
-  local REPLY r
-  local -a reply
-  local h
-  for h in $hosts; do
-    o rh-list-products $h
-    for r in $reply; do
-      print -f "%s %q\n" -- $h $r
-    done
-  done
+  run-in $h "zypper -n mr -$state $ru"
 } # }}}
 
-$cmdname-main "$@"
+main-hosts-repas "$@"
