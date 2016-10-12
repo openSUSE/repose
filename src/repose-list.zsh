@@ -39,6 +39,7 @@ function $cmdname-main # {{{
   )
   local on oa
   local -i oi=0
+
   while haveopt oi on oa $=options -- "$@"; do
     case $on in
     h | help      ) display-help $on ;;
@@ -65,6 +66,7 @@ function $cmdname-main # {{{
   done
 
   local h rn ru
+
   for h in $hosts; do
     o rh-list-repos $h
     for rn ru in $reply; do

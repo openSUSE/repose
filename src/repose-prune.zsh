@@ -42,11 +42,12 @@ function $cmdname-main # {{{
   local print
   local on oa
   local -i oi=0
+
   while haveopt oi on oa $=options -- "$@"; do
     case $on in
-    h | help      ) display-help $on ;;
-    n | print     ) print=print ;;
-    *             ) reject-misuse -$oa ;;
+      h | help      ) display-help $on ;;
+      n | print     ) print=print ;;
+      *             ) reject-misuse -$oa ;;
     esac
   done; shift $oi
 

@@ -68,17 +68,18 @@ function repoq-main # {{{
 
   local -i oi=0
   local on oa
+
   while haveopt oi on oa $=options -- "$@"; do
-  case $on in
-  h | help    ) display-help $on ;;
-  A | ar      ) o_zypper=ar ;;
-  F | file    ) o_rules=$oa ;;
-  N | no-name ) o_named= ;;
-  R | rr      ) o_zypper=rr ;;
-  a | arch    ) o_arch=$oa ;;
-  t | tag     ) o_tags+=($oa) ;;
-  *           ) reject-misuse -$oa ;;
-  esac
+    case $on in
+      h | help    ) display-help $on ;;
+      A | ar      ) o_zypper=ar ;;
+      F | file    ) o_rules=$oa ;;
+      N | no-name ) o_named= ;;
+      R | rr      ) o_zypper=rr ;;
+      a | arch    ) o_arch=$oa ;;
+      t | tag     ) o_tags+=($oa) ;;
+      *           ) reject-misuse -$oa ;;
+    esac
   done; shift $oi
 
   (( $# )) || reject-misuse
@@ -91,8 +92,7 @@ function repoq-main # {{{
   done
   # }}}
 
-  [[ -e $o_rules ]] \
-  || o complain 1 "file not found: ${(D)o_rules}"
+  [[ -e $o_rules ]] || o complain 1 "file not found: ${(D)o_rules}"
 
   o run-query "$@"
 } # }}}
@@ -106,8 +106,8 @@ function run-query # {{{
 
   for k v in $reply; do
     case $k in
-    define\|*) vars+=(${k#*\|} $v) ;;
-    *)         rules+=($k $v) ;;
+      define\|*) vars+=(${k#*\|} $v) ;;
+      *)         rules+=($k $v) ;;
     esac
   done
 
@@ -124,11 +124,14 @@ function handle-arg # {{{
   local arg=$1
   local -i rv=1
   local -a reply
+
   o fixup-request $arg
+
   local req=$reply[1]
   local tags=$reply[2]
 
   local pat=
+
   for pat in ${(k)rules}; do
     [[ $req == $~pat* ]] || continue
     rv=0
@@ -148,13 +151,16 @@ function fixup-request # {{{
 {
   local -a parts; parts=("${(@s.:.)1}" '' '' '')
   local tags="${${parts[4]:-${(j:,:)o_tags:-*}}//,/|}"
+
   [[ $tags == [~^]?* ]] && tags="*~(${tags#?})"
+
   tags="($tags)"
   parts=(
     "$parts[1]"
     "$parts[2]"
     "${parts[3]:-$o_arch}"
   )
+
   local req="${(@j.:.)parts}"
   reply=($req $tags)
 } # }}}
@@ -188,6 +194,7 @@ function read-rules # {{{
   local s
   local patt
   local -A rv
+
   ; cat $rules \
   | while IFS='\n' read s; do
       (( ++lino ))
@@ -279,12 +286,14 @@ function display-help # {{{
   }
 
   o exec man 1 $cmdname
+
   exit # we get here in tests
 } # }}}
 
 function display-helpstring # {{{
 {
   local v=$1 self=${cmdname/-/ }
+
   print -- ${${${${(P)v}//\#c/$self}//#[[:space:]]#/}//%[[:space:]]#/}
 } # }}}
 
@@ -293,13 +302,14 @@ function reject-misuse # {{{
   local val=${1-} self=${cmdname/-/ } ex=1
 
   case $val in
-  -?)  print -f "%s: unknown option '%s'\n" -- $self $val ;;
-  -?*) print -f "%s: unknown option '%s'\n" -- $self -$val ;;
-  ?*)  print -f "%s: no architecture requested for '%s'\n" -- $self $val ;;
-  '')  print -f "%s: missing argument\n" -- $self ;;
+    -?)  print -f "%s: unknown option '%s'\n" -- $self $val ;;
+    -?*) print -f "%s: unknown option '%s'\n" -- $self -$val ;;
+    ?*)  print -f "%s: no architecture requested for '%s'\n" -- $self $val ;;
+    '')  print -f "%s: missing argument\n" -- $self ;;
   esac
 
   print -u 2 -f $msg_run_for_usage $self
+
   exit $ex
 } # }}}
 

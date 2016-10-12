@@ -48,12 +48,12 @@ function $cmdname-main # {{{
 
   while haveopt oi on oa $=options -- "$@"; do
     case $on in
-    h | help      ) display-help $on ;;
-    n | print     ) print=print ;;
-    t | tag       ) (( first_tag )) && { first_tag=0; tags=() }
-                    tags+=($oa)
-                    ;;
-    *             ) reject-misuse -$oa ;;
+      h | help      ) display-help $on ;;
+      n | print     ) print=print ;;
+      t | tag       ) (( first_tag )) && { first_tag=0; tags=() }
+                      tags+=($oa)
+                      ;;
+      *             ) reject-misuse -$oa ;;
     esac
   done; shift $oi
 

@@ -29,9 +29,11 @@ function main-hosts-repas # {{{
     h help
     n print
   )
+
   local print
   local on oa
   local -i oi=0
+
   while haveopt oi on oa $=options -- "$@"; do
     case $on in
     h | help      ) display-help $on ;;
@@ -60,6 +62,7 @@ function main-hosts-repas # {{{
   done
 
   local h rn ru
+
   for h in $hosts; do
     o rh-list-repos $h
     for rn ru in $reply; do
@@ -75,11 +78,13 @@ function main-add-install # {{{
     n   print
     t=  tag=
   )
+
   local print
   local -a tags; tags=(gm lt se up)
   local -i first_tag=1
   local on oa
   local -i oi=0
+
   while haveopt oi on oa $=options -- "$@"; do
     case $on in
     h | help      ) display-help $on ;;
@@ -102,15 +107,16 @@ function main-add-install # {{{
 
   local -a parts
   local arch basev arg h rn zcmd
+
   for h in $hosts; do
-    o rh-get-arch-basev $h \
-    | read arch basev
+    o rh-get-arch-basev $h | read arch basev
 
     for arg in $patts; do
       parts=("${(@s.:.)arg}" '' '' '')
       parts=("${(@)parts[1,4]}")
-      [[ $parts[2] == (|'*') ]] \
-      && parts[2]=$basev
+
+      [[ $parts[2] == (|'*') ]] && parts[2]=$basev
+
       o repoq -A -a $arch ${(s: :)tags/#/-t }  "${${(@j.:.)parts}%%:##}" \
       | while read rn zcmd; do
           if test-online-repo $zcmd
@@ -118,9 +124,11 @@ function main-add-install # {{{
             run-in $h $zcmd
           fi
         done
+
       if (( DO_INSTALL )); then
         run-in $h "zypper -n --gpg-auto-import-keys in --force -l ${parts[1]}-release"
       fi
+
     done
   done
 } # }}}
@@ -130,7 +138,9 @@ function test-online-repo # {{{
 {
   local f_args=${1}
   local -a url
+
   url=(${(s: :)f_args})
+
   if curl -fIs ${url[6]}/repodata/repomd.xml > /dev/null ; then
     return 0
   elif curl -fIs ${url[6]}/suse/repodata/repomd.xml > /dev/null; then
@@ -145,11 +155,15 @@ function rh-list-products # {{{
 {
   local h=$1 d
   d=$(mktemp -d)
+
   trap "o rm -rf $d" EXIT
+
   o scp -Bq $h:/etc/products.d/\*.prod $d
 
   local pf REPLY
+
   reply=()
+
   for pf in $d/*.prod(N); do
     o xml-get-product $pf | read REPLY
     o xform-product $REPLY
@@ -160,27 +174,32 @@ function rh-list-products # {{{
 function xform-product # {{{
 {
   local -a r; r=("${(s.:.)1}")
+
   case $r[1] in
     SLED|SUSE_SLED) r[1]=(sled) ;;
     SLES|SUSE_SLES) r[1]=(sles) ;;
   esac
+
   case $r[1] in
     openSUSE|openSUSE-Addon-NonOss) REPLY="${(j.:.)r}" ;;
     *) REPLY="${(j.:.L)r}" ;;
-  esac
+  esac # returns string with normalized product:version:arch
 } # }}}
 
 
 function rh-fetch-baseproduct # {{{
 {
   local h=$1 f=$2
+
   o scp -Bq $h:/etc/products.d/baseproduct $f
 } # }}}
 
 function rh-get-arch-basev # {{{
 {
   local h=$1 f=$(mktemp -u)
+
   trap "o rm -f $f" EXIT
+
   o rh-fetch-baseproduct $h $f
   o xml-get-arch-basev $f
 } # }}}
@@ -224,9 +243,13 @@ function rh-list-repos # {{{
 {
   local host=$1 lr_xml
   local -a rv
+
   reply=()
+
   lr_xml=$(mktemp -u)
+
   trap "o rm -f $lr_xml" EXIT
+
   o redir -1 $lr_xml rh-fetch-repos $host
   o xml-get-repos $lr_xml
 } # }}}
@@ -240,6 +263,7 @@ function xml-get-repos # {{{
 {
   local f=$1 line
   local -a rv
+
   o xml sel -t \
     -m /stream/repo-list/repo \
     -v @name \
@@ -250,7 +274,8 @@ function xml-get-repos # {{{
   | while IFS=$'\001' read -A line; do
       rv+=($line)
     done
-  reply=($rv)
+
+  reply=($rv) # returns arrray of repositories
 } # }}}
 
 
@@ -260,26 +285,34 @@ function fixup-repa # {{{
     REPLY=$1
     return
   fi
+
   local -a parts
+
   parts=("${(@s.:.)1}" '' '' '')
   parts=("${(@)parts[1,4]:/#%/*}")
   parts[3]='*' # arch
+
   local tags="${parts[4]//,/|}"
+
   if [[ $tags == [~^]* ]]; then
     tags="*~(${tags#?})"
   fi
+
   parts[4]="($tags)"
-  REPLY=${(j.:.)parts}
+
+  REPLY=${(j.:.)parts} # return array parts as string with : dividers
 } # }}}
 
 
 function run-in # {{{
 {
   local h=$1 print=${print-}; shift
+
   case $h in
   .) o $print "$@" ;;
   *) o $print ssh -n -q -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no $h "$@" ;;
   esac
+
 } # }}}
 
 
@@ -287,38 +320,50 @@ function display-help # {{{
 {
   [[ $1 == h ]] && {
     local self=${cmdname/-/ }
+
     print -- ${${${cmdhelp//\#c/$self}//#[[:space:]]#/}//%[[:space:]]#/}
+
     exit
   }
+
   o exec man 1 $cmdname
+
   exit # we get here in tests
 } # }}}
 
 function reject-misuse # {{{
 {
   local val=${1-} self=${cmdname/-/ } ex=1
+
   case $val in
   -?)  print -f "%s: unknown option '%s'\n" -- $self $val ;;
   -?*) print -f "%s: unknown option '%s'\n" -- $self -$val ;;
   ?*)  print -f "%s: unknown argument '%s'\n" -- $self $val ;;
   '')  print -f "%s: missing argument\n" -- $self ;;
   esac
+
   print -f $msg_run_for_usage $self
+
   exit $ex
 } # }}}
 
 function complain # {{{
 {
   local ex=0 severity=warning
+
   if [[ $1 == <-> ]]; then
     ex=$1
     severity=error
   fi
+
   shift
+
   print -u 2 -f "%s: %s\n" $severity $1
+
   if (( $# > 1 )); then
     print -u 2 -f "%s\n" "$@[2,-1]"
   fi
+
   return $ex
 } # }}}
 
@@ -326,6 +371,7 @@ function redir # {{{
 {
   local -i o0=0 o1=1 o2=2
   local optname OPTARG OPTIND
+
   while getopts 0:1:2: optname; do
     case $optname in
     0) exec {o0}<$OPTARG ;;
@@ -333,6 +379,7 @@ function redir # {{{
     2) exec {o2}>$OPTARG ;;
     esac
   done; shift $((OPTIND - 1))
+
   o "$@" <&${o0} 1>&${o1} 2>&${o2}
 } # }}}
 
@@ -341,23 +388,28 @@ function O o # {{{
   local chatty=REPOSE_CHATTY
   local dryrun=REPOSE_DRYRUN
   local -i do_dryrun=0
+
   if [[ $1 == -n ]]; then
     shift
     do_dryrun=1
   fi
+
   if (( ${(P)#chatty} )); then
     if [[ "${(@j,%,)@}" == ${(P)~chatty} ]]; then
       print -ru $logfd -- $0 "${(q-)@}"
     fi
   fi
+
   if [[ $0 == o ]] && (( ${(P)#dryrun} )); then
     if [[ "${(@j,%,)@}" == ${(P)~dryrun} ]]; then
       do_dryrun=1
     fi
   fi
+
   if (( do_dryrun )); then
     return 0
   fi
+
   "$@"
 } # }}}
 

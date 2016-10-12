@@ -38,10 +38,11 @@ function $cmdname-main # {{{
   )
   local on oa
   local -i oi=0
+
   while haveopt oi on oa $=options -- "$@"; do
     case $on in
-    h | help      ) display-help $on ;;
-    *             ) reject-misuse -$oa ;;
+      h | help      ) display-help $on ;;
+      *             ) reject-misuse -$oa ;;
     esac
   done; shift $oi
 
@@ -52,6 +53,7 @@ function $cmdname-main # {{{
   local REPLY r
   local -a reply
   local h
+
   for h in $hosts; do
     o rh-list-products $h
     for r in $reply; do
