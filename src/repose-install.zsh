@@ -25,6 +25,7 @@ Install a product, add its repositories
     -h                    Display this message
     --help                Display full help
     -n,--print            Display, do not perform destructive commands
+    -t,--tag              Set tags for installation (default are gm lt se up)
 
   Operands:
     HOST                  Machine to operate on
