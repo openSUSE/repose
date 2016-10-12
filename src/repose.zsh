@@ -48,11 +48,12 @@ function $cmdname # {{{
   )
   local -i oi
   local on oa
+
   while haveopt oi on oa $=options -- "$@"; do
-  case $on in
-    h|help) display-help $on ;;
-    *)      reject-misuse -$oa ;;
-  esac
+    case $on in
+      h|help) display-help $on ;;
+      *)      reject-misuse -$oa ;;
+    esac
   done; shift $oi
 
   local REPLY
