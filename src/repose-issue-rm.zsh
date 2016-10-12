@@ -42,11 +42,12 @@ function $cmdname-main # {{{
   local print
   local on oa
   local -i oi=0
+
   while haveopt oi on oa $=options -- "$@"; do
     case $on in
-    h | help      ) display-help $on ;;
-    n | print     ) print=print ;;
-    *             ) reject-misuse -$oa ;;
+      h | help      ) display-help $on ;;
+      n | print     ) print=print ;;
+      *             ) reject-misuse -$oa ;;
     esac
   done; shift $oi
 
@@ -61,6 +62,7 @@ function $cmdname-main # {{{
 
   local REPLY
   local -i i
+
   for (( i=1; i <= $#issues; ++i )); do
     fixup-issue $issues[$i]
     issues[$i]=$REPLY
@@ -68,6 +70,7 @@ function $cmdname-main # {{{
 
   local -a reply hosts products repos
   local h rn ru
+
   for h in $hosts; do
     o rh-list-repos $h
     repos=($reply)

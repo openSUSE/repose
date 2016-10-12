@@ -39,9 +39,11 @@ function do-switch-to # {{{
   local h=$1 rn=$2 ru=$3; shift 3
   local -a repas; repas=("$@")
   local state=d
+
   if [[ $rn == ${(j:|:)~repas} ]]; then
     state=e
   fi
+
   run-in $h "zypper -n mr -$state $ru"
 } # }}}
 

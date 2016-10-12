@@ -42,11 +42,12 @@ function $cmdname-main # {{{
   local print
   local on oa
   local -i oi=0
+
   while haveopt oi on oa $=options -- "$@"; do
     case $on in
-    h | help      ) display-help $on ;;
-    n | print     ) print=print ;;
-    *             ) reject-misuse -$oa ;;
+      h | help      ) display-help $on ;;
+      n | print     ) print=print ;;
+      *             ) reject-misuse -$oa ;;
     esac
   done; shift $oi
 
@@ -60,6 +61,7 @@ function $cmdname-main # {{{
   (( $#issues )) || reject-misuse
 
   local issue
+
   for issue in $issues; do
     [[ -d $issue ]] || complain 1 "not a directory: $issue"
   done
@@ -67,10 +69,9 @@ function $cmdname-main # {{{
   local REPLY
   local -a reply hosts products repos
   local arch basev h rn ru
-  for h in $hosts; do
-    o rh-get-arch-basev $h \
-    | read arch basev
 
+  for h in $hosts; do
+    o rh-get-arch-basev $h | read arch basev
     o rh-list-products $h
     products=(${reply%:*})
 
