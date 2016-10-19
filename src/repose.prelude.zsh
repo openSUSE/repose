@@ -259,7 +259,9 @@ function rh-list-repos # {{{
 
 function rh-fetch-repos # {{{
 {
+  unsetopt err_return
   print= run-in $1 zypper -x lr
+  unsetopt err_return
 } # }}}
 
 function xml-get-repos # {{{
@@ -377,9 +379,9 @@ function redir # {{{
 
   while getopts 0:1:2: optname; do
     case $optname in
-    0) exec {o0}<$OPTARG ;;
-    1) exec {o1}>$OPTARG ;;
-    2) exec {o2}>$OPTARG ;;
+      0) exec {o0}<$OPTARG ;;
+      1) exec {o1}>$OPTARG ;;
+      2) exec {o2}>$OPTARG ;;
     esac
   done; shift $((OPTIND - 1))
 
