@@ -6,7 +6,17 @@ setup::
   $ . $TESTROOT/setup
 
 
-test::
+test case-mismatch::
+
+  $ repoq sle-module-Web-Scripting:12:x86_64:gm
+  repoq: no rule matches 'sle-module-Web-Scripting:12:x86_64:gm'
+  [1]
+
+  $ repoq sle-module-web-scripting:12:x86_64:gm
+  sle-module-web-scripting:12::gm http://dl.example.org/ibs/SUSE/Products/SLE-Module-Web-Scripting/12/x86_64/product/
+
+
+test special-snowflake products::
 
   $ repoq -a x86_64 suse-openstack-cloud:6
   suse-openstack-cloud:6::gm http://dl.example.org/ibs/SUSE/Products/OpenStack-Cloud/6/x86_64/product/
