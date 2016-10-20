@@ -36,9 +36,9 @@ function main-hosts-repas # {{{
 
   while haveopt oi on oa $=options -- "$@"; do
     case $on in
-    h | help      ) display-help $on ;;
-    n | print     ) print=print ;;
-    *             ) reject-misuse -$oa ;;
+      h | help      ) display-help $on ;;
+      n | print     ) print=print ;;
+      *             ) reject-misuse -$oa ;;
     esac
   done; shift $oi
 
@@ -77,6 +77,7 @@ function main-add-install # {{{
     h   help
     n   print
     t=  tag=
+    f   force
   )
 
   local print
@@ -84,15 +85,17 @@ function main-add-install # {{{
   local -i first_tag=1
   local on oa
   local -i oi=0
+  local force='--force '
 
   while haveopt oi on oa $=options -- "$@"; do
     case $on in
-    h | help      ) display-help $on ;;
-    n | print     ) print=print ;;
-    t | tag       ) (( first_tag )) && { first_tag=0; tags=() }
-                    tags+=($oa)
+      h | help      ) display-help $on ;;
+      n | print     ) print=print ;;
+      t | tag       ) (( first_tag )) && { first_tag=0; tags=() }
+                      tags+=($oa)
                     ;;
-    *             ) reject-misuse -$oa ;;
+      f | force     ) force='' ;;
+      *             ) reject-misuse -$oa ;;
     esac
   done; shift $oi
 
@@ -128,8 +131,11 @@ function main-add-install # {{{
         fi
       done < $tmpf
 
+      local zcmd="zypper -n --gpg-auto-import-keys in --force -l ${parts[1]}-release"
+      zcmd=${zcmd/${force}/}
+
       if (( DO_INSTALL )); then
-        run-in $h "zypper -n --gpg-auto-import-keys in --force -l ${parts[1]}-release"
+        run-in $h $zcmd
       fi
 
     done
