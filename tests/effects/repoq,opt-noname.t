@@ -29,7 +29,7 @@ happy path::
   http://dl.example.org/update/zypp-patches.suse.de/s390x/update/SLE-SERVER/11-SP3-POOL/
   http://dl.example.org/update/build-ncc.suse.de/SUSE/Updates/SLE-SERVER/11-SP3/s390x/update/
   http://dl.example.org/update/zypp-patches.suse.de/s390x/update/SLE-DEBUGINFO/11-SP3-POOL/
-  http://dl.example.org/update/build-ncc.suse.de/SUSE/Updates/SLE-DEBUGINFO/11-SP3/
+  http://dl.example.org/update/build-ncc.suse.de/SUSE/Updates/SLE-DEBUGINFO/11-SP3/s390x/update/
   http://dl.example.org/update/build-ncc.suse.de/SUSE/Updates/SLE-SERVER/11-SECURITY/s390x/update/
   http://dl.example.org/update/build-ncc.suse.de/SUSE/Updates/SLE-SERVER/11-SP3-LTSS/s390x/update/
   http://dl.example.org/update/zypp-patches.suse.de/s390x/update/SLE-SDK/11-SP3-POOL/
@@ -63,7 +63,7 @@ happy path::
   http://dl.example.org/update/zypp-patches.suse.de/s390x/update/SLE-SERVER/11-SP4-POOL/
   http://dl.example.org/update/build-ncc.suse.de/SUSE/Updates/SLE-SERVER/11-SP4/s390x/update/
   http://dl.example.org/update/zypp-patches.suse.de/s390x/update/SLE-DEBUGINFO/11-SP4-POOL/
-  http://dl.example.org/update/build-ncc.suse.de/SUSE/Updates/SLE-DEBUGINFO/11-SP4/
+  http://dl.example.org/update/build-ncc.suse.de/SUSE/Updates/SLE-DEBUGINFO/11-SP4/s390x/update/
   http://dl.example.org/update/build-ncc.suse.de/SUSE/Updates/SLE-SERVER/11-SECURITY/s390x/update/
   http://dl.example.org/update/build-ncc.suse.de/SUSE/Updates/SLE-SERVER/11-SP4-LTSS/s390x/update/
   http://dl.example.org/ibs/SUSE/Products/SLE-SDK/12/ppc64le/product/
