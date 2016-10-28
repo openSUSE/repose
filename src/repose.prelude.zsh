@@ -81,7 +81,7 @@ function main-add-install # {{{
   )
 
   local print
-  local -a tags; tags=(gm lt se up)
+  local -a tags; tags=(gm lt se nv at up)
   local -i first_tag=1
   local on oa
   local -i oi=0

@@ -110,14 +110,19 @@ FIXME: installs already present products::
   $ repose install -n {snafu,fubar}.example.org -- sle-we
   ssh -n -q -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no snafu.example.org zypper -n ar -cgkn sle-we:12::gm http://dl.example.org/ibs/SUSE/Products/SLE-WE/12/x86_64/product/ sle-we:12::gm
   ssh -n -q -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no snafu.example.org zypper -n ar -cfgkn sle-we:12::up http://dl.example.org/ibs/SUSE/Updates/SLE-WE/12/x86_64/update/ sle-we:12::up
+  ssh -n -q -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no snafu.example.org zypper -n ar -cfgkn sle-we:12::nv http://download.nvidia.com/novell/sle12/ sle-we:12::nv
+  ssh -n -q -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no snafu.example.org zypper -n ar -cfgkn sle-we:12::at http://www2.ati.com/suse/sle12/ sle-we:12::at
   ssh -n -q -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no snafu.example.org zypper -n --gpg-auto-import-keys in -l sle-we-release
   ssh -n -q -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no fubar.example.org zypper -n ar -cgkn sle-we:12::gm http://dl.example.org/ibs/SUSE/Products/SLE-WE/12/x86_64/product/ sle-we:12::gm
   ssh -n -q -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no fubar.example.org zypper -n ar -cfgkn sle-we:12::up http://dl.example.org/ibs/SUSE/Updates/SLE-WE/12/x86_64/update/ sle-we:12::up
+  ssh -n -q -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no fubar.example.org zypper -n ar -cfgkn sle-we:12::nv http://download.nvidia.com/novell/sle12/ sle-we:12::nv
+  ssh -n -q -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no fubar.example.org zypper -n ar -cfgkn sle-we:12::at http://www2.ati.com/suse/sle12/ sle-we:12::at
   ssh -n -q -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no fubar.example.org zypper -n --gpg-auto-import-keys in -l sle-we-release
 
   $ repose install -n osuse.example.org -- openSUSE-Addon-NonOss:42.2
   ssh -n -q -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no osuse.example.org zypper -n ar -cgkn openSUSE-Addon-NonOss:42.2::gm http://download.opensuse.org/distribution/leap/42.2/repo/non-oss/ openSUSE-Addon-NonOss:42.2::gm
   ssh -n -q -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no osuse.example.org zypper -n ar -cfgkn openSUSE-Addon-NonOss:42.2::up http://download.opensuse.org/update/leap/42.2/non-oss/ openSUSE-Addon-NonOss:42.2::up
+  ssh -n -q -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no osuse.example.org zypper -n ar -cfgkn openSUSE-Addon-NonOss:42.2::nv http://http.download.nvidia.com/opensuse/leap/42.2/ openSUSE-Addon-NonOss:42.2::nv
   ssh -n -q -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no osuse.example.org zypper -n --gpg-auto-import-keys in -l openSUSE-Addon-NonOss-release
 
 

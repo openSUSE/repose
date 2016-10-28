@@ -12,6 +12,7 @@ openSUSE:
 openSUSE-Addon-NonOss
   gm http://download.opensuse.org/distribution/leap/$v/repo/non-oss/
   up http://download.opensuse.org/update/leap/$v/non-oss/
+  nv http://http.download.nvidia.com/opensuse/leap/$v/
 
 sapaio:12
   gm $H/ibs/SUSE/Products/SLE-SAP/$V/$A/product/
@@ -89,8 +90,7 @@ sle-we:12
   dg $H/ibs/SUSE/Products/$P/$V/$A/product_debug/
   du $H/ibs/SUSE/Updates/$P/$V/$A/update_debug/
   nv http://download.nvidia.com/novell/sle${(L)V/-}/
-  at http://www2.ati.com/suse/sle${(L)V/-}/
-
+  at http://www2.ati.com/suse/sle12/
 
 sled:12
   gm $H/ibs/SUSE/Products/SLE-DESKTOP/$V/$A/product/
@@ -98,7 +98,7 @@ sled:12
   dg $H/ibs/SUSE/Products/SLE-DESKTOP/$V/$A/product_debug/
   du $H/ibs/SUSE/Updates/SLE-DESKTOP/$V/$A/update_debug/
   nv http://download.nvidia.com/novell/sle${(L)V/-}/
-  at http://www2.ati.com/suse/sle${(L)V/-}/
+  at http://www2.ati.com/suse/sle12/
 
 sled:11
   gm $H/update/zypp-patches.suse.de/$A/update/SLE-DESKTOP/$V-POOL/
