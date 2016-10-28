@@ -21,19 +21,19 @@ options -t TAG accumulate::
   sles:12::gm http://dl.example.org/ibs/SUSE/Products/SLE-SERVER/12/x86_64/product/
   sled:12.1::gm http://dl.example.org/ibs/SUSE/Products/SLE-DESKTOP/12-SP1/x86_64/product/
   sled:12.1::nv http://download.nvidia.com/novell/sle12sp1/
-  sled:12.1::at http://www2.ati.com/suse/sle12sp1/
+  sled:12.1::at http://www2.ati.com/suse/sle12/
 
 the 4th segment is a comma-delimited list of tags::
 
   $ repoq sles:12:x86_64:gm sled:12.1:x86_64:at,nv
   sles:12::gm http://dl.example.org/ibs/SUSE/Products/SLE-SERVER/12/x86_64/product/
   sled:12.1::nv http://download.nvidia.com/novell/sle12sp1/
-  sled:12.1::at http://www2.ati.com/suse/sle12sp1/
+  sled:12.1::at http://www2.ati.com/suse/sle12/
 
   $ repoq -a x86_64 sles:12::gm sled:12.1::at,nv
   sles:12::gm http://dl.example.org/ibs/SUSE/Products/SLE-SERVER/12/x86_64/product/
   sled:12.1::nv http://download.nvidia.com/novell/sle12sp1/
-  sled:12.1::at http://www2.ati.com/suse/sle12sp1/
+  sled:12.1::at http://www2.ati.com/suse/sle12/
 
 complementary sets (negation)::
 
