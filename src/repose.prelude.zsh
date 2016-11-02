@@ -167,7 +167,7 @@ function rh-list-products # {{{
 
   trap "o rm -rf $d" EXIT
 
-  o scp -Bq $h:/etc/products.d/\*.prod $d
+  o scp -Bq -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no $h:/etc/products.d/\*.prod $d
 
   local pf REPLY
 
@@ -200,7 +200,7 @@ function rh-fetch-baseproduct # {{{
 {
   local h=$1 f=$2
 
-  o scp -Bq $h:/etc/products.d/baseproduct $f
+  o scp -Bq -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no $h:/etc/products.d/baseproduct $f
 } # }}}
 
 function rh-get-arch-basev # {{{
