@@ -127,7 +127,7 @@ function main-add-install # {{{
       while read rn zcmd; do
         if test-online-repo $zcmd
           then
-            run-in $h $zcmd
+            run-in $h $zcmd || [[ ${?} == 4 ]] && continue
         fi
       done < $tmpf
 
