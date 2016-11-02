@@ -189,7 +189,7 @@ fake ssh <<\EOF
 EOF
 
 fake scp <<\EOF
-  [[ $1 == -Bq ]] && shift
+  [[ $1 == -Bq ]] && shift 5
   local f="${(@j:+:)@[1,-2]}"
   local -a s; s=(~/.fake-ssh/$~f(N))
   (( $#s )) || return 0
