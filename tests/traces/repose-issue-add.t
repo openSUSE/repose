@@ -30,3 +30,5 @@ test::
   o sumaxy * x86_64 sles:12 (glob)
   o print ssh -n -q -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no fubar.example.org 'zypper -n ar -cgkn sles:12::p=1085 http://dl.example.org/ibs/SUSE:/Maintenance:/1085/SUSE_Updates_SLE-SERVER_12_x86_64/ sles:12::p=1085'
   ssh -n -q -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no fubar.example.org zypper -n ar -cgkn sles:12::p=1085 http://dl.example.org/ibs/SUSE:/Maintenance:/1085/SUSE_Updates_SLE-SERVER_12_x86_64/ sles:12::p=1085
+  o print ssh -n -q -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no fubar.example.org 'zypper --gpg-auto-import-keys refresh sles:12::p=1085 > /dev/null'
+  ssh -n -q -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no fubar.example.org zypper --gpg-auto-import-keys refresh sles:12::p=1085 > /dev/null

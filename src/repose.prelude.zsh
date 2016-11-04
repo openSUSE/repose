@@ -128,6 +128,7 @@ function main-add-install # {{{
         if test-online-repo $zcmd
           then
             run-in $h $zcmd || [[ ${?} == 4 ]] && continue
+            run-in $h "zypper -n --gpg-auto-import-keys refresh $rn > /dev/null"
         fi
       done < $tmpf
 
