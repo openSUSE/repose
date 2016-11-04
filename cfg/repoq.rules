@@ -14,7 +14,7 @@ openSUSE-Addon-NonOss
   up http://download.opensuse.org/update/leap/$v/non-oss/
   nv http://http.download.nvidia.com/opensuse/leap/$v/
 
-sapaio:12
+SLES_SAP:12
   gm $H/ibs/SUSE/Products/SLE-SAP/$V/$A/product/
   up $H/ibs/SUSE/Updates/SLE-SAP/$V/$A/update/
   dg $H/ibs/SUSE/Products/SLE-SAP/$V/$A/product_debug/
