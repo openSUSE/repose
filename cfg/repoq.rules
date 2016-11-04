@@ -20,9 +20,15 @@ SLES_SAP:12
   dg $H/ibs/SUSE/Products/SLE-SAP/$V/$A/product_debug/
   du $H/ibs/SUSE/Updates/SLE-SAP/$V/$A/update_debug/
 
-sapaio:11
+SUSE_SLES_SAP:11.[3,4]
   gm $H/update/zypp-patches.suse.de/$A/update/SLE-SAP-AIO/$V-POOL/
   up $H/update/build-ncc.suse.de/SUSE/Updates/SLE-SAP-AIO/$V/$A/update/
+
+SUSE_SLES_SAP:11.2
+  gm-1 $H/update/zypp-patches.suse.de/$A/update/SLE-SAP-AIO/11-SP1-POOL/
+  gm $H/update/zypp-patches.suse.de/$A/update/SLE-SAP-AIO/$V/
+  up $H/update/build-ncc.suse.de/SUSE/Updates/SLE-SAP-AIO/11-SP1/$A/update/
+  up-1 $H/update/build-ncc.suse.de/SUSE/Updates/SLE-SAP-AIO/$V/$A/update/
 
 ses # SUSE Enterprise Storage
   gm $H/ibs/SUSE/Products/Storage/${v/#%1/1.0}/$A/product/
