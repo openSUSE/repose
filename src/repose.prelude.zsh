@@ -190,7 +190,7 @@ function xform-product # {{{
   esac
 
   case $r[1] in
-    openSUSE|openSUSE-Addon-NonOss) REPLY="${(j.:.)r}" ;;
+    SLES_SAP|openSUSE|openSUSE-Addon-NonOss) REPLY="${(j.:.)r}" ;;
     *) REPLY="${(j.:.L)r}" ;;
   esac # returns string with normalized product:version:arch
 } # }}}
