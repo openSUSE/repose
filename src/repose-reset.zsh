@@ -103,6 +103,7 @@ function $cmdname-main # {{{
         if test-online-repo $zcmd
         then
           run-in $h $zcmd
+          run-in $h "zypper -n --gpg-auto-import-keys refresh $rn > /dev/null"
         fi
       done
 

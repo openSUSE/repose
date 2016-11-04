@@ -79,6 +79,7 @@ function $cmdname-main # {{{
       o sumaxy $issue:a $arch $products \
       | while read rn ru; do
           run-in $h "zypper -n ar -cgkn $rn $ru $rn"
+          run-in $h "zypper --gpg-auto-import-keys refresh $rn > /dev/null"
         done
     done
   done
