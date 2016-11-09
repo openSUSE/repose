@@ -23,6 +23,8 @@ setopt warn_create_global
 
 . haveopt.sh || exit 2
 
+local ssh_opt="-Bq"
+
 function main-hosts-repas # {{{
 {
   local -a options; options=(
@@ -168,7 +170,7 @@ function rh-list-products # {{{
 
   trap "o rm -rf $d" EXIT
 
-  o scp -Bq -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no $h:/etc/products.d/\*.prod $d
+  o get-from $h /etc/products.d/\*.prod $d
 
   local pf REPLY
 
@@ -179,6 +181,7 @@ function rh-list-products # {{{
     o xform-product $REPLY
     reply+=($REPLY)
   done
+
 } # }}}
 
 function xform-product # {{{
@@ -202,7 +205,7 @@ function rh-fetch-baseproduct # {{{
 {
   local h=$1 f=$2
 
-  o scp -Bq -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no $h:/etc/products.d/baseproduct $f
+  o get-from $h /etc/products.d/baseproduct $f
 } # }}}
 
 function rh-get-arch-basev # {{{
@@ -328,6 +331,13 @@ function run-in # {{{
 
 } # }}}
 
+function get-from # {{{
+{
+  local h=$1 files=$2 target=$3 
+
+  o scp ${ssh_opt} -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no ${h}:${files} ${target}
+
+} # }}}
 
 function display-help # {{{
 {

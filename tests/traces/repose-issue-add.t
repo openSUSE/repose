@@ -17,11 +17,13 @@ test::
   o run-cmd */repose-issue-add -n fubar.example.org -- SUSE:Maintenance:1085:89320 (glob)
   o rh-get-arch-basev fubar.example.org
   o rh-fetch-baseproduct fubar.example.org * (glob)
+  o get-from fubar.example.org /etc/products.d/baseproduct * (glob)
   o scp -Bq -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no fubar.example.org:/etc/products.d/baseproduct * (glob)
   o xml-get-arch-basev * (glob)
   o xml sel -t -m /product -v arch -o ' ' -v baseversion --if patchlevel!=0 -o . -v patchlevel --break --nl * (glob)
   o rm -f * (glob)
   o rh-list-products fubar.example.org
+  o get-from fubar.example.org '/etc/products.d/*.prod' * (glob)
   o scp -Bq -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no 'fubar.example.org:/etc/products.d/*.prod' * (glob)
   o xml-get-product */SLES:12.prod (glob)
   o xml sel -t -m /product -v ./name -o : --if ./baseversion -v ./baseversion --if ./patchlevel!=0 -o . -v ./patchlevel --break --else -v ./version --break -o : -v ./arch --nl */SLES:12.prod (glob)
