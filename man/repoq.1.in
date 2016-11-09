@@ -272,10 +272,8 @@ release repository
 Nvidia driver repository
 . It Li up
 update repository
-.El
 . It Li se
 SECURITY Module repository
-.El
 . It Li lt
 LTS update repository
 .El
