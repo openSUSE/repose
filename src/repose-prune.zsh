@@ -22,13 +22,14 @@ declare -gr cmdhelp=$'
 usage: #c -h | --help | [-n] HOST... [-- REPA...]
 Remove stray repositories
   Options:
-    -h                    Display this message
-    --help                Display full help
-    -n,--print            Display, do not perform destructive commands
+    -h                     Display this message
+    --help                 Display full help
+    -n, --print            Display, do not perform destructive commands
+    -v, --verbose          Enable verbose mode for scp,ssh commands
 
   Operands:
-    HOST                  Machine to operate on
-    REPA                  Repository to whitelist
+    HOST                   Machine to operate on
+    REPA                   Repository to whitelist
 '
 
 . ${REPOSE_PRELUDE:-@preludedir@/repose.prelude.zsh} || exit 2
@@ -38,6 +39,7 @@ function $cmdname-main # {{{
   local -a options; options=(
     h help
     n print
+    v verbose
   )
   local print
   local on oa
@@ -47,6 +49,7 @@ function $cmdname-main # {{{
     case $on in
       h | help      ) display-help $on ;;
       n | print     ) print=print ;;
+      v | verbose   ) ssh_opt='' ;;
       *             ) reject-misuse -$oa ;;
     esac
   done; shift $oi
