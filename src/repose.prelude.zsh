@@ -23,13 +23,14 @@ setopt warn_create_global
 
 . haveopt.sh || exit 2
 
-local ssh_opt="-Bq"
+declare -g ssh_opt=-q
 
 function main-hosts-repas # {{{
 {
   local -a options; options=(
     h help
     n print
+    v verbose
   )
 
   local print
@@ -40,6 +41,7 @@ function main-hosts-repas # {{{
     case $on in
       h | help      ) display-help $on ;;
       n | print     ) print=print ;;
+      v | verbose   ) ssh_opt='' ;;
       *             ) reject-misuse -$oa ;;
     esac
   done; shift $oi
@@ -80,6 +82,7 @@ function main-add-install # {{{
     n   print
     t=  tag=
     f   force
+    v   verbose
   )
 
   local print
@@ -97,6 +100,7 @@ function main-add-install # {{{
                       tags+=($oa)
                     ;;
       f | force     ) force='' ;;
+      v | verbose   ) ssh_opt='' ;;
       *             ) reject-misuse -$oa ;;
     esac
   done; shift $oi
@@ -326,16 +330,16 @@ function run-in # {{{
 
   case $h in
   .) o $print "$@" ;;
-  *) o $print ssh -n -q -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no $h "$@" ;;
+  *) o $print ssh -n $ssh_opt -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no $h "$@" ;;
   esac
 
 } # }}}
 
 function get-from # {{{
 {
-  local h=$1 files=$2 target=$3 
+  local h=$1 files=$2 target=$3
 
-  o scp ${ssh_opt} -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no ${h}:${files} ${target}
+  o scp ${ssh_opt} -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no ${h}:${files} ${target}
 
 } # }}}
 
@@ -442,3 +446,4 @@ declare -Tgx REPOSE_DRYRUN repose_dryrun \|
 declare -gir logfd=2
 
 declare -gr msg_run_for_usage="run '%s -h' for usage instructions\n"
+
