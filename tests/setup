@@ -175,8 +175,8 @@ EOF
 fake ssh <<\EOF
   while [[ $1 == -* ]]; do
     case $1 in
-    -o) shift 2 ;;
-    -*) shift   ;;
+      -o) shift 2 ;;
+      -*) shift   ;;
     esac
   done
   local f="${(j:+:)${@/#${TMPDIR}*/TMP}}"
@@ -189,7 +189,12 @@ fake ssh <<\EOF
 EOF
 
 fake scp <<\EOF
-  [[ $1 == -Bq ]] && shift 5
+  while [[ $1 == -* ]]; do
+    case $1 in
+      -o) shift 2 ;;
+      -*) shift   ;;
+    esac
+  done
   local f="${(@j:+:)@[1,-2]}"
   local -a s; s=(~/.fake-ssh/$~f(N))
   (( $#s )) || return 0
