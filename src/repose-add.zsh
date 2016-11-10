@@ -22,13 +22,15 @@ declare -gr cmdhelp=$'
 usage: #c -h | --help | [-n] HOST... -- REPA...
 Add matching repositories
   Options:
-    -h                    Display this message
-    --help                Display full help
-    -n,--print            Display, do not perform destructive commands
-    -t,--tag              Set default tags (standard are gm up lt se)
+    -h                     Display this message
+    --help                 Display full help
+    -n, --print            Display, do not perform destructive commands
+    -t, --tag              Set default tags (standard are gm up lt se)
+    -v, --verbose          Enable verbose mode for scp,ssh commands
+
   Operands:
-    HOST                  Machine to operate on
-    REPA                  Repository pattern
+    HOST                   Machine to operate on
+    REPA                   Repository pattern
 '
 
 . ${REPOSE_PRELUDE:-@preludedir@/repose.prelude.zsh} || exit 2

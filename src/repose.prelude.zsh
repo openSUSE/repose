@@ -23,11 +23,14 @@ setopt warn_create_global
 
 . haveopt.sh || exit 2
 
+declare -g ssh_opt=-q
+
 function main-hosts-repas # {{{
 {
   local -a options; options=(
     h help
     n print
+    v verbose
   )
 
   local print
@@ -38,6 +41,7 @@ function main-hosts-repas # {{{
     case $on in
       h | help      ) display-help $on ;;
       n | print     ) print=print ;;
+      v | verbose   ) ssh_opt='' ;;
       *             ) reject-misuse -$oa ;;
     esac
   done; shift $oi
@@ -78,6 +82,7 @@ function main-add-install # {{{
     n   print
     t=  tag=
     f   force
+    v   verbose
   )
 
   local print
@@ -95,6 +100,7 @@ function main-add-install # {{{
                       tags+=($oa)
                     ;;
       f | force     ) force='' ;;
+      v | verbose   ) ssh_opt='' ;;
       *             ) reject-misuse -$oa ;;
     esac
   done; shift $oi
@@ -168,7 +174,7 @@ function rh-list-products # {{{
 
   trap "o rm -rf $d" EXIT
 
-  o scp -Bq -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no $h:/etc/products.d/\*.prod $d
+  o get-from $h /etc/products.d/\*.prod $d
 
   local pf REPLY
 
@@ -179,6 +185,7 @@ function rh-list-products # {{{
     o xform-product $REPLY
     reply+=($REPLY)
   done
+
 } # }}}
 
 function xform-product # {{{
@@ -202,7 +209,7 @@ function rh-fetch-baseproduct # {{{
 {
   local h=$1 f=$2
 
-  o scp -Bq -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no $h:/etc/products.d/baseproduct $f
+  o get-from $h /etc/products.d/baseproduct $f
 } # }}}
 
 function rh-get-arch-basev # {{{
@@ -323,11 +330,18 @@ function run-in # {{{
 
   case $h in
   .) o $print "$@" ;;
-  *) o $print ssh -n -q -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no $h "$@" ;;
+  *) o $print ssh -n $ssh_opt -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no $h "$@" ;;
   esac
 
 } # }}}
 
+function get-from # {{{
+{
+  local h=$1 files=$2 target=$3
+
+  o scp ${ssh_opt} -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no ${h}:${files} ${target}
+
+} # }}}
 
 function display-help # {{{
 {
@@ -432,3 +446,4 @@ declare -Tgx REPOSE_DRYRUN repose_dryrun \|
 declare -gir logfd=2
 
 declare -gr msg_run_for_usage="run '%s -h' for usage instructions\n"
+

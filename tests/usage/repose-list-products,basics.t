@@ -12,11 +12,12 @@ help::
   usage: repose list-products -h | --help | HOST...
   List matching products
     Options:
-      -h                    Display this message
-      --help                Display full help
+      -h                     Display this message
+      --help                 Display full help
+      -v, --verbose          Enable verbose mode for scp,ssh commands
   
     Operands:
-      HOST                  Machine to operate on
+      HOST                   Machine to operate on
 
   $ repose list-products --help
   o exec man 1 repose-list-products

@@ -22,15 +22,16 @@ declare -gr cmdhelp=$'
 usage: #c -h | --help | [-n] HOST... -- REPA...
 Install a product, add its repositories
   Options:
-    -h                    Display this message
-    --help                Display full help
-    -n,--print            Display, do not perform destructive commands
-    -t,--tag              Set tags for installation (default are gm lt se up)
-    -f,--force            Set force installation of [product]-release file
+    -h                     Display this message
+    --help                 Display full help
+    -n, --print            Display, do not perform destructive commands
+    -t, --tag              Set tags for installation (default are gm lt se up)
+    -f, --force            Set force installation of [product]-release file
+    -v, --verbose          Enable verbose mode for scp,ssh commands
 
   Operands:
-    HOST                  Machine to operate on
-    REPA                  Repository pattern
+    HOST                   Machine to operate on
+    REPA                   Repository pattern
 '
 
 . ${REPOSE_PRELUDE:-@preludedir@/repose.prelude.zsh} || exit 2
