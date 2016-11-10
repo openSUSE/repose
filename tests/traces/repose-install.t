@@ -58,3 +58,21 @@ test without force flag::
   o ssh -n -q -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no root@osuse.example.org 'zypper -n ar -cfgkn openSUSE-Addon-NonOss:42.2::nv http://http.download.nvidia.com/opensuse/leap/42.2/ openSUSE-Addon-NonOss:42.2::nv'
   o ssh -n -q -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no root@osuse.example.org 'zypper -n --gpg-auto-import-keys in -l openSUSE-Addon-NonOss-release'
 
+test with verbose flag::
+  $ repose install -v root@osuse.example.org  -- openSUSE-Addon-NonOss:42.2
+  o scp -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no root@osuse.example.org:/etc/products.d/baseproduct * (glob)
+  o repoq -A -a x86_64 -t gm -t lt -t se -t nv -t at -t up openSUSE-Addon-NonOss:42.2
+  o ssh -n -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no root@osuse.example.org 'zypper -n ar -cgkn openSUSE-Addon-NonOss:42.2::gm http://download.opensuse.org/distribution/leap/42.2/repo/non-oss/ openSUSE-Addon-NonOss:42.2::gm'
+  o ssh -n -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no root@osuse.example.org 'zypper -n ar -cfgkn openSUSE-Addon-NonOss:42.2::up http://download.opensuse.org/update/leap/42.2/non-oss/ openSUSE-Addon-NonOss:42.2::up'
+  o ssh -n -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no root@osuse.example.org 'zypper -n ar -cfgkn openSUSE-Addon-NonOss:42.2::nv http://http.download.nvidia.com/opensuse/leap/42.2/ openSUSE-Addon-NonOss:42.2::nv'
+  o ssh -n -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no root@osuse.example.org 'zypper -n --gpg-auto-import-keys in -l openSUSE-Addon-NonOss-release'
+
+test with verbose and force flag::
+  $ repose install -v -f root@osuse.example.org  -- openSUSE-Addon-NonOss:42.2
+  o scp -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no root@osuse.example.org:/etc/products.d/baseproduct * (glob)
+  o repoq -A -a x86_64 -t gm -t lt -t se -t nv -t at -t up openSUSE-Addon-NonOss:42.2
+  o ssh -n -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no root@osuse.example.org 'zypper -n ar -cgkn openSUSE-Addon-NonOss:42.2::gm http://download.opensuse.org/distribution/leap/42.2/repo/non-oss/ openSUSE-Addon-NonOss:42.2::gm'
+  o ssh -n -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no root@osuse.example.org 'zypper -n ar -cfgkn openSUSE-Addon-NonOss:42.2::up http://download.opensuse.org/update/leap/42.2/non-oss/ openSUSE-Addon-NonOss:42.2::up'
+  o ssh -n -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no root@osuse.example.org 'zypper -n ar -cfgkn openSUSE-Addon-NonOss:42.2::nv http://http.download.nvidia.com/opensuse/leap/42.2/ openSUSE-Addon-NonOss:42.2::nv'
+  o ssh -n -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no root@osuse.example.org 'zypper -n --gpg-auto-import-keys in --force -l openSUSE-Addon-NonOss-release'
+
