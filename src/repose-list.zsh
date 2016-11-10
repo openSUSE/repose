@@ -22,12 +22,13 @@ declare -gr cmdhelp=$'
 usage: #c -h | --help | HOST... [-- REPA...]
 List matching repositories
   Options:
-    -h                    Display this message
-    --help                Display full help
+    -h                     Display this message
+    --help                 Display full help
+    -v, --verbose          Enable verbose mode for scp,ssh commands
 
   Operands:
-    HOST                  Machine to operate on
-    REPA                  Repository to list
+    HOST                   Machine to operate on
+    REPA                   Repository to list
 '
 
 . ${REPOSE_PRELUDE:-@preludedir@/repose.prelude.zsh} || exit 2
@@ -36,6 +37,7 @@ function $cmdname-main # {{{
 {
   local -a options; options=(
     h help
+    v verbose
   )
   local on oa
   local -i oi=0
@@ -43,6 +45,7 @@ function $cmdname-main # {{{
   while haveopt oi on oa $=options -- "$@"; do
     case $on in
     h | help      ) display-help $on ;;
+    v | verbose   ) ssh_opt='' ;;
     *             ) reject-misuse -$oa ;;
     esac
   done; shift $oi
