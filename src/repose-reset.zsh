@@ -22,13 +22,14 @@ declare -gr cmdhelp=$'
 usage: #c -h | --help | [-n] HOST...
 Remove stray repositories, add missing ones
   Options:
-    -h                    Display this message
-    --help                Display full help
-    -n,--print            Display, do not perform destructive commands
-    -t,--tag              Set tags for installation ( default are gm up lt se)
+    -h                     Display this message
+    --help                 Display full help
+    -n, --print            Display, do not perform destructive commands
+    -t, --tag              Set tags for installation ( default are gm up lt se)
+    -v, --verbose          Enable verbose mode for scp,ssh commands
 
   Operands:
-    HOST                  Machine to operate on
+    HOST                   Machine to operate on
 '
 
 . ${REPOSE_PRELUDE:-@preludedir@/repose.prelude.zsh} || exit 2
@@ -39,6 +40,7 @@ function $cmdname-main # {{{
     h   help
     n   print
     t=  tag=
+    v   verbose
   )
   local print
   local -a tags; tags=(gm lt se up)
@@ -53,6 +55,7 @@ function $cmdname-main # {{{
       t | tag       ) (( first_tag )) && { first_tag=0; tags=() }
                       tags+=($oa)
                       ;;
+      v | verbose   ) ssh_opt='' ;;
       *             ) reject-misuse -$oa ;;
     esac
   done; shift $oi
