@@ -47,5 +47,3 @@ test::
   sles:12::up http://dl.example.org/ibs/SUSE/Updates/SLE-SERVER/12/s390x/update/
   sles:12::dg http://dl.example.org/ibs/SUSE/Products/SLE-SERVER/12/s390x/product_debug/
   sles:12::du http://dl.example.org/ibs/SUSE/Updates/SLE-SERVER/12/s390x/update_debug/
-  sles:12::lt http://dl.example.org/ibs/SUSE/Updates/SLE-SERVER/12-LTSS/s390x/update/
-  sles:12::dl http://dl.example.org/ibs/SUSE/Updates/SLE-SERVER/12-LTSS/s390x/update_debug/

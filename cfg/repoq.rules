@@ -121,10 +121,12 @@ sles:12
   up $H/ibs/SUSE/Updates/SLE-SERVER/$V/$A/update/
   dg $H/ibs/SUSE/Products/SLE-SERVER/$V/$A/product_debug/
   du $H/ibs/SUSE/Updates/SLE-SERVER/$V/$A/update_debug/
-  lt $H/ibs/SUSE/Updates/SLE-SERVER/$V-LTSS/$A/update/
-  dl $H/ibs/SUSE/Updates/SLE-SERVER/$V-LTSS/$A/update_debug/
 
-sles_rpi:12.2
+sles-ltss:12
+  up $H/ibs/SUSE/Updates/SLE-SERVER/$V-LTSS/$A/update/
+  du $H/ibs/SUSE/Updates/SLE-SERVER/$V-LTSS/$A/update_debug/
+
+sles_rpi:12.<2->
   gm $H/ibs/SUSE/Products/SLE-RPI/$V/$A/product/
   up $H/ibs/SUSE/Updates/SLE-RPI/$V/$A/update/
   dg $H/ibs/SUSE/Products/SLE-RPI/$V/$A/product_debug/
