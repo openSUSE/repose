@@ -1,8 +1,8 @@
 .. vim: ft=rst sw=2 sts=2 et
 
-====================
- **repose-issue-rm**
-====================
+===================
+**repose-issue-rm**
+===================
 
 ----------------------------------
 Remove issue-specific repositories

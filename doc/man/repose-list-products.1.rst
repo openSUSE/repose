@@ -1,29 +1,60 @@
-REPOSE-LIST-PRODUCTS(1) BSD General Commands Manual
-REPOSE-LIST-PRODUCTS(1)
+.. vim: ft=rst sw=2 sts=2 et
 
-NAME repose list-products — List matching products
+========================
+**repose-list-products**
+========================
 
-SYNOPSIS repose list-products -h \| --help repose list-products HOST...
+----------------------
+List matching products
+----------------------
 
-DESCRIPTION repose list-products displays information about products
-installed in each HOST. Each line of output contains the appropriate
-HOST followed by a single space, followed by P:V:A, where P is a Product
-name, V is a Version string, and A is an Architecture name. See repoq(1)
-for details.
+:Author: Roman Neuhauser <rneuhauser+repose@sigpipe.cz>
+:Date: Feb 04, 2016
+:Copyright: GPL-2.0
+:Version: 0.28
+:Manual section: 1
+:Manual group: BSD General Commands Manual
 
-OPTIONS -h Display usage instructions.
+SYNOPSIS
+========
+
+**repose list-products** **-h** \| **--help**
+
+**repose list-products** *HOST*...
+
+DESCRIPTION
+===========
+
+**repose list-products** displays information about products installed in each *HOST*. Each line of output contains the appropriate *HOST* followed by a single space, followed by **P**:**V**:**A**, where **P** is a **Product name**, **V** is a **Version string**, and **A** is an **Architecture name**. See repoq(1) for details.
+
+OPTIONS
+=======
+
+:-h:
+ Display usage instructions.
+
+:--help:
+ Display this manual page.
+
+OPERANDS
+========
+
+*HOST*
+ Machine to operate on (see repose(1)).
+
+EXAMPLES
+========
 
 ::
 
-     --help
-         Display this manual page.
+  $ repose list-products root@{fubar,snafu}.example.org
 
-OPERANDS HOST Machine to operate on (see repose(1)).
+SEE ALSO
+========
 
-EXAMPLES $ repose list-products root@{fubar,snafu}.example.org
+repose-list(1), smrt(1), ssh(1), zypper(8).
 
-SEE ALSO repose-list(1), smrt(1), ssh(1), zypper(8).
+REPOSE
+======
 
-REPOSE repose list-products is part of repose(1).
-
-BSD Feb 04, 2016 BSD
+**repose list-products** is part of repose(1).

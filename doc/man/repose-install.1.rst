@@ -38,7 +38,7 @@ OPTIONS
 :-n, --print:
  Write destructive operations to standard output, do not actually perform them.
 
--t, --tag\ =\ *TAG*
+:-t, --tag=\ *TAG*:
  See **-t**, **--tag** in repose-add(1).
 
 OPERANDS

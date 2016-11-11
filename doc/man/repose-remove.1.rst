@@ -27,7 +27,7 @@ DESCRIPTION
 
 **repose remove** removes, from each *HOST*, any number of package repositories.
 
-**repose remove** uses repoq(1) to generate zypper removerepo commands.
+**repose remove** uses repoq(1) to generate **zypper removerepo** commands.
 
 OPTIONS
 =======
@@ -74,5 +74,3 @@ REPOSE
 ======
 
 **repose remove** is part of repose(1).
-
-BSD Feb 04, 2016 BSD

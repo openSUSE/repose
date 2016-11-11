@@ -20,12 +20,12 @@ SYNOPSIS
 
 **repoq** **-h** \| **--help**
 
-**repoq** [**-F** RULES] [**-A** \| **-R**] [**-N**] [**-a** ARCH] [**-t** TAG]... REPA...
+**repoq** [**-F** *RULES*] [**-A** \| **-R**] [**-N**] [**-a** *ARCH*] [**-t** *TAG*]... *REPA*...
 
 DESCRIPTION
 ===========
 
-**repoq** writes to standard output information about repositories named in REPAs. By default, each line of output consist of two fields: **Repository name** and **Repository URL**, separated by a space. -N suppresses the first column, and **-A**, **-R** output zypper(8) commands in the second column.
+**repoq** writes to standard output information about repositories named in REPAs. By default, each line of output consist of two fields: **Repository name** and **Repository URL**, separated by a space. **-N** suppresses the first column, and **-A**, **-R** output zypper(8) commands in the second column.
 
 OPTIONS
 =======
@@ -37,27 +37,28 @@ OPTIONS
    Display full help.
 
 :-A, --addrepo:
-   Output zypper addrepo commands.
+   Output **zypper addrepo** commands.
 
-:-F, --file=RULES:
-   Use product/repository information from RULES.  This option overrides the $REPOQ_RULES environment variable.
+:-F, --file=\ *RULES*:
+   Use product/repository information from *RULES*.  This option overrides the $REPOQ_RULES environment variable.
 
 :-N, --no-name:
    Omit the first column (repository names) from output.
 
 :-R, --removerepo:
-   Output zypper removerepo commands.
+   Output **zypper removerepo** commands.
 
-:-a, --arch=ARCH:
-   Imply ARCH for REPAs without an explicit Architecture name.
+:-a, --arch=\ *ARCH*:
+   Imply *ARCH* for *REPA*\ s without an explicit **Architecture name**.
 
-:-t, --tag=TAG:
-   Imply TAG for REPAs without an explicit Tagset.
+:-t, --tag=\ *TAG*:
+   Imply *TAG* for *REPA*\ s without an explicit **Tagset**.
 
 OPERANDS
 ========
 
-:_REPA_: Repository pattern, see below.
+*REPA*
+ Repository pattern, see below.
 
 EXTENDED DESCRIPTION
 ====================
@@ -83,9 +84,9 @@ EXTENDED DESCRIPTION
      | **P**:**V**
      | **P**:**V**::**T**
 
-  Empty **A** requires --arch.  Empty **T** matches all tags (but see --tag).
+  Empty **A** requires **--arch**.  Empty **T** matches all tags (but see **--tag**).
 
-  Repository names output by **repoq** use the following grammar:
+  **Repository names** output by **repoq** use the following grammar:
 
       |
       | **P**:**V**::**T**
@@ -97,9 +98,9 @@ EXTENDED DESCRIPTION
       | **V**   is Version string
       | **T**   is Tag
 
-  Product names accepted and emitted are the variety found in */etc/products.d/\*.prod files* (XPath: */product/name/text()*). Exceptions: "SUSE_SLES", "SLES", and "sles" are equivalent; same with "SUSE_SLED", "SLED", and "sled".  **repoq** emits only the lowercase variants. **For use with openSUSE** product is "openSUSE" and "openSUSE-Addons-NonOss"
+  **Product names** accepted and emitted are the variety found in */etc/products.d/\*.prod files* (XPath: */product/name/text()*). Exceptions: "SUSE_SLES", "SLES", and "sles" are equivalent; same with "SUSE_SLED", "SLED", and "sled".  **repoq** emits only the lowercase variants. **For use with openSUSE** product is "openSUSE" and "openSUSE-Addons-NonOss"
 
-  **Version strings** use the **MAJOR**\[. **MINOR**\] format, where **MAJOR** is the value of */product/baseversion/text()*, and **MINOR** is the value of */product/patchlevel/text()* (omitted if it is empty or 0).
+  **Version strings** use the **MAJOR**\[.\ **MINOR**\] format, where **MAJOR** is the value of */product/baseversion/text()*, and **MINOR** is the value of */product/patchlevel/text()* (omitted if it is empty or 0).
 
   **Architecture names** are the variety found in */etc/products.d/\*.prod* files (XPath: /product/arch/text()).
 
@@ -122,14 +123,17 @@ EXTENDED DESCRIPTION
 ENVIRONMENT
 ===========
 
-:REPOQ\_RULES: This variable overrides the builtin default path to the configuration file, see repoq.rules(5).
+*REPOQ\_RULES*
+ This variable overrides the builtin default path to the configuration file, see repoq.rules(5).
 
-:REPOQ_CHATTY, REPOQ_DRYRUN: Development and testing aids.
+*REPOQ_CHATTY*, *REPOQ_DRYRUN*
+ Development and testing aids.
 
 FILES
 =====
 
-:/usr/local/etc/repose/repoq.rules: See repoq.rules(5). Default location of the database used by **repoq** to map repository patterns to repository name and url pairs.
+*/usr/local/etc/repose/repoq.rules*
+ See repoq.rules(5). Default location of the database used by **repoq** to map repository patterns to repository name and url pairs.
 
 EXIT STATUS
 ===========

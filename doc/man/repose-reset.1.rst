@@ -19,6 +19,7 @@ SYNOPSIS
 ========
 
 **repose reset** **-h** \| **--help**
+
 **repose reset** [**-n** \| **--print**] [**-t** *TAG*]... *HOST*...
 
 DESCRIPTION
@@ -62,6 +63,4 @@ repoq(1), repose(1), smrt(1), ssh(1), zypper(8).
 REPOSE
 ======
 
-repose reset is part of repose(1).
-
-BSD Feb 04, 2016 BSD
+**repose reset** is part of repose(1).

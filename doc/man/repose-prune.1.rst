@@ -1,38 +1,68 @@
-REPOSE-PRUNE(1) BSD General Commands Manual REPOSE-PRUNE(1)
+.. vim: ft=rst sw=2 sts=2 et
 
-NAME repose prune — Remove stray repositories
+================
+**repose-prune**
+================
 
-SYNOPSIS repose prune -h \| --help repose prune [-n \| --print] HOST...
-[-- REPA...]
+-------------------------
+Remove stray repositories
+-------------------------
 
-DESCRIPTION repose prune removes all package repositories except those
-that belong to an installed product or are whitelisted by the operands.
+:Author: Roman Neuhauser <rneuhauser+repose@sigpipe.cz>
+:Date: Feb 04, 2016
+:Copyright: GPL-2.0
+:Version: 0.28
+:Manual section: 1
+:Manual group: BSD General Commands Manual
 
-OPTIONS -h Display usage instructions.
+SYNOPSIS
+========
+
+**repose prune** **-h** \| **--help**
+
+**repose prune** [**-n** \| **--print**] *HOST*... [-- *REPA*...]
+
+DESCRIPTION
+===========
+
+**repose prune** removes all package repositories except those that belong to an installed product or are whitelisted by the operands.
+
+OPTIONS
+=======
+
+:-h:
+ Display usage instructions.
+
+:--help:
+ Display this manual page.
+
+:-n, --print:
+ Write destructive operations to standard output, do not actually perform them.
+
+OPERANDS
+========
+
+*HOST*
+ Machine to operate on (see repose(1)).
+
+*REPA*
+ Repository pattern (see repose(1)). Matching repositories will be kept.
+
+EXAMPLES
+========
+
+Whitelist repositories for **sled**.
 
 ::
 
-     --help
-         Display this manual page.
+  $ repose prune root@{fubar,snafu}.example.org -- sled
 
-     -n, --print
-         Write destructive operations to standard output, do not actually perform them.
+SEE ALSO
+========
 
-OPERANDS HOST Machine to operate on (see repose(1)).
+repoq(1), repose-remove(1), smrt(1), ssh(1), zypper(8).
 
-::
+REPOSE
+======
 
-     REPA
-         Repository pattern (see repose(1)). Matching repositories will be kept.
-
-EXAMPLES Whitelist repositories for sled.
-
-::
-
-     $ repose prune root@{fubar,snafu}.example.org -- sled
-
-SEE ALSO repoq(1), repose-remove(1), smrt(1), ssh(1), zypper(8).
-
-REPOSE repose prune is part of repose(1).
-
-BSD Feb 04, 2016 BSD
+**repose prune** is part of repose(1).

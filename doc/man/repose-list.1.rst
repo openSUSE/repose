@@ -63,5 +63,3 @@ REPOSE
 ======
 
 **repose list** is part of repose(1).
-
-BSD Feb 04, 2016 BSD

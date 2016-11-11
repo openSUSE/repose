@@ -25,7 +25,7 @@ SYNOPSIS
 DESCRIPTION
 ===========
 
-**repose add** adds, in each HOST, any number of package repositories. **repose add** uses repoq(1) to generate **zypper addrepo** commands.
+**repose add** adds, in each *HOST*, any number of package repositories. **repose add** uses repoq(1) to generate **zypper addrepo** commands.
 
 OPTIONS
 =======
@@ -38,7 +38,7 @@ OPTIONS
 :-n, --print:
  Write destructive operations to standard output, do not actually perform them.
 
-**-t, --tag**\=\ *TAG*
+:-t, --tag=\ *TAG*:
  Override default *TAG*\ s for tagless *REPA*\ s. See *REPA* in **OPERANDS** below and **-t**, **--tag** in repoq(1).
 
 OPERANDS
@@ -52,7 +52,7 @@ OPERANDS
   · **P** cannot be empty
   · **V** can be empty, in which case version string of the *baseproduct* is used
   · **A** can be empty, in which case architecture name of the *baseproduct* is used
-  · **T** defaults to **gm**,\ **lt**,\ **se**,\ **up**.
+  · **T** defaults to **gm**,\  **lt**,\  **se**,\  **up**.
 
 EXAMPLES
 ========
@@ -63,7 +63,7 @@ Add the **at**- and **nv**-tagged repositories for whatever **sled** version and
 
   $ repose add root@fubar.example.org -- sled:::at,nv
 
-Add default-tagged repositories for **sle-sdk**, **sle-we** addons.  As in the previous example, queries both hosts for their baseproduct versions and architectures.
+Add default-tagged repositories for **sle-sdk**, **sle-we** addons. As in the previous example, queries both hosts for their baseproduct versions and architectures.
 
 ::
 
