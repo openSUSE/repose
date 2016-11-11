@@ -8,7 +8,7 @@
 Output repository information for given products
 ------------------------------------------------
 
-:Author: grubert@users.sourceforge.net
+:Author: Roman Neuhauser <rneuhauser+repose@sigpipe.cz>
 :Date: Feb 04, 2016
 :Copyright: GPL-2.0
 :Version: 0.28
