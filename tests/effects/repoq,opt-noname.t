@@ -40,8 +40,6 @@ happy path::
   http://dl.example.org/ibs/SUSE/Updates/SLE-SERVER/12/s390x/update/
   http://dl.example.org/ibs/SUSE/Products/SLE-SERVER/12/s390x/product_debug/
   http://dl.example.org/ibs/SUSE/Updates/SLE-SERVER/12/s390x/update_debug/
-  http://dl.example.org/ibs/SUSE/Updates/SLE-SERVER/12-LTSS/s390x/update/
-  http://dl.example.org/ibs/SUSE/Updates/SLE-SERVER/12-LTSS/s390x/update_debug/
   http://dl.example.org/ibs/SUSE/Products/SLE-SDK/12/x86_64/product/
   http://dl.example.org/ibs/SUSE/Updates/SLE-SDK/12/x86_64/update/
   http://dl.example.org/ibs/SUSE/Products/SLE-SDK/12/x86_64/product_debug/
@@ -52,8 +50,6 @@ happy path::
   http://dl.example.org/ibs/SUSE/Updates/SLE-SERVER/12/s390x/update/
   http://dl.example.org/ibs/SUSE/Products/SLE-SERVER/12/s390x/product_debug/
   http://dl.example.org/ibs/SUSE/Updates/SLE-SERVER/12/s390x/update_debug/
-  http://dl.example.org/ibs/SUSE/Updates/SLE-SERVER/12-LTSS/s390x/update/
-  http://dl.example.org/ibs/SUSE/Updates/SLE-SERVER/12-LTSS/s390x/update_debug/
   http://dl.example.org/ibs/SUSE/Products/SLE-SDK/12-SP1/x86_64/product/
   http://dl.example.org/ibs/SUSE/Updates/SLE-SDK/12-SP1/x86_64/update/
   http://dl.example.org/ibs/SUSE/Products/SLE-SDK/12-SP1/x86_64/product_debug/
@@ -78,8 +74,6 @@ mixed results (*currently*, repoq does a single pass over its operands)::
   http://dl.example.org/ibs/SUSE/Updates/SLE-SERVER/12/x86_64/update/
   http://dl.example.org/ibs/SUSE/Products/SLE-SERVER/12/x86_64/product_debug/
   http://dl.example.org/ibs/SUSE/Updates/SLE-SERVER/12/x86_64/update_debug/
-  http://dl.example.org/ibs/SUSE/Updates/SLE-SERVER/12-LTSS/x86_64/update/
-  http://dl.example.org/ibs/SUSE/Updates/SLE-SERVER/12-LTSS/x86_64/update_debug/
   repoq: no rule matches 'notthere:69:omg'
   [1]
 
@@ -88,7 +82,5 @@ mixed results (*currently*, repoq does a single pass over its operands)::
   http://dl.example.org/ibs/SUSE/Updates/SLE-SERVER/12/x86_64/update/
   http://dl.example.org/ibs/SUSE/Products/SLE-SERVER/12/x86_64/product_debug/
   http://dl.example.org/ibs/SUSE/Updates/SLE-SERVER/12/x86_64/update_debug/
-  http://dl.example.org/ibs/SUSE/Updates/SLE-SERVER/12-LTSS/x86_64/update/
-  http://dl.example.org/ibs/SUSE/Updates/SLE-SERVER/12-LTSS/x86_64/update_debug/
   repoq: no rule matches 'notthere:69:omg'
   [1]
