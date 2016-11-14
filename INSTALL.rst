@@ -10,7 +10,8 @@ SUSE, openSUSE
 
 ::
 
-  zypper install cram curl haveopt make openssh sumaxy xmlstarlet zsh
+  zypper install cram curl haveopt make openssh sumaxy xmlstarlet \
+                 zsh python-docutils
   git clone https://github.com/openSUSE/repose.git
   mkdir repose-build
   cd repose-build
