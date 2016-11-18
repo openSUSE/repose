@@ -57,7 +57,7 @@ Exclude repositories whose names have the **gm** or **up** tag.
 SEE ALSO
 ========
 
-repoq(1), repose(1), repose-list-products(1), smrt(1), ssh(1), zypper(8).
+repoq(1), repose(1), repose-list-products(1), ssh(1), zypper(8).
 
 REPOSE
 ======

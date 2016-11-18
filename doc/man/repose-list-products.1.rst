@@ -52,7 +52,7 @@ EXAMPLES
 SEE ALSO
 ========
 
-repose-list(1), smrt(1), ssh(1), zypper(8).
+repose-list(1), ssh(1), zypper(8).
 
 REPOSE
 ======

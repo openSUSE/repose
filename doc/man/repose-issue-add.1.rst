@@ -48,7 +48,7 @@ OPERANDS
   Machine to operate on (see repose(1)).
 
 *ISSUEDIR*
-  Directory containing metadata for the maintenance issue to add repositories for. See smrt-fetch(1), sumaxy(1).
+  Directory containing metadata for the maintenance issue to add repositories for. See sumaxy(1).
 
 EXAMPLES
 ========
@@ -57,14 +57,13 @@ Install whatever issue repositories are appropriate (as identified by the mainte
 
 ::
 
-    $ smrt fetch SUSE:Maintenance:1234:56789
     $ cd SUSE:Maintenance:1234:56789
     $ repose issue-add root@{fubar,snafu}.example.org -- .
 
 SEE ALSO
 ========
 
-repoq(1), repose(1), repose-issue-rm(1), smrt(1), ssh(1), sumaxy(1), zypper(8).
+repoq(1), repose(1), repose-issue-rm(1), ssh(1), sumaxy(1), zypper(8).
 
 REPOSE
 ======

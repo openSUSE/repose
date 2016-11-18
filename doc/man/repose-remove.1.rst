@@ -68,7 +68,7 @@ Remove, from both hosts, repositories for **sle-sdk** and **sle-we** products.
 SEE ALSO
 ========
 
-repose(1), repose-add(1), smrt(1), ssh(1), zypper(8).
+repose(1), repose-add(1), ssh(1), zypper(8).
 
 REPOSE
 ======

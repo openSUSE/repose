@@ -60,7 +60,7 @@ Enable **sled** repositories, disable everything else.
 SEE ALSO
 ========
 
-repoq(1), repose-remove(1), smrt(1), ssh(1), zypper(8).
+repoq(1), repose-remove(1), ssh(1), zypper(8).
 
 REPOSE
 ======

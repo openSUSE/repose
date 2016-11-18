@@ -60,7 +60,7 @@ $ repose issue-rm root@{fubar,snafu}.example.org -- SUSE:Maintenance:1234 2345
 SEE ALSO
 ========
 
-repoq(1), repose(1), repose-issue-add(1), smrt(1), ssh(1), sumaxy(1), zypper(8).
+repoq(1), repose(1), repose-issue-add(1), ssh(1), sumaxy(1), zypper(8).
 
 REPOSE
 ======

@@ -112,7 +112,7 @@ REPOSITORY PATTERNS
 SEE ALSO
 ========
 
-repoq(1), scp(1), smrt(1), ssh(1), ssh-copy-id(1), zypper(8).
+repoq(1), scp(1), ssh(1), ssh-copy-id(1), zypper(8).
 
 BUGS
 ====

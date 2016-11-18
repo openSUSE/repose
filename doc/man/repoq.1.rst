@@ -169,12 +169,7 @@ Show all but the GPU-specific repositories for SUSE-DESKTOP 12:
 
 SEE ALSO
 ========
-refdb(1),
-repose(1),
-smrt(1),
-zshexpn(1),
-repoq.rules(5),
-zypper(8).
+refdb(1), repose(1), zshexpn(1), repoq.rules(5), zypper(8).
 
 REPOSE
 ======
