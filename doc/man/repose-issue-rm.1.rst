@@ -11,7 +11,7 @@ Remove issue-specific repositories
 :Author: Roman Neuhauser <rneuhauser+repose@sigpipe.cz>
 :Date: Feb 04, 2016
 :Copyright: GPL-3.0
-:Version: 0.26
+:Version: @VERSION@
 :Manual section: 1
 :Manual group: User Commands
 
@@ -45,7 +45,7 @@ OPTIONS
 OPERANDS
 ========
 
-*HOST* 
+*HOST*
  Machine to operate on (see repose(1)).
 
 *ISSUE*

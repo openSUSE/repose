@@ -11,7 +11,7 @@ Manipulate products and repositories
 :Author: Roman Neuhauser <rneuhauser+repose@sigpipe.cz>
 :Date: Feb 04, 2016
 :Copyright: GPL-3.0
-:Version: 0.26
+:Version: @VERSION@
 :Manual section: 1
 :Manual group: User Commands
 
@@ -95,7 +95,7 @@ REPOSITORY PATTERNS
 ===================
 
 **Repository patterns** accepted by **repose** are a variation on repoq(1) repository patterns:
- 
+
  |
  | [**P**][:[**V**][:[**A**][:[**T**]]]]
 

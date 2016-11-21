@@ -11,7 +11,7 @@ Output repository information for given products
 :Author: Roman Neuhauser <rneuhauser+repose@sigpipe.cz>
 :Date: Feb 04, 2016
 :Copyright: GPL-3.0
-:Version: 0.26
+:Version: @VERSION@
 :Manual section: 1
 :Manual group: User Commands
 
@@ -64,7 +64,7 @@ EXTENDED DESCRIPTION
 ====================
 
 **Repository patterns** accepted by **repoq** use the following grammar:
-  
+
   |
   | **P**:**V**\[:\[**A**\]\[:\[**T**\]\]\]
 
@@ -151,7 +151,7 @@ Show all repositories for SLE-SERVER and SLE-SDK 12-SP1 on x86\_64:
 
 Show product and update repositories for SLE-SERVER 12-SP1, and all but the product repository for SUSE Enterprise Storage 2.0, both on s390x:
 
-:: 
+::
 
   $ repoq -a s390x sles:12.1::gm,up ses:2.0::~gm
 
