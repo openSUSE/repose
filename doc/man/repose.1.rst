@@ -11,9 +11,9 @@ Manipulate products and repositories
 :Author: Roman Neuhauser <rneuhauser+repose@sigpipe.cz>
 :Date: Feb 04, 2016
 :Copyright: GPL-2.0
-:Version: 0.28
+:Version: 0.26
 :Manual section: 1
-:Manual group: BSD General Commands Manual
+:Manual group: User Commands
 
 SYNOPSIS
 ========
