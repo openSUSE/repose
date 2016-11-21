@@ -10,7 +10,7 @@ Remove matching repositories
 
 :Author: Roman Neuhauser <rneuhauser+repose@sigpipe.cz>
 :Date: Feb 04, 2016
-:Copyright: GPL-2.0
+:Copyright: GPL-3.0
 :Version: 0.26
 :Manual section: 1
 :Manual group: User Commands
