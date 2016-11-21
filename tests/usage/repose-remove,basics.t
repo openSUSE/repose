@@ -14,7 +14,8 @@ help::
     Options:
       -h                    Display this message
       --help                Display full help
-      -n,--print            Display, do not perform destructive commands
+      -n, --print           Display, do not perform destructive commands
+      -v, --verbose         Enable verbose mode for ssh|scp commands
   
     Operands:
       HOST                  Machine to operate on
