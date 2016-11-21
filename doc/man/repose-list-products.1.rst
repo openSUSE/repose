@@ -20,7 +20,7 @@ SYNOPSIS
 
 **repose list-products** **-h** \| **--help**
 
-**repose list-products** *HOST*...
+**repose list-products** [**-v** \| **--verbose**] *HOST*...
 
 DESCRIPTION
 ===========
@@ -35,6 +35,9 @@ OPTIONS
 
 :--help:
  Display this manual page.
+
+:-v, --verbose:
+ Disable quiet mode for ssh and scp that suppresses most warning and diagnostic messages.
 
 OPERANDS
 ========

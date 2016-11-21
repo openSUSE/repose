@@ -20,7 +20,7 @@ SYNOPSIS
 
 **repose issue-add** **-h** \| **--help**
 
-**repose issue-add** [**-n** \| **--print**] *HOST*... -- *ISSUEDIR*...
+**repose issue-add** [**-v** \| **--verbose**] [**-n** \| **--print**] *HOST*... -- *ISSUEDIR*...
 
 DESCRIPTION
 ===========
@@ -40,6 +40,9 @@ OPTIONS
 
 :-n, --print:
  Write destructive operations to standard output, do not actually perform them.
+
+:-v, --verbose:
+ Disable quiet mode for ssh and scp that suppresses most warning and diagnostic messages.
 
 OPERANDS
 ========

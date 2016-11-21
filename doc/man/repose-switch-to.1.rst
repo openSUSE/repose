@@ -20,7 +20,7 @@ SYNOPSIS
 
 **repose switch-to** **-h** \| **--help**
 
-**repose switch-to** [**-n** \| **--print**] *HOST*... -- *REPA*...
+**repose switch-to** [**-v** \| **--verbose**] [**-n** \| **--print**] *HOST*... -- *REPA*...
 
 DESCRIPTION
 ===========
@@ -38,6 +38,9 @@ OPTIONS
 
 :-n, --print:
  Write destructive operations to standard output, do not actually perform them.
+
+:-v, --verbose:
+ Disable quiet mode for ssh and scp that suppresses most warning and diagnostic messages.
 
 OPERANDS
 ========

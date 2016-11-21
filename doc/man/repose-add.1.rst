@@ -20,7 +20,7 @@ SYNOPSIS
 
 **repose add** **-h** \| **--help**
 
-**repose add** [**-n** \| **--print**] [**-t** *TAG*]... *HOST*... -- *REPA*...
+**repose add** [**-v** \| **--verbose**] [**-n** \| **--print**] [**-t** *TAG*]... *HOST*... -- *REPA*...
 
 DESCRIPTION
 ===========
@@ -40,6 +40,9 @@ OPTIONS
 
 :-t, --tag=\ *TAG*:
  Override default *TAG*\ s for tagless *REPA*\ s. See *REPA* in **OPERANDS** below and **-t**, **--tag** in repoq(1).
+
+:-v, --verbose:
+ Disable quiet mode for ssh and scp that suppresses most warning and diagnostic messages.
 
 OPERANDS
 ========

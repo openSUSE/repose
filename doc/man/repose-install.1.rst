@@ -20,7 +20,7 @@ SYNOPSIS
 
 **repose install** **-h** \| **--help**
 
-**repose install** [**-n** \| **--print**] [**-t** *TAG*]... *HOST*... -- *REPA*...
+**repose install** [**-v** \| **--verbose**] [**-n** \| **--print**] [**-t** *TAG*]... *HOST*... -- *REPA*...
 
 DESCRIPTION
 ===========
@@ -40,6 +40,9 @@ OPTIONS
 
 :-t, --tag=\ *TAG*:
  See **-t**, **--tag** in repose-add(1).
+
+:-v, --verbose:
+ Disable quiet mode for ssh and scp that suppresses most warning and diagnostic messages.
 
 OPERANDS
 ========
