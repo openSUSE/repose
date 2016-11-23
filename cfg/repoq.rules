@@ -82,20 +82,20 @@ sle-sdk:11
   up $H/update/build-ncc.suse.de/SUSE/Updates/$P/$V/$A/update/
 
 sle-slms:1.3
-  gm $H/update/zypp-patches.suse.de/$A/update/$P/$V-POOL/
-  up $H/update/build-ncc.suse.de/SUSE/Updates/$P/$V/$A/update/
+  gm $H/update/zypp-patches.suse.de/$A/update/$P/$v-POOL/
+  up $H/update/build-ncc.suse.de/SUSE/Updates/$P/$v/$A/update/
 
 sle-smt:11
   gm $H/update/zypp-patches.suse.de/$A/update/$P/$V-POOL/
   up $H/update/build-ncc.suse.de/SUSE/Updates/$P/$V/$A/update/
 
 sle-studioonsite:1.3
-  gm $H/update/zypp-patches.suse.de/$A/update/$P/$V-POOL/
-  up $H/update/build-ncc.suse.de/SUSE/Updates/$P/$V/$A/update/
+  gm $H/update/zypp-patches.suse.de/$A/update/$P/$v-POOL/
+  up $H/update/build-ncc.suse.de/SUSE/Updates/$P/$v/$A/update/
 
 sle-studioonsiterunner:1.3
-  gm $H/update/zypp-patches.suse.de/$A/update/$P/$V-POOL/
-  up $H/update/build-ncc.suse.de/SUSE/Updates/$P/$V/$A/update/
+  gm $H/update/zypp-patches.suse.de/$A/update/$P/$v-POOL/
+  up $H/update/build-ncc.suse.de/SUSE/Updates/$P/$v/$A/update/
 
 sle-we:12
   gm $H/ibs/SUSE/Products/$P/$V/$A/product/
