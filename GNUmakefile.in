@@ -5,6 +5,7 @@ mandir      = @mandir@
 man1dir     = $(mandir)/man1
 man5dir     = $(mandir)/man5
 sysconfdir  = @sysconfdir@
+version     = @version@
 
 etcdir      = @etcdir@
 preludedir  = @preludedir@
@@ -27,6 +28,7 @@ srcdir  = src
 testdir = tests
 rstdir  = $(rootdir)/$(docdir)/$(smandir)
 testroot = $(rootdir)/$(testdir)
+
 
 commands  =
 commands += repoq
@@ -70,6 +72,12 @@ $(commands): %: $(srcdir)/%.zsh
 
 $(manpages): %: $(rstdir)/%.rst
 	$(RST2MAN) $< $@
+	$(call subst_man_version)
+
+define subst_man_version
+	sed \
+		-i -e 's![@]VERSION[@]!$(version)!g' $@
+endef
 
 define subst_vars
 	sed \
