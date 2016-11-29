@@ -14,6 +14,7 @@ List matching repositories
 :Version: @VERSION@
 :Manual section: 1
 :Manual group: User Commands
+:Maintainer: openSUSE Project
 
 SYNOPSIS
 ========

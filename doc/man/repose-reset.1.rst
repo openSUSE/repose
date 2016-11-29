@@ -14,6 +14,7 @@ Remove stray repositories, add missing ones
 :Version: @VERSION@
 :Manual section: 1
 :Manual group: User Commands
+:Maintainer: openSUSE Project
 
 SYNOPSIS
 ========

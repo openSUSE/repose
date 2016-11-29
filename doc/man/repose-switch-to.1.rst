@@ -14,6 +14,7 @@ Enable matching repositories, disable their complementary set
 :Version: @VERSION@
 :Manual section: 1
 :Manual group: User Commands
+:Maintainer: openSUSE Project
 
 SYNOPSIS
 ========
