@@ -8,7 +8,7 @@
 Remove all repositories
 -----------------------
 
-:Author: Roman Neuhauser <rneuhauser+repose@sigpipe.cz>
+:Authors:
 :Date: Feb 04, 2016
 :Copyright: GPL-3.0
 :Version: @VERSION@

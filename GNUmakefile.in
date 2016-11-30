@@ -71,8 +71,14 @@ $(commands): %: $(srcdir)/%.zsh
 	$(call subst_vars)
 
 $(manpages): %: $(rstdir)/%.rst
-	$(RST2MAN) $< $@
+	$(call subst_authors)
+	$(RST2MAN) $(notdir $<) $@
 	$(call subst_man_version)
+
+define subst_authors
+    sed \
+        -e '/^:Authors:/ r $(rootdir)/AUTHORS' $< > $(notdir $<)
+endef
 
 define subst_man_version
 	sed \
@@ -108,7 +114,7 @@ check: $(tests) | all
 
 .PHONY: clean
 clean:
-	$(RM) $(commands) $(auxfiles) $(cfgfiles) $(htmlfiles) $(manpages)
+	$(RM) $(commands) $(auxfiles) $(cfgfiles) $(htmlfiles) $(manpages) $(addsuffix .rst,$(manpages))
 
 
 .PHONY: install
