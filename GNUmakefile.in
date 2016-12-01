@@ -5,6 +5,7 @@ mandir      = @mandir@
 man1dir     = $(mandir)/man1
 man5dir     = $(mandir)/man5
 sysconfdir  = @sysconfdir@
+version     = @version@
 
 etcdir      = @etcdir@
 preludedir  = @preludedir@
@@ -15,6 +16,7 @@ INSTALL = install
 LN = ln
 RST2HTML = rst2html5
 RST2HTMLFLAGS = --strict
+RST2MAN = rst2man
 
 VPATH = $(rootdir)
 
@@ -24,7 +26,9 @@ docdir  = doc
 smandir = man
 srcdir  = src
 testdir = tests
+rstdir  = $(rootdir)/$(docdir)/$(smandir)
 testroot = $(rootdir)/$(testdir)
+
 
 commands  =
 commands += repoq
@@ -66,8 +70,20 @@ all: $(commands) $(auxfiles) $(cfgfiles) $(manpages)
 $(commands): %: $(srcdir)/%.zsh
 	$(call subst_vars)
 
-$(manpages): %: $(smandir)/%.in
-	$(call subst_vars)
+$(manpages): %: $(rstdir)/%.rst
+	$(call subst_authors)
+	$(RST2MAN) $(notdir $<) $@
+	$(call subst_man_version)
+
+define subst_authors
+    sed \
+        -e '/^:Authors:/ r $(rootdir)/AUTHORS' $< > $(notdir $<)
+endef
+
+define subst_man_version
+	sed \
+		-i -e 's![@]VERSION[@]!$(version)!g' $@
+endef
 
 define subst_vars
 	sed \
@@ -83,6 +99,7 @@ $(auxfiles): %: $(srcdir)/%
 repoq.rules: $(cfgdir)/repoq.rules
 	$(INSTALL) -m 0644 $< $@
 
+
 .PHONY: html
 html: $(htmlfiles)
 
@@ -97,7 +114,7 @@ check: $(tests) | all
 
 .PHONY: clean
 clean:
-	$(RM) $(commands) $(auxfiles) $(cfgfiles) $(htmlfiles) $(manpages)
+	$(RM) $(commands) $(auxfiles) $(cfgfiles) $(htmlfiles) $(manpages) $(addsuffix .rst,$(manpages))
 
 
 .PHONY: install
