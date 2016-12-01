@@ -44,6 +44,7 @@ for a in "$@"; do
     sysconfdir="${a#*=}"
     sysconfdir_set=1
   ;;
+  --version=*)      version="${a#*=}"     ;;
   esac
 done
 

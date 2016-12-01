@@ -72,8 +72,8 @@ $(commands): %: $(srcdir)/%.zsh
 
 $(manpages): %: $(rstdir)/%.rst
 	$(call subst_authors)
-	$(RST2MAN) $(notdir $<) $@
 	$(call subst_man_version)
+	$(RST2MAN) $(notdir $<) $@
 
 define subst_authors
     sed \
@@ -82,7 +82,7 @@ endef
 
 define subst_man_version
 	sed \
-		-i -e 's![@]VERSION[@]!$(version)!g' $@
+		-e 's![@]VERSION[@]!$(version)!g' $< > $(notdir $<)
 endef
 
 define subst_vars
