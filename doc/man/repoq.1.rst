@@ -9,7 +9,6 @@ Output repository information for given products
 ------------------------------------------------
 
 :Authors:
-:Date: Feb 04, 2016
 :Copyright: GPL-3.0
 :Version: @VERSION@
 :Manual section: 1
