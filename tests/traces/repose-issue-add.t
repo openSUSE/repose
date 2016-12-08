@@ -30,10 +30,10 @@ test::
   o xform-product SLES:12:x86_64
   o rm -rf * (glob)
   o sumaxy * x86_64 sles:12 (glob)
-  o print ssh -n -q -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no fubar.example.org 'zypper -n ar -cgkn sles:12::p=1085 http://dl.example.org/ibs/SUSE:/Maintenance:/1085/SUSE_Updates_SLE-SERVER_12_x86_64/ sles:12::p=1085'
-  ssh -n -q -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no fubar.example.org zypper -n ar -cgkn sles:12::p=1085 http://dl.example.org/ibs/SUSE:/Maintenance:/1085/SUSE_Updates_SLE-SERVER_12_x86_64/ sles:12::p=1085
-  o print ssh -n -q -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no fubar.example.org 'zypper --gpg-auto-import-keys refresh sles:12::p=1085 > /dev/null'
-  ssh -n -q -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no fubar.example.org zypper --gpg-auto-import-keys refresh sles:12::p=1085 > /dev/null
+  o print ssh -n -q -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no fubar.example.org 'zypper -n ar -cgkn issue-sles:12::p=1085 http://dl.example.org/ibs/SUSE:/Maintenance:/1085/SUSE_Updates_SLE-SERVER_12_x86_64/ issue-sles:12::p=1085'
+  ssh -n -q -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no fubar.example.org zypper -n ar -cgkn issue-sles:12::p=1085 http://dl.example.org/ibs/SUSE:/Maintenance:/1085/SUSE_Updates_SLE-SERVER_12_x86_64/ issue-sles:12::p=1085
+  o print ssh -n -q -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no fubar.example.org 'zypper --gpg-auto-import-keys refresh issue-sles:12::p=1085 > /dev/null'
+  ssh -n -q -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no fubar.example.org zypper --gpg-auto-import-keys refresh issue-sles:12::p=1085 > /dev/null
 
 test verbose::
 
@@ -55,7 +55,7 @@ test verbose::
   o xform-product SLES:12:x86_64
   o rm -rf * (glob)
   o sumaxy * x86_64 sles:12 (glob)
-  o print ssh -n -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no fubar.example.org 'zypper -n ar -cgkn sles:12::p=1085 http://dl.example.org/ibs/SUSE:/Maintenance:/1085/SUSE_Updates_SLE-SERVER_12_x86_64/ sles:12::p=1085'
-  ssh -n -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no fubar.example.org zypper -n ar -cgkn sles:12::p=1085 http://dl.example.org/ibs/SUSE:/Maintenance:/1085/SUSE_Updates_SLE-SERVER_12_x86_64/ sles:12::p=1085
-  o print ssh -n -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no fubar.example.org 'zypper --gpg-auto-import-keys refresh sles:12::p=1085 > /dev/null'
-  ssh -n -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no fubar.example.org zypper --gpg-auto-import-keys refresh sles:12::p=1085 > /dev/null
+  o print ssh -n -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no fubar.example.org 'zypper -n ar -cgkn issue-sles:12::p=1085 http://dl.example.org/ibs/SUSE:/Maintenance:/1085/SUSE_Updates_SLE-SERVER_12_x86_64/ issue-sles:12::p=1085'
+  ssh -n -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no fubar.example.org zypper -n ar -cgkn issue-sles:12::p=1085 http://dl.example.org/ibs/SUSE:/Maintenance:/1085/SUSE_Updates_SLE-SERVER_12_x86_64/ issue-sles:12::p=1085
+  o print ssh -n -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no fubar.example.org 'zypper --gpg-auto-import-keys refresh issue-sles:12::p=1085 > /dev/null'
+  ssh -n -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no fubar.example.org zypper --gpg-auto-import-keys refresh issue-sles:12::p=1085 > /dev/null
