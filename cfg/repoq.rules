@@ -74,8 +74,8 @@ qa:1<1->
   up $H/ibs/QA:/SLE${V/-}/update/
 
 qa:4<1->
-  gm $H/ibs/QA:/openSUSE:${V/-}/standard/
-  up $H/ibs/QA:/openSUSE:${V/-}/update/
+  gm $H/ibs/QA:/openSUSE:/${V/-}/standard/
+  up $H/ibs/QA:/openSUSE:/${V/-}/update/
 
 sle-sdk:11
   gm $H/update/zypp-patches.suse.de/$A/update/$P/$V-POOL/
