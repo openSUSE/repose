@@ -55,10 +55,10 @@ sle-haegeo:11
   up $H/update/build-ncc.suse.de/SUSE/Updates/SLE-HAE/$V-GEO/$A/update/
 
 sle-(live-patching|manager-tools|module(-[[:lower:]]##)##):12
-  gm $H/ibs/SUSE/Products/${${(C)P}/#Sle-/SLE-}/12/$A/product/
-  up $H/ibs/SUSE/Updates/${${(C)P}/#Sle-/SLE-}/12/$A/update/
-  dg $H/ibs/SUSE/Products/${${(C)P}/#Sle-/SLE-}/12/$A/product_debug/
-  du $H/ibs/SUSE/Updates/${${(C)P}/#Sle-/SLE-}/12/$A/update_debug/
+  gm $H/ibs/SUSE/Products/${${${(C)P}/#Sle-/SLE-}/-Hpc/-HPC}/12/$A/product/
+  up $H/ibs/SUSE/Updates/${${${(C)P}/#Sle-/SLE-}/-Hpc/-HPC}/12/$A/update/
+  dg $H/ibs/SUSE/Products/${${${(C)P}/#Sle-/SLE-}/-Hpc/-HPC}/12/$A/product_debug/
+  du $H/ibs/SUSE/Updates/${${${(C)P}/#Sle-/SLE-}/-Hpc/-HPC}/12/$A/update_debug/
 
 sle-module-pubcloud:11
   up $H/update/build-ncc.suse.de/SUSE/Updates/SLE-SERVER/11-PUBCLOUD/$A/update
