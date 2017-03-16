@@ -13,6 +13,7 @@ openSUSE-Addon-NonOss
   gm http://download.opensuse.org/distribution/leap/$v/repo/non-oss/
   up http://download.opensuse.org/update/leap/$v/non-oss/
   nv http://http.download.nvidia.com/opensuse/leap/$v/
+  pm http://ftp.gwdg.de/pub/linux/misc/packman/suse/openSUSE_Leap_$v/
 
 SLES_SAP:12
   gm $H/ibs/SUSE/Products/SLE-SAP/$V/$A/product/
