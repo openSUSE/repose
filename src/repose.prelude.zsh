@@ -198,6 +198,7 @@ function xform-product # {{{
   esac
 
   case $r[1] in
+    packagehub) r[1]=(PackageHub) REPLY="${(j.:.)r}" ;;
     openSUSE|openSUSE-Addon-NonOss) REPLY="${(j.:.)r}" ;;
     SLES_SAP|SUSE_SLES_SAP) REPLY="${(j.:.)r}" ;;
     SUSE-Linux-Enterprise-RT) REPLY="${(j.:.)r}" ;;

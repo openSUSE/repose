@@ -3,6 +3,10 @@
 
 define H http://dl.example.org
 
+PackageHub:
+  up $H/ibs/SUSE/Backports/SLE-${V}_$A/product/
+  du $H/ibs/SUSE/Backports/SLE-${V}_$A/product_debug
+
 openSUSE:
   gm http://download.opensuse.org/distribution/leap/$v/repo/oss/
   up http://download.opensuse.org/update/leap/$v/oss/
