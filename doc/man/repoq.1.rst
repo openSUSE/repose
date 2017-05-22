@@ -119,6 +119,7 @@ EXTENDED DESCRIPTION
     | up          update repository
     | se          SECURITY Module repository
     | lt          LTS update repository
+    | td          Teradata update repository
 
 ENVIRONMENT
 ===========
