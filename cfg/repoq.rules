@@ -59,7 +59,13 @@ sle-haegeo:11
   gm $H/update/zypp-patches.suse.de/$A/update/SLE-HAE/$V-GEO-POOL/
   up $H/update/build-ncc.suse.de/SUSE/Updates/SLE-HAE/$V-GEO/$A/update/
 
-sle-(live-patching|manager-tools|module(-[[:lower:]]##)##):12
+sle-live-patching:12
+  gm $H/ibs/SUSE/Products/${${(C)P}/#Sle-/SLE-}/${${V/-SP1/}/-SP2/}/$A/product/
+  up $H/ibs/SUSE/Updates/${${(C)P}/#Sle-/SLE-}/${${V/-SP1/}/-SP2/}/$A/update/
+  dg $H/ibs/SUSE/Products/${${(C)P}/#Sle-/SLE-}/${${V/-SP1/}/-SP2/}/$A/product_debug/
+  du $H/ibs/SUSE/Updates/${${(C)P}/#Sle-/SLE-}/${${V/-SP1/}/-SP2/}/$A/update_debug/
+
+sle-(manager-tools|module(-[[:lower:]]##)##):12
   gm $H/ibs/SUSE/Products/${${${(C)P}/#Sle-/SLE-}/-Hpc/-HPC}/12/$A/product/
   up $H/ibs/SUSE/Updates/${${${(C)P}/#Sle-/SLE-}/-Hpc/-HPC}/12/$A/update/
   dg $H/ibs/SUSE/Products/${${${(C)P}/#Sle-/SLE-}/-Hpc/-HPC}/12/$A/product_debug/
