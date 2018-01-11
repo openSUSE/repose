@@ -154,9 +154,7 @@ sles:11.[3,4]
   up $H/update/build-ncc.suse.de/SUSE/Updates/SLE-SERVER/$V/$A/update/
   dg $H/update/zypp-patches.suse.de/$A/update/SLE-DEBUGINFO/$V-POOL/
   du $H/update/build-ncc.suse.de/SUSE/Updates/SLE-DEBUGINFO/$V/$A/update/
-  se $H/update/build-ncc.suse.de/SUSE/Updates/SLE-SERVER/${V/-*}-SECURITY/$A/update/
   lt $H/update/build-ncc.suse.de/SUSE/Updates/SLE-SERVER/$V-LTSS/$A/update/
-  td $H/update/build-ncc.suse.de/SUSE/Updates/SLE-SERVER/$V-TERADATA/$A/update/
 
 sles:11.2
   gm-1 $H/update/zypp-patches.suse.de/$A/update/SLE-SERVER/11-SP1-POOL/
@@ -174,8 +172,6 @@ sles:11.1
   up $H/update/build-ncc.suse.de/SUSE/Updates/SLE-SERVER/11-SP1/$A/update/
   dg $H/update/zypp-patches.suse.de/$A/update/SLE-DEBUGINFO/11-SP1-POOL/
   du $H/update/build-ncc.suse.de/SUSE/Updates/SLE-DEBUGINFO/11-SP1/$A/update/
-  se $H/update/build-ncc.suse.de/SUSE/Updates/SLE-SERVER/${V/-*}-SECURITY/$A/update/
-  td $H/update/build-ncc.suse.de/SUSE/Updates/SLE-SERVER/$V-TERADATA/$A/update/
 
 sles-for-vmware:11
   gm $H/update/zypp-patches.suse.de/$A/update/SLES4VMWARE/$V-POOL/
@@ -206,3 +202,9 @@ suse-sle12-cloud-compute:5
   up $H/ibs/SUSE/Updates/${(C)P/#SUSE-SLE}/$v/$A/update/
   dg $H/ibs/SUSE/Products/${(C)P/#SUSE-SLE}/$V/$A/product_debug/
   du $H/ibs/SUSE/Updates/${(C)P/#SUSE-SLE}/$V/$A/update_debug/
+
+teradata:11
+  up $H/update/build-ncc.suse.de/SUSE/Updates/SLE-SERVER/$V-TERADATA/$A/update/
+
+security:11
+  up $H/update/build-ncc.suse.de/SUSE/Updates/SLE-SERVER/${V/-*}-SECURITY/$A/update/
