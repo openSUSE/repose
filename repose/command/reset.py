@@ -1,0 +1,39 @@
+import logging
+from itertools import chain
+
+from .clear import Clear
+from ..utils import blue
+
+logger = logging.getLogger('repose.command.reset')
+
+
+class Reset(Clear):
+    command = True
+
+    def _add(self, target):
+        repoq = self._init_repoq()
+        cmds = set()
+        repolist = chain.from_iterable(x for x in repoq.solve_product(self.targets[target].products).values())
+        cmds.update(self.addcmd.format(name=x.name, url=x.url, params="-cfkn" if x.refresh else "-ckn")
+                    for x in repolist if self.check_url(x.url))
+        return cmds
+
+    def run(self):
+        self.targets.read_products()
+        self.targets.read_repos()
+
+        for host in self.targets.keys():
+            repoaliases = self._clear(host)
+            cmds = self._add(host)
+
+            if self.dryrun:
+                print(blue(host) + " - {}".format(self.rrcmd.format(repos=" ".join(repoaliases))))
+                for cmd in cmds:
+                    print(blue(host) + " - {}".format(cmd))
+            else:
+                self.targets[host].run(self.rrcmd.format(repos=" ".join(repoaliases)))
+                for cmd in cmds:
+                    self.targets[host].run(cmd)
+                    self._report_target(host)
+
+        self.targets.close()
