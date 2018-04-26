@@ -16,7 +16,7 @@ logger = logging.getLogger('repose.command')
 class Command(object):
     addcmd = "zypper -n ar {params} {name} {url} {name}"
     rrcmd = "zypper -n rr {repos}"
-    refcmd = "zypper -n ref -f"
+    refcmd = "zypper -n --gpg-auto-import-keys ref -f"
     ipdcmd = "zypper -n in -t product -l -f {products}"
     rrpcmd = "zypper -n rm -t product {products}"
 
