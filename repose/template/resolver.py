@@ -41,9 +41,12 @@ class Repoq(object):
             raise ValueError("Unknow version: {} for product: {}".format(repa.version, repa.product))
         name = "{}:{}::".format(repa.product, version)
 
+        # used by for example QA:SLE projects
+        shortversion = version.replace("-", "")
+
         if repa.repo:
             logger.debug("Return data for {} - {}".format(name, repa.repo))
-            url = Template(subtemplate[repa.repo][0]).substitute(version=version, arch=repa.arch)
+            url = Template(subtemplate[repa.repo][0]).substitute(version=version, arch=repa.arch, shortver=shortversion)
             rname = name + repa.repo
             refresh = subtemplate[repa.repo][1]
             result[repa.product] = [Repos(rname, url, refresh)]
@@ -51,7 +54,7 @@ class Repoq(object):
             rlist = []
             for x in subtemplate['default_repos']:
                 logger.debug("Return data for {} - {}".format(name, x))
-                url = Template(subtemplate[x][0]).substitute(version=version, arch=repa.arch)
+                url = Template(subtemplate[x][0]).substitute(version=version, arch=repa.arch, shortver=shortversion)
                 rname = name + x
                 refresh = subtemplate[x][1]
                 rlist.append(Repos(rname, url, refresh))
