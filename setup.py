@@ -9,6 +9,7 @@ setup(
     packages=find_packages(),
     install_requires=['paramiko', 'qamlib'],
     tests_require=['pytest'],
+    entry_points={'console_scripts': ['repose = repose.main:main']},
 
     author="Ondřej Súkup",
     author_email="osukup@suse.cz")
