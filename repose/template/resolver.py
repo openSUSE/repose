@@ -46,17 +46,18 @@ class Repoq(object):
 
         if repa.repo:
             logger.debug("Return data for {} - {}".format(name, repa.repo))
-            url = Template(subtemplate[repa.repo][0]).substitute(version=version, arch=repa.arch, shortver=shortversion)
+            url = Template(subtemplate[repa.repo]['url']).substitute(
+                version=version, arch=repa.arch, shortver=shortversion)
             rname = name + repa.repo
-            refresh = subtemplate[repa.repo][1]
+            refresh = subtemplate[repa.repo].get('enabled', False)
             result[repa.product] = [Repos(rname, url, refresh)]
         else:
             rlist = []
             for x in subtemplate['default_repos']:
                 logger.debug("Return data for {} - {}".format(name, x))
-                url = Template(subtemplate[x][0]).substitute(version=version, arch=repa.arch, shortver=shortversion)
+                url = Template(subtemplate[x]['url']).substitute(version=version, arch=repa.arch, shortver=shortversion)
                 rname = name + x
-                refresh = subtemplate[x][1]
+                refresh = subtemplate[x].get('enabled', False)
                 rlist.append(Repos(rname, url, refresh))
             result[repa.product] = rlist
 
@@ -74,9 +75,10 @@ class Repoq(object):
             rlist = []
             for repo in template[product.name][product.version]['default_repos']:
                 url = Template(
-                    template[product.name][product.version][repo][0]).substitute(
+                    template[product.name][product.version][repo]['url']).substitute(
                     version=product.version, arch=product.arch)
-                rlist.append(Repos(name + repo, url, template[product.name][product.version][repo][1]))
+                rlist.append(Repos(name + repo, url, template[product.name]
+                                   [product.version][repo].get('enabled', False)))
             result.update({product.name: rlist})
 
         return result
