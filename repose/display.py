@@ -23,3 +23,8 @@ class CommandDisplay(object):
             self.println("{}: {}".format(green("REPO name"), repository.name))
             self.println("{}: {}".format(green("REPO URL"), repository.url))
         self.println()
+
+    def list_known_products(self, products):
+        self.println(green("Products known by 'repose':"))
+        self.println(" ".join(products))
+        self.println()

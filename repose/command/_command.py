@@ -23,8 +23,9 @@ class Command(object):
     def __init__(self, args):
         __dtargets = {}
 
-        for x in args.target:
-            __dtargets.update(x)
+        if 'target' in args:
+            for x in args.target:
+                __dtargets.update(x)
 
         targets = HostGroup(__dtargets)
         targets.connect()
@@ -40,8 +41,11 @@ class Command(object):
         self.display = CommandDisplay(sys.stdout)
         self.repa = args.repa if 'repa' in args else None
 
+    def _load_template(self):
+        return load_template(self.template_path)
+
     def _init_repoq(self):
-        return Repoq(load_template(self.template_path))
+        return Repoq(self._load_template())
 
     def _report_target(self, target):
 

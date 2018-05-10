@@ -52,6 +52,11 @@ def do_reset(args):
     Reset(args).run()
 
 
+def do_known_products(args):
+    from repose.command import KnownProducts
+    KnownProducts(args).run()
+
+
 def get_parser():
     """
     Process the parsed arguments and return the result
@@ -219,5 +224,12 @@ def get_parser():
         required=True,
         help="Target to operate on")
     cmdlistr.set_defaults(func=do_list_repos)
+
+    # command KnownProducts
+
+    cmdknown = commands.add_parser(
+        'known-products',
+        help="List known products by 'repose'")
+    cmdknown.set_defaults(func=do_known_products)
 
     return parser
