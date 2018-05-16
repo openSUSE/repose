@@ -1,7 +1,7 @@
 
 import sys
 from urllib.request import urlopen
-from urllib.error import HTTPError
+from urllib.error import HTTPError, URLError
 import logging
 
 from ..target.hostgroup import HostGroup
@@ -61,11 +61,11 @@ class Command(object):
         state = True
         try:
             urlopen(url + "repodata/repomd.xml")
-        except HTTPError:
+        except (HTTPError, URLError):
             state = False
         if not state:
             try:
                 urlopen(url + "suse/repodata/repomd.xml")
-            except HTTPError:
+            except (HTTPError, URLError):
                 state = False
         return state
