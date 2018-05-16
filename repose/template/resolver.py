@@ -4,6 +4,8 @@ from string import Template
 from collections import namedtuple
 from copy import deepcopy
 
+from ..messages import UnsuportedProductMessage
+
 Repos = namedtuple("Repos", ("name", "url", "refresh"))
 
 logger = logging.getLogger('repose.template.resolver')
@@ -74,12 +76,14 @@ class Repoq(object):
         for product in installed:
             name = "{}:{}::".format(product.name, product.version)
             rlist = []
-            for repo in template[product.name][product.version]['default_repos']:
-                url = Template(
-                    template[product.name][product.version].get(repo, {"url": "http://empty.url"})['url']).substitute(
-                    version=product.version, arch=product.arch)
-                rlist.append(Repos(name + repo, url, template[product.name]
-                                   [product.version].get(repo, {}).get('enabled', False)))
-            result.update({product.name: rlist})
-
+            try:
+                for repo in template[product.name][product.version]['default_repos']:
+                    url = Template(
+                        template[product.name][product.version].get(repo, {"url": "http://empty.url"})['url']).substitute(
+                        version=product.version, arch=product.arch)
+                    rlist.append(Repos(name + repo, url, template[product.name]
+                                       [product.version].get(repo, {}).get('enabled', False)))
+                result.update({product.name: rlist})
+            except KeyError:
+                raise UnsuportedProductMessage(product)
         return result

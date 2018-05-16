@@ -32,6 +32,8 @@ class UserError(UserMessage, RuntimeError):
     Error, caused by improper usage of the program,
     to be displayed to the user
     """
+
+
 class ConnectingTargetFailedMessage(UserMessage):
 
     def __init__(self, hostname, port, reason):
@@ -59,3 +61,12 @@ class ConnectingToMessage(UserMessage):
 
     def __str__(self):
         return 'connecting to {0}'.format(self.hostname)
+
+
+class UnsuportedProductMessage(UserMessage):
+
+    def __init__(self, product):
+        self.product = product
+
+    def __str__(self):
+        return 'Unsupported product {} version {}'.format(self.product.name, self.product.version)

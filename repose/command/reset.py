@@ -3,6 +3,7 @@ from itertools import chain
 
 from .clear import Clear
 from ..utils import blue
+from ..messages import UnsuportedProductMessage
 
 logger = logging.getLogger('repose.command.reset')
 
@@ -24,16 +25,19 @@ class Reset(Clear):
 
         for host in self.targets.keys():
             repoaliases = self._clear(host)
-            cmds = self._add(host)
+            try:
+                cmds = self._add(host)
 
-            if self.dryrun:
-                print(blue(host) + " - {}".format(self.rrcmd.format(repos=" ".join(repoaliases))))
-                for cmd in cmds:
-                    print(blue(host) + " - {}".format(cmd))
-            else:
-                self.targets[host].run(self.rrcmd.format(repos=" ".join(repoaliases)))
-                for cmd in cmds:
-                    self.targets[host].run(cmd)
-                    self._report_target(host)
+                if self.dryrun:
+                    print(blue(host) + " - {}".format(self.rrcmd.format(repos=" ".join(repoaliases))))
+                    for cmd in cmds:
+                        print(blue(host) + " - {}".format(cmd))
+                else:
+                    self.targets[host].run(self.rrcmd.format(repos=" ".join(repoaliases)))
+                    for cmd in cmds:
+                        self.targets[host].run(cmd)
+                        self._report_target(host)
+            except UnsuportedProductMessage as e:
+                logger.error("Refhost {} - {}".format(host, e))
 
         self.targets.close()
