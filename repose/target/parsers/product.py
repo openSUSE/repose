@@ -64,6 +64,7 @@ def parse_system(connection):
         with connection.open('/etc/products.d/{}'.format(x)) as f:
             logger.debug("parsing - {}".format(x))
             name, version, arch = __parse_product(f)
-            addons.add(Product(name, version, arch))
+            if name.rpartition('-')[-1] != 'migration':
+                addons.add(Product(name, version, arch))
 
     return System(base, addons)
