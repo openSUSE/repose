@@ -33,7 +33,7 @@ def __parse_os_release(f):
 
 def parse_system(connection):
     try:
-        files = [x for x in connection.listdir('/etc/products.d') if x != 'qa.prod' and x.endswith(".prod")]
+        files = [x for x in connection.listdir('/etc/products.d') if x.endswith(".prod")]
     except IOError:
         logger.debug("Not SUSE's system")
         suse = False
