@@ -80,7 +80,7 @@ class Repoq(object):
                 for repo in template[product.name][product.version]['default_repos']:
                     url = Template(
                         template[product.name][product.version].get(repo, {"url": "http://empty.url"})['url']).substitute(
-                        version=product.version, arch=product.arch)
+                        version=product.version, arch=product.arch, shortver=product.version.replace('-',''))
                     rlist.append(Repos(name + repo, url, template[product.name]
                                        [product.version].get(repo, {}).get('enabled', False)))
                 result.update({product.name: rlist})
