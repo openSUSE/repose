@@ -27,32 +27,34 @@ class Uninstall(Remove):
         self.targets.read_repos()
         self.targets.parse_repos()
         orepa = []
+
         for r in self.repa:
             r.repo = None
             orepa.append(r)
 
         for host in self.targets.keys():
-
             patterns = self._calculate_pattern(orepa, host)
-
             if not patterns:
-                logger.info("For {} no repos for remove found".format(host))
+                logger.info("For {} no products for remove found".format(host))
                 continue
 
             rdict = self._calculate_repodict(host, patterns)
             if not rdict:
                 logger.info("For {} no repos for remove found".format(host))
-                continue
+                rrcmd = False
+            else:
+                rrcmd = self.rrcmd.format(repos=" ".join(chain.from_iterable(rdict.values())))
 
-            pdcmd = self.rrpcmd.format(products=" ".join(rdict.keys()))
-            rrcmd = self.rrcmd.format(repos=" ".join(chain.from_iterable(rdict.values())))
+            pdcmd = self.rrpcmd.format(products=" ".join(x.split(":")[0] for x in patterns))
 
             if self.dryrun:
-                print(blue(host) + " - {}".format(rrcmd))
+                if rrcmd:
+                    print(blue(host) + " - {}".format(rrcmd))
                 print(blue(host) + " - {}".format(pdcmd))
             else:
-                self.targets[host].run(rrcmd)
-                self._report_target(host)
+                if rrcmd:
+                    self.targets[host].run(rrcmd)
+                    self._report_target(host)
                 self.targets[host].run(pdcmd)
                 self._report_target(host)
 
