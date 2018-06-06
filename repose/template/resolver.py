@@ -3,6 +3,7 @@ import logging
 from string import Template
 from collections import namedtuple
 from copy import deepcopy
+from difflib import get_close_matches
 
 from ..messages import UnsuportedProductMessage
 
@@ -24,7 +25,11 @@ class Repoq(object):
         ::return:: {release-file:[(name, url, refresh-state,),]} """
         repa = deepcopy(orepa)
         if repa.product not in self.template:
-            raise ValueError("Not known product: {}".format(repa.product))
+            candidates = get_close_matches(repa.product, self.template)
+            error_msg = "Not known product: {}.".format(repa.product)
+            if candidates:
+              error_msg += " Did you mean {}?".format(*candidates)
+            raise ValueError(error_msg)
         if repa.arch is None:
             repa.arch = base.arch
         if repa.version is None:
