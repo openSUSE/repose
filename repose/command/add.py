@@ -14,9 +14,12 @@ class Add(Command):
         repolist = []
         cmds = set()
         for repa in self.repa:
+          try:
             repolist += chain.from_iterable(x
                                             for x in repoq.solve_repa(repa,
                                                                       self.targets[target].products.get_base()).values())
+          except ValueError as error:
+            logger.error(error)
         cmds.update(self.addcmd.format(name=x.name, url=x.url, params="-cfkn" if x.refresh else "-ckn")
                     for x in repolist if self.check_url(x.url))
         return cmds
