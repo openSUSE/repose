@@ -8,9 +8,9 @@ import getpass
 from traceback import format_exc
 import logging
 
-logger = logging.getLogger("repose.connection")
-
 import paramiko
+
+logger = logging.getLogger("repose.connection")
 
 
 class CommandTimeout(Exception):
@@ -82,7 +82,7 @@ class Connection(object):
             # "ssh root@..." invocation helps in most cases.
             self.client.connect(
                 hostname=opts.get(
-                    'hostname', self.hostname), port=int(
+                    'hostname', self.hostname) if 'proxycommand' not in opts else self.hostname, port=int(
                     opts.get(
                         'port', self.port)), username=opts.get(
                     'user', self.username), key_filename=opts.get(
@@ -102,7 +102,7 @@ class Connection(object):
             try:
                 # try again with password auth instead of public/private key
                 self.client.connect(
-                    hostname=opts.get('hostname', self.hostname),
+                    hostname=opts.get('hostname', self.hostname) if 'proxycommand' not in opts else self.hostname,
                     port=int(opts.get('port', self.port)),
                     username=opts.get('user', self.username),
                     password=password,
