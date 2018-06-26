@@ -17,10 +17,10 @@ class Install(Command):
         for target in self.targets.keys():
             repositories = {}
             for repa in self.repa:
-              try:
-                repositories.update(repoq.solve_repa(repa, self.targets[target].products.get_base()))
-              except ValueError as error:
-                logger.error(error)
+                try:
+                    repositories.update(repoq.solve_repa(repa, self.targets[target].products.get_base()))
+                except ValueError as error:
+                    logger.error(error)
 
             for repo in chain.from_iterable(x for x in (y for y in repositories.values())):
                 addcmd = self.addcmd.format(name=repo.name, url=repo.url, params="-cfkn" if repo.refresh else "-ckn")
@@ -32,13 +32,13 @@ class Install(Command):
                     self.targets[target].run(self.refcmd)
 
             if repositories.keys():
-              inscmd = self.ipdcmd.format(products=" ".join(repositories.keys()))
-              if self.dryrun:
-                  print(blue(str(target)) + " - {}".format(inscmd))
-              else:
-                  self.targets[target].run(inscmd)
-                  self._report_target(target)
+                inscmd = self.ipdcmd.format(products=" ".join(repositories.keys()))
+                if self.dryrun:
+                    print(blue(str(target)) + " - {}".format(inscmd))
+                else:
+                    self.targets[target].run(inscmd)
+                    self._report_target(target)
             else:
-              logger.error("No products to install")
+                logger.error("No products to install")
 
         self.targets.close()
