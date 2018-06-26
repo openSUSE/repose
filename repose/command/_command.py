@@ -52,6 +52,9 @@ class Command(object):
         if self.targets[target].out[-1][3] == 0:
             for line in self.targets[target].out[-1][1].splitlines():
                 logger.info(blue("{}".format(target)) + " - {}".format(line))
+        elif self.targets[target].out[-1][3] == 4:
+            for line in self.targets[target].out[-1][1].splitlines():
+                logger.warning(blue("{}".format(target)) + " - {}".format(line))
         else:
             for line in self.targets[target].out[-1][2].splitlines():
                 logger.warning(blue("{}".format(target)) + " - {}".format(line))
