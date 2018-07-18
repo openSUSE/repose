@@ -171,9 +171,13 @@ list-products
 
 ::
   
-  list-products [-h] -t HOST
+  list-products [-h] [--yaml] -t HOST
 
 Show installed products on HOST
+
+.. option:: --yaml
+  
+  Print output in yaml format and transformed for refhosts yaml preparation
 
 
 list-repos
