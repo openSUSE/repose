@@ -32,6 +32,10 @@ class HostGroup(UserDict):
         for hn in sorted(self.data.keys()):
             self.data[hn].report_products(sink)
 
+    def report_products_yaml(self, sink):
+        for hn in sorted(self.data.keys()):
+            self.data[hn].report_products_yaml(sink)
+
     def report_repos(self, sink):
         for hn in sorted(self.data.keys()):
             self.data[hn].report_repos(sink)

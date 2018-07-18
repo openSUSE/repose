@@ -21,5 +21,8 @@ class ListProducts(Command):
     def run(self):
 
         self.targets.read_products()
-        self.targets.report_products(self.display.list_products)
+        if self.yaml:
+            self.targets.report_products_yaml(self.display.list_products_yaml)
+        else:
+            self.targets.report_products(self.display.list_products)
         self.targets.close()

@@ -28,3 +28,14 @@ class CommandDisplay(object):
         self.println(green("Products known by 'repose':"))
         self.println(" ".join(products))
         self.println()
+
+    def list_products_yaml(self, hostname, system):
+        from ruamel.yaml import YAML
+        yml = YAML(typ='safe', pure=False)
+        yml.default_flow_style = False
+        yml.explicit_end = True
+        yml.explicit_start = True
+        yml.indent(mapping=4, sequence=4, offset=2)
+        data = system.to_refhost_dict()
+        data["name"] = str(hostname)
+        yml.dump(data, self.output)

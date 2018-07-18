@@ -105,5 +105,8 @@ class Target(object):
     def report_products(self, sink):
         return sink(self.hostname, self.port, self.products)
 
+    def report_products_yaml(self, sink):
+        return sink(self.hostname, self.products)
+
     def report_repos(self, sink):
         return sink(self.hostname, self.port, self.raw_repos)
