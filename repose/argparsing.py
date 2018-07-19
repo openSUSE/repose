@@ -208,6 +208,10 @@ def get_parser():
         action='append',
         required=True,
         help="target to operate on")
+    cmdlistp.add_argument(
+        "--yaml",
+        action='store_true',
+        help="Generate YAML host spec for refhosts.yml generator")
     cmdlistp.set_defaults(func=do_list_products)
 
     # command LIST-Repos
