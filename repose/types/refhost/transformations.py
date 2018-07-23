@@ -69,9 +69,11 @@ def transform_version(version, product):
         major = "ALL"
     elif product == 'ses':
         if version == '4':
-            return 12, 'sp2'
+            major = "12"
+            minor = "sp2"
         if version == '5':
-            return 12, 'sp3'
+            major = "12"
+            minor = 'sp3'
     else:
         major = int(version)
 
