@@ -56,30 +56,35 @@ __transform_table = {"SLES": "sles",
 
 
 def transform_version(version, product):
+    # transform versions
     minor = None
     if "-SP" in version:
         major, minor = version.split("-SP")
         minor = "sp"+minor
         major = int(major)
-    elif "." in version:
+    elif product == 'ses':
+        if version == '4':
+            major = 12
+            minor = "sp2"
+        elif version == '5':
+            major = 12
+            minor = 'sp3'
+        elif version == '6':
+            major = 15
+    elif "." in version and product != 'ses':
         major, minor = version.split(".")
         major = int(major)
         minor = int(minor)
     elif version == "ALL":
         major = "ALL"
-    elif product == 'ses':
-        if version == '4':
-            major = "12"
-            minor = "sp2"
-        if version == '5':
-            major = "12"
-            minor = 'sp3'
     else:
         major = int(version)
 
     ret = {'major': major}
+
     if minor is not None:
         ret.update({'minor': minor})
+
     return ret
 
 
