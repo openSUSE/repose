@@ -49,7 +49,7 @@ class HostGroup(UserDict):
     def report_products(self, sink):
         with concurrent.futures.ThreadPoolExecutor() as executor:
             connections = [
-                executor.submit(self.data[hn].report_products)
+                executor.submit(self.data[hn].report_products, sink)
                 for hn in self.data.keys()
             ]
             concurrent.futures.wait(connections)
