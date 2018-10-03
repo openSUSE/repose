@@ -1,4 +1,5 @@
 
+import concurrent.futures
 
 from collections import UserDict
 from .actions import RunCommand
@@ -9,33 +10,62 @@ class HostGroup(UserDict):
         return RunCommand(self.data, cmd).run()
 
     def connect(self):
-        for hn in self.data.keys():
-            self.data[hn].connect()
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            connections = {
+                executor.submit(self.data[hn].connect): hn for hn in self.data.keys()
+            }
+            for future in concurrent.futures.as_completed(connections):
+                hostname = connections[future]
+                try:
+                    self.data[hostname] = future.result()
+                except Exception as exc:
+                    print(exc)
 
     def close(self):
         for hn in self.data.keys():
             self.data[hn].close()
 
     def read_products(self):
-        for hn in self.data.keys():
-            self.data[hn].read_products()
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            connections = [
+                executor.submit(self.data[hn].read_products) for hn in self.data.keys()
+            ]
+            concurrent.futures.wait(connections)
 
     def read_repos(self):
-        for hn in self.data.keys():
-            self.data[hn].read_repos()
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            connections = [
+                executor.submit(self.data[hn].read_repos) for hn in self.data.keys()
+            ]
+            concurrent.futures.wait(connections)
 
     def parse_repos(self):
-        for hn in self.data.keys():
-            self.data[hn].parse_repos()
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            connections = [
+                executor.submit(self.data[hn].parse_repos) for hn in self.data.keys()
+            ]
+            concurrent.futures.wait(connections)
 
     def report_products(self, sink):
-        for hn in sorted(self.data.keys()):
-            self.data[hn].report_products(sink)
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            connections = [
+                executor.submit(self.data[hn].report_products)
+                for hn in self.data.keys()
+            ]
+            concurrent.futures.wait(connections)
 
     def report_products_yaml(self, sink):
-        for hn in sorted(self.data.keys()):
-            self.data[hn].report_products_yaml(sink)
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            connections = [
+                executor.submit(self.data[hn].report_products_yaml, sink)
+                for hn in self.data.keys()
+            ]
+            concurrent.futures.wait(connections)
 
     def report_repos(self, sink):
-        for hn in sorted(self.data.keys()):
-            self.data[hn].report_repos(sink)
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            connections = [
+                executor.submit(self.data[hn].report_repos, sink)
+                for hn in self.data.keys()
+            ]
+            concurrent.futures.wait(connections)
