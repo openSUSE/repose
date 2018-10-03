@@ -13,7 +13,6 @@ logger = getLogger("repose.target")
 
 
 class Target(object):
-
     def __init__(self, hostname, port, username, connector=Connection):
         # TODO: timeout handling ?
         self.port = port
@@ -33,7 +32,8 @@ class Target(object):
             self.username,
             self.hostname,
             self.port,
-            self.is_connected)
+            self.is_connected,
+        )
 
     def connect(self):
         if not self.is_connected:
@@ -41,9 +41,13 @@ class Target(object):
             try:
                 self.connection.connect()
             except BaseException as e:
-                logger.critical(ConnectingTargetFailedMessage(self.hostname, self.port, e))
+                logger.critical(
+                    ConnectingTargetFailedMessage(self.hostname, self.port, e)
+                )
             else:
                 self.is_connected = True
+
+        return self
 
     def read_products(self):
         if not self.is_connected:
@@ -67,15 +71,17 @@ class Target(object):
             logger.critical('{}: command "{}" timed out'.format(self.hostname, command))
             exitcode = -1
         except AssertionError:
-            logger.debug('zombie command terminated', exc_info=True)
+            logger.debug("zombie command terminated", exc_info=True)
             return
         except Exception as e:
             # failed to run command
-            logger.error('{}: failed to run command "{}"'.format(self.hostname, command))
-            logger.debug('exception {}'.format(e), exc_info=True)
+            logger.error(
+                '{}: failed to run command "{}"'.format(self.hostname, command)
+            )
+            logger.debug("exception {}".format(e), exc_info=True)
             exitcode = -1
 
-        runtime = int(timestamp())-int(time_before)
+        runtime = int(timestamp()) - int(time_before)
 
         self.out.append([command, stdout, stderr, exitcode, runtime])
         return (stdout, stderr, exitcode)
@@ -96,9 +102,13 @@ class Target(object):
             else:
                 logger.error(
                     "Can't parse repositories on {}, zypper returned {} exitcode".format(
-                        self.hostname, exitcode))
+                        self.hostname, exitcode
+                    )
+                )
                 logger.debug("output:\n {}".format(stderr))
-                raise ValueError("Can't read repositories on {}:{}".format(self.hostname, self.port))
+                raise ValueError(
+                    "Can't read repositories on {}:{}".format(self.hostname, self.port)
+                )
         else:
             logger.debug("Host {}:{} not connected".format(self.hostname, self.port))
 
