@@ -1,11 +1,11 @@
-
+import concurrent.futures
 import logging
 from itertools import chain
 from ..utils import blue
 from .remove import Remove
 
 
-logger = logging.getLogger('repose.command.uninstall')
+logger = logging.getLogger("repose.command.uninstall")
 
 
 class Uninstall(Remove):
@@ -22,6 +22,34 @@ class Uninstall(Remove):
                         rdict[repo[1].name] = [repo[0]]
         return rdict
 
+    def _run(self, orepa, host):
+        patterns = self._calculate_pattern(orepa, host)
+        if not patterns:
+            logger.info("For {} no products for remove found".format(host))
+            return
+
+        rdict = self._calculate_repodict(host, patterns)
+        if not rdict:
+            logger.info("For {} no repos for remove found".format(host))
+            rrcmd = False
+        else:
+            rrcmd = self.rrcmd.format(
+                repos=" ".join(chain.from_iterable(rdict.values()))
+            )
+
+        pdcmd = self.rrpcmd.format(products=" ".join(x.split(":")[0] for x in patterns))
+
+        if self.dryrun:
+            if rrcmd:
+                print(blue(host) + " - {}".format(rrcmd))
+            print(blue(host) + " - {}".format(pdcmd))
+        else:
+            if rrcmd:
+                self.targets[host].run(rrcmd)
+                self._report_target(host)
+            self.targets[host].run(pdcmd)
+            self._report_target(host)
+
     def run(self):
 
         self.targets.read_repos()
@@ -32,30 +60,11 @@ class Uninstall(Remove):
             r.repo = None
             orepa.append(r)
 
-        for host in self.targets.keys():
-            patterns = self._calculate_pattern(orepa, host)
-            if not patterns:
-                logger.info("For {} no products for remove found".format(host))
-                continue
-
-            rdict = self._calculate_repodict(host, patterns)
-            if not rdict:
-                logger.info("For {} no repos for remove found".format(host))
-                rrcmd = False
-            else:
-                rrcmd = self.rrcmd.format(repos=" ".join(chain.from_iterable(rdict.values())))
-
-            pdcmd = self.rrpcmd.format(products=" ".join(x.split(":")[0] for x in patterns))
-
-            if self.dryrun:
-                if rrcmd:
-                    print(blue(host) + " - {}".format(rrcmd))
-                print(blue(host) + " - {}".format(pdcmd))
-            else:
-                if rrcmd:
-                    self.targets[host].run(rrcmd)
-                    self._report_target(host)
-                self.targets[host].run(pdcmd)
-                self._report_target(host)
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            targets = [
+                executor.submit(self._run, orepa, target)
+                for target in self.targets.keys()
+            ]
+            concurrent.futures.wait(targets)
 
         self.targets.close()

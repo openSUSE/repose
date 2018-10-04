@@ -1,4 +1,4 @@
-
+import concurrent.futures
 
 import logging
 from . import Command
@@ -31,7 +31,9 @@ class Remove(Command):
                 else:
                     version = prd.version
                 repo = "" if not repa.repo else repa.repo
-                patterns.add(pattern.format(product=product, version=version, repo=repo))
+                patterns.add(
+                    pattern.format(product=product, version=version, repo=repo)
+                )
         return patterns
 
     def _calculate_repolist(self, host, patterns):
@@ -42,27 +44,31 @@ class Remove(Command):
                     repolist.add(repo)
         return repolist
 
+    def _run(self, host):
+        patterns = self._calculate_pattern(self.repa, host)
+
+        if not patterns:
+            logger.info("For {} no repos for remove found".format(host))
+            return
+        repolist = self._calculate_repolist(host, patterns)
+
+        if not repolist:
+            logger.info("For {} no repos for remove found".format(host))
+        cmd = self.rrcmd.format(repos=" ".join(repolist))
+
+        if self.dryrun:
+            print(blue(host) + " - {}".format(cmd))
+        else:
+            self.targets[host].run(cmd)
+            self._report_target(host)
+
     def run(self):
         self.targets.read_repos()
         self.targets.parse_repos()
-
-        for host in self.targets.keys():
-            patterns = self._calculate_pattern(self.repa, host)
-
-            if not patterns:
-                logger.info("For {} no repos for remove found".format(host))
-                continue
-
-            repolist = self._calculate_repolist(host, patterns)
-
-            if not repolist:
-                logger.info("For {} no repos for remove found".format(host))
-            cmd = self.rrcmd.format(repos=" ".join(repolist))
-
-            if self.dryrun:
-                print(blue(host) + " - {}".format(cmd))
-            else:
-                self.targets[host].run(cmd)
-                self._report_target(host)
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            targets = [
+                executor.submit(self._run, target) for target in self.targets.keys()
+            ]
+            concurrent.futures.wait(targets)
 
         self.targets.close()

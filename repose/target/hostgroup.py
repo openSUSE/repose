@@ -22,8 +22,11 @@ class HostGroup(UserDict):
                     print(exc)
 
     def close(self):
-        for hn in self.data.keys():
-            self.data[hn].close()
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            connections = [
+                executor.submit(self.data[hn].close) for hn in self.data.keys()
+            ]
+            concurrent.futures.wait(connections)
 
     def read_products(self):
         with concurrent.futures.ThreadPoolExecutor() as executor:
@@ -47,25 +50,13 @@ class HostGroup(UserDict):
             concurrent.futures.wait(connections)
 
     def report_products(self, sink):
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            connections = [
-                executor.submit(self.data[hn].report_products, sink)
-                for hn in self.data.keys()
-            ]
-            concurrent.futures.wait(connections)
+        for hn in sorted(self.data.keys()):
+            self.data[hn].report_products(sink)
 
     def report_products_yaml(self, sink):
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            connections = [
-                executor.submit(self.data[hn].report_products_yaml, sink)
-                for hn in self.data.keys()
-            ]
-            concurrent.futures.wait(connections)
+        for hn in sorted(self.data.keys()):
+            self.data[hn].report_products_yaml(sink)
 
     def report_repos(self, sink):
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            connections = [
-                executor.submit(self.data[hn].report_repos, sink)
-                for hn in self.data.keys()
-            ]
-            concurrent.futures.wait(connections)
+        for hn in sorted(self.data.keys()):
+            self.data[hn].report_repos(sink)
