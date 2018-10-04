@@ -2,7 +2,7 @@
 import logging
 from . import Command
 
-logger = logging.getLogger('repose.command.list')
+logger = logging.getLogger("repose.command.list")
 
 
 class ListRepos(Command):

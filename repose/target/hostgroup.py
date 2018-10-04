@@ -22,8 +22,11 @@ class HostGroup(UserDict):
                     print(exc)
 
     def close(self):
-        for hn in self.data.keys():
-            self.data[hn].close()
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            connections = [
+                executor.submit(self.data[hn].close) for hn in self.data.keys()
+            ]
+            concurrent.futures.wait(connections)
 
     def read_products(self):
         with concurrent.futures.ThreadPoolExecutor() as executor:
