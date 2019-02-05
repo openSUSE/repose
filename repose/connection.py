@@ -1,14 +1,20 @@
-
 import errno
 import os
 import select
 import socket
+import sys
 import getpass
 
 from traceback import format_exc
 import logging
 
 import paramiko
+
+
+if not sys.warnoptions:
+    import warnings
+
+    warnings.simplefilter("ignore")
 
 logger = logging.getLogger("repose.connection")
 
