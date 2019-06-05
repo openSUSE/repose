@@ -52,7 +52,8 @@ __transform_table = {"SLES": "sles",
                      "PackageHub": "PackageHub",
                      "sle-module-cap-tools": "Cap-Tools",
                      "SUSE-Linux-Enterprise-RT": "rt",
-                     "qa": "qa"}
+                     "qa": "qa",
+                     "sle-module-python2": "python2"}
 
 
 def transform_version(version, product):
