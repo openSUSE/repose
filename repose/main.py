@@ -1,7 +1,7 @@
 
 import sys
 
-from qamlib.colorlog import create_logger
+from .colorlog import create_logger
 from .argparsing import get_parser
 
 
