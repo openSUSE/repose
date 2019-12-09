@@ -8,7 +8,7 @@ setup(
     name="repose",
     version=__version__,
     packages=find_packages(exclude=["docs", "tests*"]),
-    install_requires=["paramiko"],
+    install_requires=["paramiko", "ruamel.yaml"],
     tests_require=["pytest"],
     entry_points={"console_scripts": ["repose = repose.main:main"]},
     author="Ondřej Súkup",
