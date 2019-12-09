@@ -1,7 +1,7 @@
 
 
 from logging import getLogger
-from .utils import timestamp
+from ..utils import timestamp
 
 from ..connection import Connection, CommandTimeout
 from .parsers.product import parse_system
