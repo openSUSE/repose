@@ -1,5 +1,5 @@
-
 import logging
+
 from . import Command
 
 logger = logging.getLogger("repose.command.list")
@@ -22,6 +22,10 @@ class ListProducts(Command):
 
         self.targets.read_products()
         if self.yaml:
+            self.targets.report_products_yaml(
+                self.display.list_products_yaml_normalized
+            )
+        elif self.yaml_ng:
             self.targets.report_products_yaml(self.display.list_products_yaml)
         else:
             self.targets.report_products(self.display.list_products)
