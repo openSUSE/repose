@@ -41,6 +41,7 @@ class Command(object):
         self.display = CommandDisplay(sys.stdout)
         self.repa = args.repa if 'repa' in args else None
         self.yaml = args.yaml if 'yaml' in args else False
+        self.yaml_ng = args.yaml_ng if 'yaml_ng' in args else False
 
     def _load_template(self):
         return load_template(self.template_path)

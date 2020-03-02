@@ -208,7 +208,12 @@ def get_parser():
         action='append',
         required=True,
         help="target to operate on")
-    cmdlistp.add_argument(
+    glistp = cmdlistp.add_mutually_exclusive_group()
+    glistp.add_argument(
+        "--yaml-ng",
+        action='store_true',
+        help="Generate YAML host spec for refhosts.yml generator without normalization")
+    glistp.add_argument(
         "--yaml",
         action='store_true',
         help="Generate YAML host spec for refhosts.yml generator")
