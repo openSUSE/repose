@@ -46,6 +46,6 @@ class CommandDisplay:
         self.__open_yaml().dump(data, self.output)
 
     def list_products_yaml(self, hostname, system):
-        data = system.to_refhost_dict()
+        data = system.to_refhost_dict_partially_normalized()
         data["name"] = str(hostname)
         self.__open_yaml().dump(data, self.output)
