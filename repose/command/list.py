@@ -22,6 +22,7 @@ class ListProducts(Command):
 
         self.targets.read_products()
         if self.yaml:
+            logger.info("Deprecated .. please prefer --yaml-ng format")
             self.targets.report_products_yaml(
                 self.display.list_products_yaml_normalized
             )
