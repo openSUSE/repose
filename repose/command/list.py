@@ -21,12 +21,12 @@ class ListProducts(Command):
     def run(self):
 
         self.targets.read_products()
-        if self.yaml:
+        if self.yaml_old:
             logger.info("Deprecated .. please prefer --yaml-ng format")
             self.targets.report_products_yaml(
                 self.display.list_products_yaml_normalized
             )
-        elif self.yaml_ng:
+        elif self.yaml:
             self.targets.report_products_yaml(self.display.list_products_yaml)
         else:
             self.targets.report_products(self.display.list_products)

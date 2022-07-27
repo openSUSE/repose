@@ -1,16 +1,15 @@
-
-import sys
-from urllib.request import urlopen
-from urllib.error import HTTPError, URLError
 import logging
+import sys
+from urllib.error import HTTPError, URLError
+from urllib.request import urlopen
 
-from ..target.hostgroup import HostGroup
 from ..display import CommandDisplay
+from ..target.hostgroup import HostGroup
 from ..template import load_template
 from ..template.resolver import Repoq
 from ..utils import blue
 
-logger = logging.getLogger('repose.command')
+logger = logging.getLogger("repose.command")
 
 
 class Command(object):
@@ -23,7 +22,7 @@ class Command(object):
     def __init__(self, args):
         __dtargets = {}
 
-        if 'target' in args:
+        if "target" in args:
             for x in args.target:
                 __dtargets.update(x)
 
@@ -33,15 +32,15 @@ class Command(object):
         # cann't  use dict comprehension - custom dict for hostgroup:(
         for target in list(targets.keys()):
             if not targets[target]:
-                del(targets[target])
+                del targets[target]
         self.targets = targets
 
         self.dryrun = args.dry
         self.template_path = args.config
         self.display = CommandDisplay(sys.stdout)
-        self.repa = args.repa if 'repa' in args else None
-        self.yaml = args.yaml if 'yaml' in args else False
-        self.yaml_ng = args.yaml_ng if 'yaml_ng' in args else False
+        self.repa = args.repa if "repa" in args else None
+        self.yaml = args.yaml if "yaml" in args else False
+        self.yaml_old = args.yaml_old if "yaml_old" in args else False
 
     def _load_template(self):
         return load_template(self.template_path)
