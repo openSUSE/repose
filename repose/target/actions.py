@@ -8,7 +8,6 @@ queue = Queue()
 
 
 class ThreadedMethod(threading.Thread):
-
     def __init__(self, queue):
         threading.Thread.__init__(self)
         self.queue = queue
@@ -32,7 +31,6 @@ class ThreadedMethod(threading.Thread):
 
 
 class RunCommand(object):
-
     def __init__(self, targets, command):
         self.targets = targets
         self.command = command
@@ -56,7 +54,7 @@ class RunCommand(object):
             queue.join()
 
         except KeyboardInterrupt:
-            print('stopping command queue, please wait.')
+            print("stopping command queue, please wait.")
             try:
                 while queue.unfinished_tasks:
                     spinner(lock)
@@ -78,12 +76,12 @@ class RunCommand(object):
 def spinner(lock=None):
     """simple spinner to show some process"""
 
-    for pos in ['|', '/', '-', '\\']:
+    for pos in ["|", "/", "-", "\\"]:
         if lock is not None:
             lock.acquire()
 
         try:
-            sys.stdout.write('processing... [{!s}]\r'.format(pos))
+            sys.stdout.write("processing... [{!s}]\r".format(pos))
             sys.stdout.flush()
         finally:
             if lock is not None:

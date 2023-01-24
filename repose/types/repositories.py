@@ -1,4 +1,3 @@
-
 from collections import UserDict
 from ..target.parsers import Product
 

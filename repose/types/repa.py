@@ -1,7 +1,5 @@
-
-
 class Repa(object):
-    """ Object holding REPA data """
+    """Object holding REPA data"""
 
     def __init__(self, repa):
         self.__version = None
@@ -27,10 +25,10 @@ class Repa(object):
     @version.setter
     def version(self, value):
         self.__version = value
-        if self.__version and '-SP' in self.__version:
+        if self.__version and "-SP" in self.__version:
             self.smallver = "-{}".format(self.__version.split("-")[-1])
             self.baseversion = self.__version.split("-")[0]
-        elif self.__version and not '-SP' in self.__version:
+        elif self.__version and not "-SP" in self.__version:
             self.smallver = None
             self.baseversion = self.__version
         else:
@@ -38,4 +36,6 @@ class Repa(object):
             self.baseversion = None
 
     def __repr__(self):
-        return "<object REPA: {}_{}_{}_{}>".format(self.product, self.version, self.arch, self.repo)
+        return "<object REPA: {}_{}_{}_{}>".format(
+            self.product, self.version, self.arch, self.repo
+        )

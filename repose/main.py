@@ -1,9 +1,7 @@
-
 import sys
 
 from .colorlog import create_logger
 from .argparsing import get_parser
-
 
 
 def main():
@@ -16,7 +14,7 @@ def main():
     logger = create_logger("repose")
     args = parser.parse_args(sys.argv[1:])
 
-    if not hasattr(args, 'func'):
+    if not hasattr(args, "func"):
         parser.print_usage()
         sys.exit(0)
 

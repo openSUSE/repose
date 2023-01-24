@@ -1,5 +1,3 @@
-
-
 from logging import getLogger
 from ..utils import timestamp
 

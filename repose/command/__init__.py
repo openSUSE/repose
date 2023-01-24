@@ -1,4 +1,3 @@
-
 import importlib
 import os
 import os.path
@@ -18,7 +17,7 @@ for name in os.listdir(_rootdir):
     if modname.startswith("_"):
         continue
     try:
-        module = importlib.import_module("." + modname, 'repose.command')
+        module = importlib.import_module("." + modname, "repose.command")
     except BaseException:
         continue
     # register classes
