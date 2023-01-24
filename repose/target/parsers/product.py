@@ -1,21 +1,25 @@
-
 import xml.etree.ElementTree as ET
 import logging
 from ..parsers import Product
 from ...types.system import System
 
-logger = logging.getLogger('repose.tartget.parsers.product')
+logger = logging.getLogger("repose.tartget.parsers.product")
+
 
 def __parse_product(prod):
     root = ET.fromstringlist(prod)
-    name = root.find('./name').text
-    arch = root.find('./arch').text
+    name = root.find("./name").text
+    arch = root.find("./arch").text
     try:
-        version = root.find('./baseversion').text
-        sp = root.find('./patchlevel').text if root.find('./patchlevel').text != '0' else ""
+        version = root.find("./baseversion").text
+        sp = (
+            root.find("./patchlevel").text
+            if root.find("./patchlevel").text != "0"
+            else ""
+        )
         version += "-SP{}".format(sp) if sp else ""
     except AttributeError:
-        version = root.find('./version').text
+        version = root.find("./version").text
         logger.debug("simpleversion")
 
     # CAASP uses ALL for update repos and there is only one supported version at time
@@ -33,7 +37,9 @@ def __parse_os_release(f):
 
 def parse_system(connection):
     try:
-        files = [x for x in connection.listdir('/etc/products.d') if x.endswith(".prod")]
+        files = [
+            x for x in connection.listdir("/etc/products.d") if x.endswith(".prod")
+        ]
     except IOError:
         logger.debug("Not SUSE's system")
         suse = False
@@ -42,7 +48,7 @@ def parse_system(connection):
 
     if not suse:
         try:
-            with connection.open('/etc/os-release') as f:
+            with connection.open("/etc/os-release") as f:
                 name, version, arch = __parse_os_release(f)
         except FileNotFoundError:
             # TODO: old RH systems have only /etc/redhat-release
@@ -50,10 +56,10 @@ def parse_system(connection):
 
         return System(Product(name, version, arch))
 
-    basefile = connection.readlink('/etc/products.d/baseproduct')
+    basefile = connection.readlink("/etc/products.d/baseproduct")
     files.remove(basefile)
 
-    with connection.open('/etc/products.d/{}'.format(basefile)) as f:
+    with connection.open("/etc/products.d/{}".format(basefile)) as f:
         logger.debug("Parsing basefile")
         name, version, arch = __parse_product(f)
         base = Product(name, version, arch)
@@ -61,10 +67,10 @@ def parse_system(connection):
     addons = set()
 
     for x in files:
-        with connection.open('/etc/products.d/{}'.format(x)) as f:
+        with connection.open("/etc/products.d/{}".format(x)) as f:
             logger.debug("parsing - {}".format(x))
             name, version, arch = __parse_product(f)
-            if name.rpartition('-')[-1] != 'migration':
+            if name.rpartition("-")[-1] != "migration":
                 addons.add(Product(name, version, arch))
 
     return System(base, addons)

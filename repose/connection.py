@@ -36,7 +36,7 @@ class Connection(object):
     """Manage ssh/sftp connection"""
 
     def __init__(self, hostname, username, port, timeout=120):
-        """ openSSH channel to the specified host
+        """openSSH channel to the specified host
 
         Tries AuthKey Authentication and falls back to password mode
         in case of errors.
@@ -182,7 +182,7 @@ class Connection(object):
                 pass
 
     def __run_command(self, command):
-        """ open new session and run command in it
+        """open new session and run command in it
 
         parameter: command -> str
         result: Succes - session instance with running command
@@ -316,8 +316,8 @@ class Connection(object):
 
     def open(self, filename, mode="r", bufsize=-1):
         """open remote file
-           default mode is reading
-           can be used as context manager
+        default mode is reading
+        can be used as context manager
         """
 
         logger.debug("{0} open({1}, {2})".format(repr(self), filename, mode))
@@ -336,7 +336,7 @@ class Connection(object):
         return ofile
 
     def readlink(self, path):
-        """ Return the target of a symbolic link (shortcut)."""
+        """Return the target of a symbolic link (shortcut)."""
         logger.debug("read link {}:{}:{}".format(self.hostname, self.port, path))
 
         sftp = self.__sftp_reconnect()

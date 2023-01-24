@@ -1,4 +1,3 @@
-
 from abc import ABCMeta
 
 
@@ -35,38 +34,33 @@ class UserError(UserMessage, RuntimeError):
 
 
 class ConnectingTargetFailedMessage(UserMessage):
-
     def __init__(self, hostname, port, reason):
         self.hostname = hostname
         self.reason = reason
         self.port = port
 
     def __str__(self):
-        return 'connecting to {}:{} failed: {}'.format(
+        return "connecting to {}:{} failed: {}".format(
             self.hostname, self.port, self.reason
         )
 
     def __repr__(self):
-        return '<{0} {1!r}:{2!r}>'.format(
-            self.__class__,
-            self.hostname,
-            self.reason
-        )
+        return "<{0} {1!r}:{2!r}>".format(self.__class__, self.hostname, self.reason)
 
 
 class ConnectingToMessage(UserMessage):
-
     def __init__(self, hostname):
         self.hostname = hostname
 
     def __str__(self):
-        return 'connecting to {0}'.format(self.hostname)
+        return "connecting to {0}".format(self.hostname)
 
 
 class UnsuportedProductMessage(UserMessage):
-
     def __init__(self, product):
         self.product = product
 
     def __str__(self):
-        return 'Unsupported product {} version {}'.format(self.product.name, self.product.version)
+        return "Unsupported product {} version {}".format(
+            self.product.name, self.product.version
+        )

@@ -1,4 +1,3 @@
-
 from urllib.parse import urlparse
 from argparse import ArgumentTypeError
 
@@ -11,21 +10,17 @@ class HostParseError(ValueError, ArgumentTypeError):
     # by L{argparse.ArgumentParser._get_value}
 
     def __init__(self, message):
-        super(HostParseError, self).__init__(
-            "Target host: " + message
-        )
+        super(HostParseError, self).__init__("Target host: " + message)
 
 
 class PortNotIntError(HostParseError):
-
     def __init__(self, hostname):
-        super(
-            PortNotIntError, self).__init__(
-            "Wrong port specification on Host: {}".format(hostname))
+        super(PortNotIntError, self).__init__(
+            "Wrong port specification on Host: {}".format(hostname)
+        )
 
 
 class ParseHosts(dict):
-
     def __init__(self, arg):
         """
         arg is string with hosts in socket format username@host:port
@@ -39,7 +34,7 @@ class ParseHosts(dict):
                 keyname = x.hostname
                 port = 22
 
-            username = x.username if x.username else 'root'
+            username = x.username if x.username else "root"
 
             host = [(keyname, Target(x.hostname, port, username))]
         except ValueError:
