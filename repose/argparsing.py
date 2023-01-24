@@ -225,11 +225,6 @@ def get_parser():
         action="store_true",
         help="Generate YAML host spec for refhosts.yml generator without normalization. Default for SLE 12-SP5 and SLE 15-SP3+ products",
     )
-    glistp.add_argument(
-        "--yaml-old",
-        action="store_true",
-        help="Generate YAML host spec for refhosts.yml generator. Don't use with new products",
-    )
     cmdlistp.set_defaults(func=do_list_products)
 
     # command LIST-Repos

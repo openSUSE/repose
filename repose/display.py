@@ -40,11 +40,6 @@ class CommandDisplay:
         yml.indent(mapping=4, sequence=4, offset=2)
         return yml
 
-    def list_products_yaml_normalized(self, hostname, system):
-        data = system.to_refhost_dict_normalized()
-        data["name"] = str(hostname)
-        self.__open_yaml().dump(data, self.output)
-
     def list_products_yaml(self, hostname, system):
         data = system.to_refhost_dict_partially_normalized()
         data["name"] = str(hostname)

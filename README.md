@@ -91,7 +91,7 @@ adv-systems-management - sle-live-patching - sle-bsk - sle-ha - sle-we - sle-web
 Show products in yaml format needed for refhost.yaml genetor:
 
 ```
-repose list-products --yaml-ng -t foobar.suse.cz
+repose list-products --yaml -t foobar.suse.cz
 ```
 
 ## License
