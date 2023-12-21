@@ -51,7 +51,6 @@ class Uninstall(Remove):
             self._report_target(host)
 
     def run(self):
-
         self.targets.read_repos()
         self.targets.parse_repos()
         orepa = []

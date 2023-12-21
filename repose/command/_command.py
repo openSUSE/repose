@@ -48,7 +48,6 @@ class Command(object):
         return Repoq(self._load_template())
 
     def _report_target(self, target):
-
         if self.targets[target].out[-1][3] == 0:
             for line in self.targets[target].out[-1][1].splitlines():
                 logger.info(blue("{}".format(target)) + " - {}".format(line))

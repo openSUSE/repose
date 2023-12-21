@@ -15,7 +15,6 @@ class CommandDisplay:
         self.println()
 
     def list_update_repos(self, hostname, port, repos):
-
         self.println(
             "{} on {}:{}".format(green("Repositories"), blue(hostname), blue(str(port)))
         )

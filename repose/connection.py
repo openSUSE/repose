@@ -345,7 +345,6 @@ class Connection(object):
         return link
 
     def is_active(self):
-
         return self.client._transport and self.client._transport.is_active()
 
     def close(self):
