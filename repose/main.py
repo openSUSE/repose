@@ -5,7 +5,6 @@ from .argparsing import get_parser
 
 
 def main():
-
     parser = get_parser()
     if len(sys.argv) < 1:
         parser.print_help()

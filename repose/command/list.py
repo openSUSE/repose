@@ -9,7 +9,6 @@ class ListRepos(Command):
     command = True
 
     def run(self):
-
         self.targets.read_repos()
         self.targets.report_repos(self.display.list_update_repos)
         self.targets.close()

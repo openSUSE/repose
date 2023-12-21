@@ -61,6 +61,8 @@ class UnsuportedProductMessage(UserMessage):
         self.product = product
 
     def __str__(self):
-        return "Unsupported product {} version {}".format(
-            self.product.name, self.product.version
+        message = (
+            f"Unknow product {self.product.name} version {self.product.version}.\n"
         )
+        message += "Please update products.yaml file with product definition"
+        return message
