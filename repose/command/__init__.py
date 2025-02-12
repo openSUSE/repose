@@ -1,7 +1,7 @@
 import importlib
 import os
 import os.path
-from ._command import Command
+from ._command import Command as Command
 
 _rootdir = os.path.dirname(os.path.realpath(__file__))
 cmd_list = []

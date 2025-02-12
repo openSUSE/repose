@@ -6,12 +6,14 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: actions/setup-python@v4
         with:
           python-version: '3.11'
           cache: 'pip'
       - name: Setup enviroment
-        run: pip install black
+        run: pip install ruff 
       - name: Check style
-        run: black --check --diff .
+        run: ruff format --diff .
+      - name: Lint - ruff
+        run: ruff check .

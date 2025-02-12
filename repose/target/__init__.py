@@ -10,7 +10,7 @@ from ..types.repositories import Repositories
 logger = getLogger("repose.target")
 
 
-class Target(object):
+class Target:
     def __init__(self, hostname, port, username, connector=Connection):
         # TODO: timeout handling ?
         self.port = port

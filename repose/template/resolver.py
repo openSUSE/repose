@@ -11,7 +11,7 @@ Repos = namedtuple("Repos", ("name", "url", "refresh"))
 logger = logging.getLogger("repose.template.resolver")
 
 
-class Repoq(object):
+class Repoq:
     """resolve and return template data for requested repositories"""
 
     def __init__(self, template):

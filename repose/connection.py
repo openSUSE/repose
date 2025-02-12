@@ -1,14 +1,14 @@
 import errno
+import getpass
+import logging
 import os
 import select
 import socket
 import sys
-import getpass
-
 from traceback import format_exc
-import logging
 
 import paramiko
+from paramiko import Channel, SFTPClient, SFTPFile, SSHClient, SSHConfig
 
 
 if not sys.warnoptions:
@@ -31,11 +31,12 @@ class CommandTimeout(Exception):
         return repr(self.command)
 
 
-class Connection(object):
-
+class Connection:
     """Manage ssh/sftp connection"""
 
-    def __init__(self, hostname, username, port, timeout=120):
+    def __init__(
+        self, hostname: str, username: str, port: str | int, timeout=120
+    ) -> None:
         """openSSH channel to the specified host
 
         Tries AuthKey Authentication and falls back to password mode
@@ -54,7 +55,7 @@ class Connection(object):
 
         self.timeout = timeout
 
-        self.client = paramiko.SSHClient()
+        self.client: SSHClient = paramiko.SSHClient()
 
     def __repr__(self):
         return "<{} object username={} hostname={} port={}>".format(
@@ -66,8 +67,8 @@ class Connection(object):
         # Dont check host keys --> StrictHostChecking no
         self.client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
-    def connect(self):
-        cfg = paramiko.config.SSHConfig()
+    def connect(self) -> None:
+        cfg: SSHConfig = paramiko.config.SSHConfig()
         self.__load_keys()
 
         try:
@@ -79,7 +80,7 @@ class Connection(object):
         opts = cfg.lookup(self.hostname)
 
         try:
-            logger.debug("connecting to {}:{}".format(self.hostname, self.port))
+            logger.debug("connecting to %s:%s", self.hostname, self.port)
             # if this fails, the user most likely has none or an outdated
             # hostkey for the specified host. checking back with a manual
             # "ssh root@..." invocation helps in most cases.
@@ -137,7 +138,7 @@ class Connection(object):
             logger.error("{}: {}".format(self.hostname, error))
             raise
 
-    def reconnect(self):
+    def reconnect(self) -> None:
         if not self.is_active():
             logger.debug(
                 "lost connection to {}:{}, reconnecting".format(
@@ -149,15 +150,16 @@ class Connection(object):
 
             assert self.is_active()
 
-    def new_session(self):
+    def new_session(self) -> Channel | None:
         logger.debug("Creating new session at {}:{}".format(self.hostname, self.port))
         try:
-            transport = self.client.get_transport()
-            transport.set_keepalive(60)
-
-            session = transport.open_session()
-            session.setblocking(0)
-            session.settimeout(0)
+            if transport := self.client.get_transport():
+                transport.set_keepalive(60)
+                session = transport.open_session()
+                session.setblocking(0)
+                session.settimeout(0)
+            else:
+                raise paramiko.SSHException
 
         except paramiko.SSHException:
             logger.debug(
@@ -166,12 +168,12 @@ class Connection(object):
                 )
             )
             if "session" in locals():
-                session.close()
+                session.close()  # noqa
             session = None
         return session
 
     @staticmethod
-    def close_session(session=None):
+    def close_session(session=None) -> None:
         """close the current session"""
         if session:
             try:
@@ -181,7 +183,7 @@ class Connection(object):
                 # pass all exceptions since the session is already closed or broken
                 pass
 
-    def __run_command(self, command):
+    def __run_command(self, command) -> Channel | None:
         """open new session and run command in it
 
         parameter: command -> str
@@ -190,16 +192,18 @@ class Connection(object):
         """
 
         try:
-            session = self.new_session()
-            session.exec_command(command)
+            if session := self.new_session():
+                session.exec_command(command)
+            else:
+                raise AttributeError
         except (AttributeError, paramiko.ChannelException, paramiko.SSHException):
             if "session" in locals():
                 if isinstance(session, paramiko.channel.Channel):
                     self.close_session(session)
-            return False
+            return None
         return session
 
-    def run(self, command, lock=None):
+    def run(self, command, lock=None) -> tuple[str, str, int]:
         """run command over SSH channel
 
         Blocks until command terminates. returncode of issued command is returned.
@@ -280,24 +284,24 @@ class Connection(object):
 
         return (stdout.decode(), stderr.decode(), exitcode)
 
-    def __sftp_open(self):
+    def __sftp_open(self) -> SFTPClient | None:
         try:
             sftp = self.client.open_sftp()
         except (AttributeError, paramiko.ChannelException, paramiko.SSHException):
             if "sftp" in locals():
                 if isinstance(sftp, paramiko.sftp_client.SFTPClient):
                     sftp.close()
-            return False
+            return None
         return sftp
 
-    def __sftp_reconnect(self):
+    def __sftp_reconnect(self) -> SFTPClient:
         sftp = self.__sftp_open()
         while not sftp:
             self.reconnect()
             sftp = self.__sftp_open()
         return sftp
 
-    def listdir(self, path="."):
+    def listdir(self, path=".") -> list[str]:
         """get directory listing of the remote host
 
         Keyword arguments:
@@ -314,7 +318,7 @@ class Connection(object):
         sftp.close()
         return listdir
 
-    def open(self, filename, mode="r", bufsize=-1):
+    def open(self, filename, mode="r", bufsize=-1) -> SFTPFile:
         """open remote file
         default mode is reading
         can be used as context manager
@@ -330,12 +334,12 @@ class Connection(object):
             logger.debug(format_exc())
             # TODO: recheck if is needed
             if "sftp" in locals():
-                if isinstance(sftp, paramiko.sftp_client.SFTPClient):
+                if isinstance(sftp, SFTPClient):
                     sftp.close()
             raise
         return ofile
 
-    def readlink(self, path):
+    def readlink(self, path) -> str | None:
         """Return the target of a symbolic link (shortcut)."""
         logger.debug("read link {}:{}:{}".format(self.hostname, self.port, path))
 
@@ -344,10 +348,10 @@ class Connection(object):
         sftp.close()
         return link
 
-    def is_active(self):
-        return self.client._transport and self.client._transport.is_active()
+    def is_active(self) -> bool:
+        return self.client._transport and self.client._transport.is_active()  # type: ignore
 
-    def close(self):
+    def close(self) -> None:
         """closes SSH channel to host and disconnects
         Keyword arguments: None
         """
