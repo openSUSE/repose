@@ -2,9 +2,10 @@ import sys
 import threading
 import time
 from queue import Queue
+from typing import Any
 
 
-queue = Queue()
+queue: Queue[list[Any]] = Queue()
 
 
 class ThreadedMethod(threading.Thread):
@@ -30,7 +31,7 @@ class ThreadedMethod(threading.Thread):
                     pass  # already removed by ctrl+c
 
 
-class RunCommand(object):
+class RunCommand:
     def __init__(self, targets, command):
         self.targets = targets
         self.command = command

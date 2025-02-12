@@ -2,7 +2,6 @@ from abc import ABCMeta
 
 
 class UserMessage(BaseException, metaclass=ABCMeta):
-
     """
     Message to be displayed to the user
     """
@@ -19,14 +18,12 @@ class UserMessage(BaseException, metaclass=ABCMeta):
 
 
 class ErrorMessage(UserMessage, RuntimeError):
-
     """
     Program error message to be displayed to the user
     """
 
 
 class UserError(UserMessage, RuntimeError):
-
     """
     Error, caused by improper usage of the program,
     to be displayed to the user

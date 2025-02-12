@@ -12,7 +12,7 @@ from ..utils import blue
 logger = logging.getLogger("repose.command")
 
 
-class Command(object):
+class Command:
     addcmd = "zypper -n ar {params} {name} {url} {name}"
     rrcmd = "zypper -n rr {repos}"
     refcmd = "zypper -n --gpg-auto-import-keys ref -f"
