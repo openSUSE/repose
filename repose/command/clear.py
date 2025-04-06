@@ -1,7 +1,9 @@
 import concurrent.futures
-from . import Command
-from ..utils import blue
 import logging
+
+from . import Command
+from ..types import ExitCode
+from ..utils import blue
 
 
 logger = logging.getLogger("repose.command.clear")
@@ -25,9 +27,9 @@ class Clear(Command):
             )
         else:
             self.targets[host].run(self.rrcmd.format(repos=" ".join(repoaliases)))
-            logger.info("Repositories cleared from {}".format(host))
+            logger.info("Repositories cleared from %s", host)
 
-    def run(self):
+    def run(self) -> ExitCode:
         self.targets.read_repos()
 
         with concurrent.futures.ThreadPoolExecutor() as executor:
@@ -37,3 +39,4 @@ class Clear(Command):
             concurrent.futures.wait(targets)
 
         self.targets.close()
+        return 0

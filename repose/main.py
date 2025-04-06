@@ -24,4 +24,4 @@ def main():
     else:
         pass
 
-    args.func(args)
+    sys.exit(args.func(args))

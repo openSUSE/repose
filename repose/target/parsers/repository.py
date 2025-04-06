@@ -1,8 +1,9 @@
 from xml.etree import ElementTree as ET
+
 from ..parsers import Repository
 
 
-def parse_repositories(xml):
+def parse_repositories(xml) -> set[Repository]:
     repos = set()
     root = ET.fromstring(xml)
 

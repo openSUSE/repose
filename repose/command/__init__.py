@@ -1,16 +1,14 @@
 import importlib
-import os
-import os.path
+from pathlib import Path
 from ._command import Command as Command
 
-_rootdir = os.path.dirname(os.path.realpath(__file__))
+_rootdir = Path(__file__).resolve().parent
 cmd_list = []
 
-for name in os.listdir(_rootdir):
+for pth in _rootdir.iterdir():
     # list all ".py"
-    path = os.path.join(_rootdir, name)
-    if os.path.isfile(path) and name.endswith(".py"):
-        modname = name[:-3]
+    if pth.is_file() and pth.suffix == ".py":
+        modname = pth.stem
     else:
         continue
     # skip things like __init__, __pycache__, __main__ , _commad ...

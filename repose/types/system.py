@@ -14,7 +14,7 @@ class System:
     for correct update handling
     """
 
-    def __init__(self, base, addons=None):
+    def __init__(self, base, addons=None) -> None:
         """
         base: type Product(name, version, arch)
         addons: type set of Product(name, version, arch)
@@ -23,7 +23,7 @@ class System:
         addons = addons if addons else set()
         self._data = {"base": base, "addons": addons}
 
-    def __str__(self):
+    def __str__(self) -> str:
         addons = "-modules" if self._data["addons"] else ""
         msg = self._data["base"].name.lower()
         msg += addons
@@ -31,7 +31,7 @@ class System:
         msg += "-" + self._data["base"].arch
         return msg
 
-    def pretty(self):
+    def pretty(self) -> list[str]:
         msg = [
             "  Base product: {}-{}-{}".format(
                 self._data["base"].name,
@@ -68,7 +68,7 @@ class System:
     def arch(self):
         return self._data["base"].arch
 
-    def __eq__(self, other):
+    def __eq__(self, other) -> bool:
         return self._data == other._data
 
     def __ne__(self, other):

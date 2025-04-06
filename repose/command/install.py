@@ -1,7 +1,9 @@
 import concurrent.futures
-from . import Command
 from itertools import chain
 import logging
+
+from . import Command
+from ..types import ExitCode
 from ..utils import blue
 
 logger = logging.getLogger("repose.command.install")
@@ -10,7 +12,7 @@ logger = logging.getLogger("repose.command.install")
 class Install(Command):
     command = True
 
-    def _run(self, repoq, target):
+    def _run(self, repoq, target) -> None:
         repositories = {}
         for repa in self.repa:
             try:
@@ -25,7 +27,7 @@ class Install(Command):
                 name=repo.name, url=repo.url, params="-cfkn" if repo.refresh else "-ckn"
             )
             if self.dryrun:
-                print(blue("{}".format(target)) + " - {}".format(addcmd))
+                print(blue(f"{target}") + f" - {addcmd}")
             else:
                 self.targets[target].run(addcmd)
                 self._report_target(target)
@@ -34,14 +36,14 @@ class Install(Command):
         if repositories.keys():
             inscmd = self.ipdcmd.format(products=" ".join(repositories.keys()))
             if self.dryrun:
-                print(blue(str(target)) + " - {}".format(inscmd))
+                print(blue(str(target)) + f" - {inscmd}")
             else:
                 self.targets[target].run(inscmd)
                 self._report_target(target)
         else:
             logger.error("No products to install")
 
-    def run(self):
+    def run(self) -> ExitCode:
         repoq = self._init_repoq()
         self.targets.read_products()
         self.targets.read_repos()
@@ -54,3 +56,4 @@ class Install(Command):
             concurrent.futures.wait(targets)
 
         self.targets.close()
+        return 0

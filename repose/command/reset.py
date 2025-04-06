@@ -1,10 +1,11 @@
 import concurrent.futures
-import logging
 from itertools import chain
+import logging
 
-from .clear import Clear
-from ..utils import blue
 from ..messages import UnsuportedProductMessage
+from ..types import ExitCode
+from ..utils import blue
+from .clear import Clear
 
 logger = logging.getLogger("repose.command.reset")
 
@@ -27,7 +28,7 @@ class Reset(Clear):
         )
         return cmds
 
-    def _run(self, host):
+    def _run(self, host) -> None:
         repoaliases = self._clear(host)
         try:
             cmds = self._add(host)
@@ -38,16 +39,16 @@ class Reset(Clear):
                     + " - {}".format(self.rrcmd.format(repos=" ".join(repoaliases)))
                 )
                 for cmd in cmds:
-                    print(blue(host) + " - {}".format(cmd))
+                    print(blue(host) + f" - {cmd}")
             else:
                 self.targets[host].run(self.rrcmd.format(repos=" ".join(repoaliases)))
                 for cmd in cmds:
                     self.targets[host].run(cmd)
                     self._report_target(host)
         except UnsuportedProductMessage as e:
-            logger.error("Refhost {} - {}".format(host, e))
+            logger.error("Refhost %s - %s", host, e)
 
-    def run(self):
+    def run(self) -> ExitCode:
         self.targets.read_products()
         self.targets.read_repos()
 
@@ -57,3 +58,4 @@ class Reset(Clear):
             ]
             concurrent.futures.wait(targets)
         self.targets.close()
+        return 0

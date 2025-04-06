@@ -1,7 +1,8 @@
-import xml.etree.ElementTree as ET
 import logging
-from ..parsers import Product
+import xml.etree.ElementTree as ET
+
 from ...types.system import System
+from ..parsers import Product
 
 logger = logging.getLogger("repose.tartget.parsers.product")
 
@@ -17,7 +18,7 @@ def __parse_product(prod):
             if root.find("./patchlevel").text != "0"
             else ""
         )
-        version += "-SP{}".format(sp) if sp else ""
+        version += f"-SP{sp}" if sp else ""
     except AttributeError:
         version = root.find("./version").text
         logger.debug("simpleversion")
@@ -35,7 +36,7 @@ def __parse_os_release(f):
     return ("rhel", "7", "x86_64")
 
 
-def parse_system(connection):
+def parse_system(connection) -> System:
     try:
         files = [
             x for x in connection.listdir("/etc/products.d") if x.endswith(".prod")

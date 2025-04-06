@@ -1,7 +1,7 @@
+from queue import Queue
 import sys
 import threading
 import time
-from queue import Queue
 from typing import Any
 
 
@@ -9,11 +9,11 @@ queue: Queue[list[Any]] = Queue()
 
 
 class ThreadedMethod(threading.Thread):
-    def __init__(self, queue):
+    def __init__(self, queue) -> None:
         threading.Thread.__init__(self)
         self.queue = queue
 
-    def run(self):
+    def run(self) -> None:
         while True:
             try:
                 (method, parameter) = self.queue.get(timeout=10)
@@ -32,11 +32,11 @@ class ThreadedMethod(threading.Thread):
 
 
 class RunCommand:
-    def __init__(self, targets, command):
+    def __init__(self, targets, command: dict[str, str] | str) -> None:
         self.targets = targets
         self.command = command
 
-    def run(self):
+    def run(self) -> None:
         lock = threading.Lock()
 
         try:
@@ -74,7 +74,7 @@ class RunCommand:
             raise
 
 
-def spinner(lock=None):
+def spinner(lock=None) -> None:
     """simple spinner to show some process"""
 
     for pos in ["|", "/", "-", "\\"]:
@@ -82,10 +82,10 @@ def spinner(lock=None):
             lock.acquire()
 
         try:
-            sys.stdout.write("processing... [{!s}]\r".format(pos))
+            sys.stdout.write(f"processing... [{pos}]\r")
             sys.stdout.flush()
         finally:
             if lock is not None:
                 lock.release()
 
-        time.sleep(0.3)
+        time.sleep(0.1)
