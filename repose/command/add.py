@@ -1,7 +1,9 @@
 import concurrent.futures
-from . import Command
 from itertools import chain
 import logging
+
+from . import Command
+from ..types import ExitCode
 from ..utils import blue
 
 logger = logging.getLogger("repose.command.add")
@@ -33,7 +35,7 @@ class Add(Command):
         )
         return cmds
 
-    def _run(self, target):
+    def _run(self, target) -> None:
         cmds = self._add(target)
         for cmd in cmds:
             if self.dryrun:
@@ -42,7 +44,7 @@ class Add(Command):
                 self.targets[target].run(cmd)
                 self._report_target(target)
 
-    def run(self):
+    def run(self) -> ExitCode:
         self.targets.read_products()
         with concurrent.futures.ThreadPoolExecutor() as executor:
             targets = [
@@ -53,3 +55,5 @@ class Add(Command):
         if not self.dryrun:
             self.targets.run(self.refcmd)
         self.targets.close()
+
+        return 0

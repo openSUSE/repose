@@ -24,10 +24,10 @@ class CommandTimeout(Exception):
     returns timed out remote command as __str__
     """
 
-    def __init__(self, command=None):
+    def __init__(self, command=None) -> None:
         self.command = command
 
-    def __str__(self):
+    def __str__(self) -> str:
         return repr(self.command)
 
 
@@ -57,12 +57,12 @@ class Connection:
 
         self.client: SSHClient = paramiko.SSHClient()
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return "<{} object username={} hostname={} port={}>".format(
             self.__class__.__name__, self.username, self.hostname, self.port
         )
 
-    def __load_keys(self):
+    def __load_keys(self) -> None:
         self.client.load_system_host_keys()
         # Dont check host keys --> StrictHostChecking no
         self.client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -85,15 +85,19 @@ class Connection:
             # hostkey for the specified host. checking back with a manual
             # "ssh root@..." invocation helps in most cases.
             self.client.connect(
-                hostname=opts.get("hostname", self.hostname)
-                if "proxycommand" not in opts
-                else self.hostname,
+                hostname=(
+                    opts.get("hostname", self.hostname)
+                    if "proxycommand" not in opts
+                    else self.hostname
+                ),
                 port=int(opts.get("port", self.port)),
                 username=opts.get("user", self.username),
                 key_filename=opts.get("identityfile", None),
-                sock=paramiko.ProxyCommand(opts["proxycommand"])
-                if "proxycommand" in opts
-                else None,
+                sock=(
+                    paramiko.ProxyCommand(opts["proxycommand"])
+                    if "proxycommand" in opts
+                    else None
+                ),
             )
 
         except (paramiko.AuthenticationException, paramiko.BadHostKeyException):
@@ -101,7 +105,7 @@ class Connection:
             # other than ssh, mtui asks only once for a password. this could
             # be changed if there is demand for it.
             logger.warning(
-                "Authentication failed on {}: AuthKey missing.".format(self.hostname)
+                "Authentication failed on %s: AuthKey missing.", self.hostname
             )
             logger.warning("Trying manually, please enter the root password")
             password = getpass.getpass()
@@ -109,15 +113,19 @@ class Connection:
             try:
                 # try again with password auth instead of public/private key
                 self.client.connect(
-                    hostname=opts.get("hostname", self.hostname)
-                    if "proxycommand" not in opts
-                    else self.hostname,
+                    hostname=(
+                        opts.get("hostname", self.hostname)
+                        if "proxycommand" not in opts
+                        else self.hostname
+                    ),
                     port=int(opts.get("port", self.port)),
                     username=opts.get("user", self.username),
                     password=password,
-                    sock=paramiko.ProxyCommand(opts["proxycommand"])
-                    if "proxycommand" in opts
-                    else None,
+                    sock=(
+                        paramiko.ProxyCommand(opts["proxycommand"])
+                        if "proxycommand" in opts
+                        else None
+                    ),
                 )
 
             except paramiko.AuthenticationException:
@@ -125,33 +133,31 @@ class Connection:
                 # reraise the exception hoping it's catched somewhere in an
                 # upper layer.
                 logger.error(
-                    "Authentication failed on {}: wrong password".format(self.hostname)
+                    "Authentication failed on %s: wrong password", self.hostname
                 )
                 raise
         except paramiko.SSHException:
             # unspecified general SSHException. the host/sshd is probably not
             # available.
-            logger.error("SSHException while connecting to {}".format(self.hostname))
+            logger.error("SSHException while connecting to %s", self.hostname)
             raise
         except Exception as error:
             # general Exception
-            logger.error("{}: {}".format(self.hostname, error))
+            logger.error("%s: %s", self.hostname, error)
             raise
 
     def reconnect(self) -> None:
         if not self.is_active():
             logger.debug(
-                "lost connection to {}:{}, reconnecting".format(
-                    self.hostname, self.port
-                )
+                "lost connection to %s:%s, reconnecting", self.hostname, self.port
             )
 
             self.connect()
 
-            assert self.is_active()
+            assert self.is_active()  # TODO: get rid of asserts
 
     def new_session(self) -> Channel | None:
-        logger.debug("Creating new session at {}:{}".format(self.hostname, self.port))
+        logger.debug("Creating new session at %s:%s", self.hostname, self.port)
         try:
             if transport := self.client.get_transport():
                 transport.set_keepalive(60)
@@ -197,9 +203,8 @@ class Connection:
             else:
                 raise AttributeError
         except (AttributeError, paramiko.ChannelException, paramiko.SSHException):
-            if "session" in locals():
-                if isinstance(session, paramiko.channel.Channel):
-                    self.close_session(session)
+            if "session" in locals() and isinstance(session, paramiko.channel.Channel):
+                self.close_session(session)
             return None
         return session
 
@@ -288,9 +293,8 @@ class Connection:
         try:
             sftp = self.client.open_sftp()
         except (AttributeError, paramiko.ChannelException, paramiko.SSHException):
-            if "sftp" in locals():
-                if isinstance(sftp, paramiko.sftp_client.SFTPClient):
-                    sftp.close()
+            if "sftp" in locals() and isinstance(sftp, paramiko.sftp_client.SFTPClient):
+                sftp.close()
             return None
         return sftp
 
@@ -309,9 +313,7 @@ class Connection:
 
         """
 
-        logger.debug(
-            "getting {!s}:{!s}:{!s} listing".format(self.hostname, self.port, path)
-        )
+        logger.debug("getting %s:%s:%s listing", self.hostname, self.port, path)
         sftp = self.__sftp_reconnect()
 
         listdir = sftp.listdir(path)
@@ -324,7 +326,7 @@ class Connection:
         can be used as context manager
         """
 
-        logger.debug("{0} open({1}, {2})".format(repr(self), filename, mode))
+        logger.debug("%s open(%s, %s)", repr(self), filename, mode)
         logger.debug("  -> self.client.open_sftp")
         sftp = self.__sftp_reconnect()
         logger.debug("  -> sftp.open")
@@ -341,7 +343,7 @@ class Connection:
 
     def readlink(self, path) -> str | None:
         """Return the target of a symbolic link (shortcut)."""
-        logger.debug("read link {}:{}:{}".format(self.hostname, self.port, path))
+        logger.debug("read link %s:%s:%s", self.hostname, self.port, path)
 
         sftp = self.__sftp_reconnect()
         link = sftp.readlink(path)
@@ -355,5 +357,5 @@ class Connection:
         """closes SSH channel to host and disconnects
         Keyword arguments: None
         """
-        logger.debug("closing connection to {}:{}".format(self.hostname, self.port))
+        logger.debug("closing connection to %s:%s", self.hostname, self.port)
         self.client.close()

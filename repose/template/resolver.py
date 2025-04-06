@@ -5,6 +5,8 @@ from copy import deepcopy
 from difflib import get_close_matches
 
 from ..messages import UnsuportedProductMessage
+from ..types.repa import Repa
+from ..types.system import System
 
 Repos = namedtuple("Repos", ("name", "url", "refresh"))
 
@@ -14,10 +16,10 @@ logger = logging.getLogger("repose.template.resolver")
 class Repoq:
     """resolve and return template data for requested repositories"""
 
-    def __init__(self, template):
+    def __init__(self, template) -> None:
         self.template = template
 
-    def solve_repa(self, orepa, base):
+    def solve_repa(self, orepa: Repa, base):
         """.. returns needed repositories for REPA
         ::param:: orepa - instance of Repa object
         ::param:: base -- System.get_base()
@@ -25,7 +27,7 @@ class Repoq:
         repa = deepcopy(orepa)
         if repa.product not in self.template:
             candidates = get_close_matches(repa.product, self.template)
-            error_msg = "Not known product: {}.".format(repa.product)
+            error_msg = f"Not known product: {repa.product}"
             if candidates:
                 error_msg += " Did you mean {}?".format(*candidates)
             raise ValueError(error_msg)
@@ -45,15 +47,15 @@ class Repoq:
             version = repa.baseversion
         else:
             raise ValueError(
-                "Unknow version: {} for product: {}".format(repa.version, repa.product)
+                f"Unknow version: {repa.version} for product: {repa.product}"
             )
-        name = "{}:{}::".format(repa.product, version)
+        name = f"{repa.product}:{version}::"
 
         # used by for example QA:SLE projects
         shortversion = version.replace("-", "")
 
         if repa.repo:
-            logger.debug("Return data for {} - {}".format(name, repa.repo))
+            logger.debug("Return data for %s - %s", name, repa.repo)
             url = Template(
                 subtemplate.get(repa.repo, {"url": "http://empty.url"})["url"]
             ).substitute(version=version, arch=repa.arch, shortver=shortversion)
@@ -63,7 +65,7 @@ class Repoq:
         else:
             rlist = []
             for x in subtemplate["default_repos"]:
-                logger.debug("Return data for {} - {}".format(name, x))
+                logger.debug("Return data for %s - %s", name, x)
                 url = Template(
                     subtemplate.get(x, {"url": "http://empty.url"})["url"]
                 ).substitute(version=version, arch=repa.arch, shortver=shortversion)
@@ -74,7 +76,7 @@ class Repoq:
 
         return result
 
-    def solve_product(self, products):
+    def solve_product(self, products: System):
         """.. returns needed repositories for products from system :D
         ::param:: products -- instance of System object
         ::return:: { release-file:[(name, url, refresh-state,),] ..}"""

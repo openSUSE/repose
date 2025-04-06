@@ -3,6 +3,7 @@ import logging
 from itertools import chain
 from ..utils import blue
 from .remove import Remove
+from ..types import ExitCode
 
 
 logger = logging.getLogger("repose.command.uninstall")
@@ -25,12 +26,12 @@ class Uninstall(Remove):
     def _run(self, orepa, host):
         patterns = self._calculate_pattern(orepa, host)
         if not patterns:
-            logger.info("For {} no products for remove found".format(host))
+            logger.info("For %s no products for remove found", host)
             return
 
         rdict = self._calculate_repodict(host, patterns)
         if not rdict:
-            logger.info("For {} no repos for remove found".format(host))
+            logger.info("For %s no repos for remove found", host)
             rrcmd = False
         else:
             rrcmd = self.rrcmd.format(
@@ -50,7 +51,7 @@ class Uninstall(Remove):
             self.targets[host].run(pdcmd)
             self._report_target(host)
 
-    def run(self):
+    def run(self) -> ExitCode:
         self.targets.read_repos()
         self.targets.parse_repos()
         orepa = []
@@ -67,3 +68,4 @@ class Uninstall(Remove):
             concurrent.futures.wait(targets)
 
         self.targets.close()
+        return 0

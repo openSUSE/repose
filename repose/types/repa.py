@@ -1,11 +1,11 @@
 class Repa:
     """Object holding REPA data"""
 
-    def __init__(self, repa):
+    def __init__(self, repa) -> None:
         self.__version = None
         self.__parse(repa)
 
-    def __parse(self, repa):
+    def __parse(self, repa) -> None:
         data = repa.split(":")
         lenght = len(data)
         if lenght > 4:
@@ -35,7 +35,5 @@ class Repa:
             self.smallver = None
             self.baseversion = None
 
-    def __repr__(self):
-        return "<object REPA: {}_{}_{}_{}>".format(
-            self.product, self.version, self.arch, self.repo
-        )
+    def __repr__(self) -> str:
+        return f"<object REPA: {self.product}_{self.version}_{self.arch}_{self.repo}>"

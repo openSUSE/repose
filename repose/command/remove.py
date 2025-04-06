@@ -1,7 +1,8 @@
 import concurrent.futures
-
 import logging
+
 from . import Command
+from ..types import ExitCode
 from ..utils import blue
 
 logger = logging.getLogger("repose.command.remove")
@@ -44,27 +45,28 @@ class Remove(Command):
                     repolist.add(repo)
         return repolist
 
-    def _run(self, host):
+    def _run(self, host, *args) -> None:
         patterns = self._calculate_pattern(self.repa, host)
 
         if not patterns:
-            logger.info("For {} no repos for remove found".format(host))
+            logger.info("For %s no repos for remove found", host)
             return
         repolist = self._calculate_repolist(host, patterns)
 
         if not repolist:
-            logger.info("For {} no repos for remove found".format(host))
+            logger.info("For %s no repos for remove found", host)
         cmd = self.rrcmd.format(repos=" ".join(repolist))
 
         if self.dryrun:
-            print(blue(host) + " - {}".format(cmd))
+            print(blue(host) + f" - {cmd}")
         else:
             self.targets[host].run(cmd)
             self._report_target(host)
 
-    def run(self):
+    def run(self) -> ExitCode:
         self.targets.read_repos()
         self.targets.parse_repos()
+
         with concurrent.futures.ThreadPoolExecutor() as executor:
             targets = [
                 executor.submit(self._run, target) for target in self.targets.keys()
@@ -72,3 +74,4 @@ class Remove(Command):
             concurrent.futures.wait(targets)
 
         self.targets.close()
+        return 0
