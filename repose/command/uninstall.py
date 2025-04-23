@@ -38,7 +38,16 @@ class Uninstall(Remove):
                 repos=" ".join(chain.from_iterable(rdict.values()))
             )
 
-        pdcmd = self.rrpcmd.format(products=" ".join(x.split(":")[0] for x in patterns))
+        transactional = False
+        if "SL-Micro" in patterns:
+            transactional = True
+            pdcmd = self.rrpdtcmd.format(
+                prodcuts=" ".join(x.split(":")[0] for x in patterns)
+            )
+        else:
+            pdcmd = self.rrpcmd.format(
+                products=" ".join(x.split(":")[0] for x in patterns)
+            )
 
         if self.dryrun:
             if rrcmd:
@@ -50,6 +59,8 @@ class Uninstall(Remove):
                 self._report_target(host)
             self.targets[host].run(pdcmd)
             self._report_target(host)
+            if transactional:
+                logger.info("Reboot %s to switch into updated snapshot", host)
 
     def run(self) -> ExitCode:
         self.targets.read_repos()

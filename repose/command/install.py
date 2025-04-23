@@ -34,12 +34,21 @@ class Install(Command):
                 self.targets[target].run(self.refcmd)
 
         if repositories.keys():
-            inscmd = self.ipdcmd.format(products=" ".join(repositories.keys()))
+            transactional = False
+            if "SL-Micro" in repositories.keys():
+                transactional = True
+                inscmd = self.ipdtcmd.format(products=" ".join(repositories.keys()))
+            else:
+                inscmd = self.ipdcmd.format(products=" ".join(repositories.keys()))
             if self.dryrun:
                 print(blue(str(target)) + f" - {inscmd}")
             else:
                 self.targets[target].run(inscmd)
                 self._report_target(target)
+                if transactional:
+                    logger.info(
+                        "Reboot %s to switch into correct snapshot", str(target)
+                    )
         else:
             logger.error("No products to install")
 

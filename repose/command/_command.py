@@ -15,11 +15,14 @@ logger = logging.getLogger("repose.command")
 
 
 class Command(ABC):
-    addcmd = "zypper -n ar {params} {name} {url} {name}"
-    rrcmd = "zypper -n rr {repos}"
-    refcmd = "zypper -n --gpg-auto-import-keys ref -f"
-    ipdcmd = "zypper -n in -t product -l -f {products}"
-    rrpcmd = "zypper -n rm -t product {products}"
+    addcmd: str = "zypper -n ar {params} {name} {url} {name}"
+    rrcmd: str = "zypper -n rr {repos}"
+    refcmd: str = "zypper -n --gpg-auto-import-keys ref -f"
+    ipdcmd: str = "zypper -n in -t product -l -f {products}"
+    rrpcmd: str = "zypper -n rm -t product {products}"
+    ipdtcmd: str = "transactional-update pkg in -t product -l -f {products}"
+    rrpdtcmd: str = "transactional-update pkg rm -t product -l -f {products}"
+    reboot: str = "rebootmgrctl reboot now"
 
     def __init__(self, args) -> None:
         __dtargets = {}
@@ -46,7 +49,7 @@ class Command(ABC):
     def _load_template(self):
         return load_template(self.template_path)
 
-    def _init_repoq(self):
+    def _init_repoq(self) -> Repoq:
         return Repoq(self._load_template())
 
     def _report_target(self, target) -> None:

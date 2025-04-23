@@ -7,5 +7,5 @@ class KnownProducts(Command):
 
     def run(self) -> ExitCode:
         template = self._load_template()
-        self.display.list_known_products(template.keys())
+        self.display.list_known_products(sorted(template.keys()))
         return 0
