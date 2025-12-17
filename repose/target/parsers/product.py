@@ -37,6 +37,7 @@ def __parse_os_release(f):
 
 
 def parse_system(connection) -> System:
+    files = []
     try:
         files = [
             x for x in connection.listdir("/etc/products.d") if x.endswith(".prod")
@@ -58,9 +59,11 @@ def parse_system(connection) -> System:
         return System(Product(name, version, arch))
 
     basefile = connection.readlink("/etc/products.d/baseproduct")
+    if "/" in basefile:
+        basefile = basefile.split("/")[-1]
     files.remove(basefile)
 
-    with connection.open("/etc/products.d/{}".format(basefile)) as f:
+    with connection.open(f"/etc/products.d/{basefile}") as f:
         logger.debug("Parsing basefile")
         name, version, arch = __parse_product(f)
         base = Product(name, version, arch)
@@ -68,10 +71,9 @@ def parse_system(connection) -> System:
     addons = set()
 
     for x in files:
-        with connection.open("/etc/products.d/{}".format(x)) as f:
-            logger.debug("parsing - {}".format(x))
+        with connection.open(f"/etc/products.d/{x}") as f:
+            logger.debug("parsing - %s", x)
             name, version, arch = __parse_product(f)
             if name.rpartition("-")[-1] != "migration":
                 addons.add(Product(name, version, arch))
-
     return System(base, addons)
