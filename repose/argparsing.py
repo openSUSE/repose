@@ -105,119 +105,72 @@ def get_parser():
 
     commands = parser.add_subparsers()
 
-    # command ADD
+    def add_subparser(name, help_text, func, arguments=None):
+        """Helper to create a subparser and add common arguments."""
+        if arguments is None:
+            arguments = []
+        subparser = commands.add_parser(name, help=help_text)
+        if "target" in arguments:
+            subparser.add_argument(
+                "-t",
+                "--target",
+                metavar="HOST",
+                type=ParseHosts,
+                action="append",
+                required=True,
+                help="target to operate on",
+            )
+        if "repa" in arguments:
+            subparser.add_argument(
+                "repa",
+                metavar="REPA",
+                nargs="+",
+                type=Repa,
+                help="REPA pattern specification for needed repository",
+            )
+        subparser.set_defaults(func=func)
+        return subparser
 
-    cmdadd = commands.add_parser("add", help="add specified repository to target")
-    cmdadd.add_argument(
-        "-t",
-        "--target",
-        metavar="HOST",
-        type=ParseHosts,
-        action="append",
-        required=True,
-        help="target to operate on",
+    # command ADD
+    add_subparser(
+        "add", "add specified repository to target", do_add, ["target", "repa"]
     )
-    cmdadd.add_argument(
-        "repa",
-        metavar="REPA",
-        nargs="+",
-        type=Repa,
-        help="REPA pattern specification for needed repository",
-    )
-    cmdadd.set_defaults(func=do_add)
 
     # command REMOVE
-
-    cmdremove = commands.add_parser("remove", help="remove repository from target")
-    cmdremove.add_argument(
-        "-t",
-        "--target",
-        metavar="HOST",
-        type=ParseHosts,
-        action="append",
-        required=True,
-        help="target to operate on",
+    add_subparser(
+        "remove", "remove repository from target", do_remove, ["target", "repa"]
     )
-    cmdremove.add_argument("repa", metavar="REPA", type=Repa, nargs="+")
-    cmdremove.set_defaults(func=do_remove)
 
     # command RESET
-
-    cmdreset = commands.add_parser(
+    add_subparser(
         "reset",
-        help="reset target repositories to only installed products repositories",
+        "reset target repositories to only installed products repositories",
+        do_reset,
+        ["target"],
     )
-    cmdreset.add_argument(
-        "-t",
-        "--target",
-        metavar="HOST",
-        type=ParseHosts,
-        action="append",
-        required=True,
-        help="target to operate on",
-    )
-    cmdreset.set_defaults(func=do_reset)
 
     # command INSTALL
-
-    cmdinstall = commands.add_parser(
-        "install", help="add specified repository to target and install product"
+    add_subparser(
+        "install",
+        "add specified repository to target and install product",
+        do_install,
+        ["target", "repa"],
     )
-    cmdinstall.add_argument(
-        "-t",
-        "--target",
-        metavar="HOST",
-        type=ParseHosts,
-        action="append",
-        required=True,
-        help="target to operate on",
-    )
-    cmdinstall.add_argument("repa", metavar="REPA", type=Repa, nargs="+")
-    cmdinstall.set_defaults(func=do_install)
 
     # command CLEAR
+    add_subparser("clear", "clear all repositories from target", do_clear, ["target"])
 
-    cmdclear = commands.add_parser("clear", help="clear all repositories from target")
-    cmdclear.add_argument(
-        "-t",
-        "--target",
-        metavar="HOST",
-        type=ParseHosts,
-        action="append",
-        required=True,
-        help="target to operate on",
-    )
-    cmdclear.set_defaults(func=do_clear)
-
-    # command Unistall
-
-    cmduninstall = commands.add_parser(
+    # command Uninstall
+    add_subparser(
         "uninstall",
-        help="remove specified repository from target and uninstall product",
+        "remove specified repository from target and uninstall product",
+        do_uninstall,
+        ["target", "repa"],
     )
-    cmduninstall.add_argument(
-        "-t",
-        "--target",
-        metavar="HOST",
-        type=ParseHosts,
-        action="append",
-        required=True,
-        help="target to operate on",
-    )
-    cmduninstall.add_argument("repa", metavar="REPA", type=Repa, nargs="+")
-    cmduninstall.set_defaults(func=do_uninstall)
 
     # command LIST-Products
-
-    cmdlistp = commands.add_parser("list-products", help="list products on target")
-    cmdlistp.add_argument(
-        "-t",
-        "--target",
-        metavar="HOST",
-        type=ParseHosts,
-        action="append",
-        required=True,
-        help="target to operate on",
+    cmdlistp = add_subparser(
+        "list-products", "list products on target", do_list_products, ["target"]
     )
     glistp = cmdlistp.add_mutually_exclusive_group()
     glistp.add_argument(
@@ -225,27 +178,15 @@ def get_parser():
         action="store_true",
         help="Generate YAML host spec for refhosts.yml generator without normalization. Default for SLE 12-SP5 and SLE 15-SP3+ products",
     )
-    cmdlistp.set_defaults(func=do_list_products)
 
     # command LIST-Repos
-
-    cmdlistr = commands.add_parser("list-repos", help="list repositories on target")
-    cmdlistr.add_argument(
-        "-t",
-        "--target",
-        metavar="HOST",
-        type=ParseHosts,
-        action="append",
-        required=True,
-        help="target to operate on",
+    add_subparser(
+        "list-repos", "list repositories on target", do_list_repos, ["target"]
     )
-    cmdlistr.set_defaults(func=do_list_repos)
 
     # command KnownProducts
-
-    cmdknown = commands.add_parser(
-        "known-products", help="list known products by 'repose'"
+    add_subparser(
+        "known-products", "list known products by 'repose'", do_known_products
     )
-    cmdknown.set_defaults(func=do_known_products)
 
     return parser
