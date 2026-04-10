@@ -1,14 +1,19 @@
 import logging
-from string import Template
-from collections import namedtuple
 from copy import deepcopy
 from difflib import get_close_matches
+from string import Template
+from typing import NamedTuple
 
 from ..messages import UnsuportedProductMessage
 from ..types.repa import Repa
 from ..types.system import System
 
-Repos = namedtuple("Repos", ("name", "url", "refresh"))
+
+class Repos(NamedTuple):
+    name: str
+    url: str
+    refresh: bool
+
 
 logger = logging.getLogger("repose.template.resolver")
 
@@ -29,7 +34,7 @@ class Repoq:
             candidates = get_close_matches(repa.product, self.template)
             error_msg = f"Not known product: {repa.product}"
             if candidates:
-                error_msg += " Did you mean {}?".format(*candidates)
+                error_msg += f" Did you mean {candidates[0]}?"
             raise ValueError(error_msg)
         if repa.arch is None:
             repa.arch = base.arch
@@ -84,7 +89,7 @@ class Repoq:
         template = self.template.copy()
         result = {}
         for product in installed:
-            name = "{}:{}::".format(product.name, product.version)
+            name = f"{product.name}:{product.version}::"
             rlist = []
             try:
                 for repo in template[product.name][product.version]["default_repos"]:
