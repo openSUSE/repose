@@ -36,21 +36,19 @@ class ConnectingTargetFailedMessage(UserMessage):
         self.reason = reason
         self.port = port
 
-    def __str__(self):
-        return "connecting to {}:{} failed: {}".format(
-            self.hostname, self.port, self.reason
-        )
+    def __str__(self) -> str:
+        return f"connecting to {self.hostname}:{self.port} failed: {self.reason}"
 
-    def __repr__(self):
-        return "<{0} {1!r}:{2!r}>".format(self.__class__, self.hostname, self.reason)
+    def __repr__(self) -> str:
+        return f"<{self.__class__} {self.hostname!r}:{self.reason!r}>"
 
 
 class ConnectingToMessage(UserMessage):
     def __init__(self, hostname):
         self.hostname = hostname
 
-    def __str__(self):
-        return "connecting to {0}".format(self.hostname)
+    def __str__(self) -> str:
+        return f"connecting to {self.hostname}"
 
 
 class UnsuportedProductMessage(UserMessage):

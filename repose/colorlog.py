@@ -21,10 +21,10 @@ COLORS = {
 
 
 class ColorFormatter(logging.Formatter):
-    def __init__(self, msg):
-        logging.Formatter.__init__(self, msg)
+    def __init__(self, msg: str) -> None:
+        super().__init__(msg)
 
-    def formatColor(self, levelname) -> str:
+    def formatColor(self, levelname: str) -> str:
         if levelname == "DEBUG":
             caller = inspect.currentframe()
             frame, _, _, function, _, _ = inspect.getouterframes(caller)[9]
@@ -37,7 +37,7 @@ class ColorFormatter(logging.Formatter):
                 + COLOR_SEQ.format(30 + COLORS[levelname])
                 + levelname.lower()
                 + RESET_SEQ
-                + " [{!s}:{!s}]".format(module, function)
+                + f" [{module!s}:{function!s}]"
             )
         return (
             "\033[2K"
@@ -46,7 +46,7 @@ class ColorFormatter(logging.Formatter):
             + RESET_SEQ
         )
 
-    def format(self, record) -> str:
+    def format(self, record: logging.LogRecord) -> str:
         record.message = record.getMessage()
         if self._fmt and self._fmt.find("%(levelname)") >= 0:
             record.levelname = self.formatColor(record.levelname)
