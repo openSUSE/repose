@@ -16,7 +16,7 @@ for pth in _rootdir.iterdir():
         continue
     try:
         module = importlib.import_module("." + modname, "repose.command")
-    except BaseException:
+    except Exception:
         continue
     # register classes
     __klzs = [x for x in dir(module) if hasattr(getattr(module, x), "command")]
