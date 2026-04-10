@@ -15,7 +15,7 @@ class HostParseError(ValueError, ArgumentTypeError):
 
 class PortNotIntError(HostParseError):
     def __init__(self, hostname: str) -> None:
-        super().__init__("Wrong port specification on Host: {}".format(hostname))
+        super().__init__(f"Wrong port specification on Host: {hostname}")
 
 
 class ParseHosts(dict):
@@ -23,10 +23,10 @@ class ParseHosts(dict):
         """
         arg is string with hosts in socket format username@host:port
         """
-        x = urlparse("{}{}".format("//", arg))
+        x = urlparse(f"//{arg}")
         try:
             if x.port:
-                keyname = "{}:{}".format(x.hostname, x.port)
+                keyname = f"{x.hostname}:{x.port}"
                 port = x.port
             else:
                 keyname = x.hostname

@@ -9,18 +9,16 @@ class CommandDisplay:
         return self.output.write(msg + eol)
 
     def list_products(self, hostname, port, system):
-        self.println("{}: {}:{}".format(green("Host"), yellow(hostname), yellow(port)))
+        self.println(f"{green('Host')}: {yellow(hostname)}:{yellow(port)}")
         for x in system.pretty():
             self.println(x)
         self.println()
 
     def list_update_repos(self, hostname, port, repos):
-        self.println(
-            "{} on {}:{}".format(green("Repositories"), blue(hostname), blue(str(port)))
-        )
+        self.println(f"{green('Repositories')} on {blue(hostname)}:{blue(str(port))}")
         for repository in repos:
-            self.println("{}: {}".format(green("REPO name"), repository.name))
-            self.println("{}: {}".format(green("REPO URL"), repository.url))
+            self.println(f"{green('REPO name')}: {repository.name}")
+            self.println(f"{green('REPO URL')}: {repository.url}")
         self.println()
 
     def list_known_products(self, products):
