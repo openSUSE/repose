@@ -85,7 +85,7 @@ def get_parser():
         "-V",
         "--version",
         action="version",
-        version="%(prog)s version: {}".format(__version__),
+        version=f"%(prog)s version: {__version__}",
     )
     parser.add_argument(
         "-c",
