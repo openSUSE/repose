@@ -1,13 +1,15 @@
 import logging
 import xml.etree.ElementTree as ET
+from typing import Any
 
+from ...connection import Connection
 from ...types.system import System
 from ..parsers import Product
 
 logger = logging.getLogger("repose.tartget.parsers.product")
 
 
-def __parse_product(prod):
+def __parse_product(prod: Any) -> tuple[str, str, str]:
     root = ET.fromstringlist(prod)
     name = root.find("./name").text
     arch = root.find("./arch").text
@@ -30,19 +32,19 @@ def __parse_product(prod):
     return (name, version, arch)
 
 
-def __parse_os_release(f):
+def __parse_os_release(f: Any) -> tuple[str, str, str]:
     # TODO : ...
     logger.debug("TODO parse OSRELEASE file")
     return ("rhel", "7", "x86_64")
 
 
-def parse_system(connection) -> System:
+def parse_system(connection: Connection) -> System:
     files = []
     try:
         files = [
             x for x in connection.listdir("/etc/products.d") if x.endswith(".prod")
         ]
-    except IOError:
+    except OSError:
         logger.debug("Not SUSE's system")
         suse = False
     else:
