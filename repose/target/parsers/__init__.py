@@ -1,4 +1,14 @@
-from collections import namedtuple
+from typing import NamedTuple
 
-Product = namedtuple("Product", ("name", "version", "arch"))
-Repository = namedtuple("Repository", ("alias", "name", "url", "state"))
+
+class Product(NamedTuple):
+    name: str
+    version: str
+    arch: str
+
+
+class Repository(NamedTuple):
+    alias: str
+    name: str
+    url: str
+    state: bool
