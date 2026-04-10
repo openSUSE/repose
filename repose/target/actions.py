@@ -17,12 +17,12 @@ class ThreadedMethod(threading.Thread):
         while True:
             try:
                 (method, parameter) = self.queue.get(timeout=10)
-            except BaseException:
+            except Exception:
                 return
 
             try:
                 method(*parameter)
-            except BaseException:
+            except Exception:
                 raise
             finally:
                 try:
