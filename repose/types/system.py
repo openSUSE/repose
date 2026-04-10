@@ -1,105 +1,109 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any, NamedTuple
+
 from .refhost.transformations import (
     transform_version_partialy,
 )
+
+if TYPE_CHECKING:
+    from ..target.parsers import Product
 
 
 class UnknownSystemError(ValueError):
     pass
 
 
+class SystemData(NamedTuple):
+    """Typed internal storage for System — always exactly two fields."""
+
+    base: Product
+    addons: set[Product]
+
+
 class System:
-    """
-    Store product information from refhost
-    used by prettyprint for user and
-    for correct update handling
+    """Store product information from refhost.
+
+    Used by prettyprint for user and for correct update handling.
     """
 
-    def __init__(self, base, addons=None) -> None:
+    def __init__(self, base: Product, addons: set[Product] | None = None) -> None:
+        """Create a System with a base product and optional addon set.
+
+        Args:
+            base: The base product (a ``Product`` named tuple).
+            addons: Optional set of addon ``Product`` instances.
         """
-        base: type Product(name, version, arch)
-        addons: type set of Product(name, version, arch)
-        """
-        # TODO: check for correctness of base and addons types
-        addons = addons if addons else set()
-        self._data = {"base": base, "addons": addons}
+        self._data = SystemData(base=base, addons=addons if addons else set())
 
     def __str__(self) -> str:
-        addons = "-modules" if self._data["addons"] else ""
-        msg = self._data["base"].name.lower()
-        msg += addons
-        msg += "-" + self._data["base"].version
-        msg += "-" + self._data["base"].arch
-        return msg
+        suffix = "-modules" if self._data.addons else ""
+        base = self._data.base
+        return f"{base.name.lower()}{suffix}-{base.version}-{base.arch}"
 
     def pretty(self) -> list[str]:
-        msg = [
-            "  Base product: {}-{}-{}".format(
-                self._data["base"].name,
-                self._data["base"].version,
-                self._data["base"].arch,
-            )
-        ]
-        if self._data["addons"]:
+        base = self._data.base
+        msg = [f"  Base product: {base.name}-{base.version}-{base.arch}"]
+        if self._data.addons:
             msg += ["  Installed Extensions and Modules:"]
             msg += [
-                "      Addon: {:<53} - version: {}".format(x.name, x.version)
-                for x in self._data["addons"]
+                f"      Addon: {x.name:<53} - version: {x.version}"
+                for x in self._data.addons
             ]
         return msg
 
-    def to_refhost_dict_partially_normalized(self):
-        ret = {}
-        # simple values
-        ret["location"] = ["some location"]
-        ret["arch"] = self.arch()
-        ret["product"] = self._get_base_dict_partialy_normalized()
-        ret["addons"] = self._get_addons_list_partialy_normalized()
-        return ret
+    def to_refhost_dict_partially_normalized(self) -> dict[str, Any]:
+        return {
+            "location": ["some location"],
+            "arch": self.arch(),
+            "product": self._get_base_dict_partialy_normalized(),
+            "addons": self._get_addons_list_partialy_normalized(),
+        }
 
-    def to_refhost_dict(self):
-        ret = {}
-        # simple values
-        ret["location"] = ["some location"]
-        ret["arch"] = self.arch()
-        ret["product"] = self._get_base_dict()
-        ret["addons"] = self._get_addons_list()
-        return ret
+    def to_refhost_dict(self) -> dict[str, Any]:
+        return {
+            "location": ["some location"],
+            "arch": self.arch(),
+            "product": self._get_base_dict(),
+            "addons": self._get_addons_list(),
+        }
 
-    def arch(self):
-        return self._data["base"].arch
+    def arch(self) -> str:
+        return self._data.base.arch
 
-    def __eq__(self, other) -> bool:
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, System):
+            return NotImplemented
         return self._data == other._data
 
-    def __ne__(self, other):
-        return not self.__eq__(other)
+    # __ne__ is automatically derived from __eq__ in Python 3 — no override needed.
 
-    def get_addons(self):
-        return self._data["addons"]
+    def get_addons(self) -> set[Product]:
+        return self._data.addons
 
-    def get_base(self):
-        return self._data["base"]
+    def get_base(self) -> Product:
+        return self._data.base
 
-    def _get_base_dict(self):
-        ret = {"name": self._data["base"].name}
-        ret.update({"version": self._data["base"].version})
-        return ret
+    def _get_base_dict(self) -> dict[str, str]:
+        return {
+            "name": self._data.base.name,
+            "version": self._data.base.version,
+        }
 
-    def _get_addons_list(self):
-        return [{"name": x.name, "version": x.version} for x in self._data["addons"]]
+    def _get_addons_list(self) -> list[dict[str, str]]:
+        return [{"name": x.name, "version": x.version} for x in self._data.addons]
 
-    def _get_base_dict_partialy_normalized(self):
-        ret = {"name": self._data["base"].name}
-        ret.update({"version": transform_version_partialy(self._data["base"].version)})
-        return ret
+    def _get_base_dict_partialy_normalized(self) -> dict[str, Any]:
+        return {
+            "name": self._data.base.name,
+            "version": transform_version_partialy(self._data.base.version),
+        }
 
-    def _get_addons_list_partialy_normalized(self):
+    def _get_addons_list_partialy_normalized(self) -> list[dict[str, Any]]:
         return [
             {"name": x.name, "version": transform_version_partialy(x.version)}
-            for x in self._data["addons"]
+            for x in self._data.addons
         ]
 
-    def flatten(self):
-        flat = {self._data["base"]}
-        flat.update(self._data["addons"])
-        return flat
+    def flatten(self) -> set[Product]:
+        return {self._data.base} | self._data.addons
