@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "repose"
-version = "1.10.2"
+dynamic = ["version"]
 description = "Manipulate repositories in QAM refhosts"
 readme = "README.md"
 authors = [{name = "Ondřej Súkup", email = "osukup@suse.cz"}]
@@ -24,7 +24,7 @@ dependencies = [
 ]
 scripts = { repose = "repose.main:main" }
 
-[project.optional-dependencies]
+[dependency-groups]
 dev = [
     "pytest",
     "pytest-cov",
@@ -34,3 +34,6 @@ dev = [
 [project.urls]
 Homepage = "https://github.com/openSUSE/repose"
 Repository = "https://github.com/openSUSE/repose"
+
+[tool.setuptools.dynamic]
+version = {attr = "repose.__version__"}
