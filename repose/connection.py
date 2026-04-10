@@ -58,9 +58,7 @@ class Connection:
         self.client: SSHClient = paramiko.SSHClient()
 
     def __repr__(self) -> str:
-        return "<{} object username={} hostname={} port={}>".format(
-            self.__class__.__name__, self.username, self.hostname, self.port
-        )
+        return f"<{self.__class__.__name__} object username={self.username} hostname={self.hostname} port={self.port}>"
 
     def __load_keys(self) -> None:
         self.client.load_system_host_keys()
@@ -74,7 +72,7 @@ class Connection:
         try:
             with open(os.path.expanduser("~/.ssh/config")) as fd:
                 cfg.parse(fd)
-        except IOError as e:
+        except OSError as e:
             if e.errno != errno.ENOENT:
                 logger.warning(e)
         opts = cfg.lookup(self.hostname)
@@ -154,10 +152,14 @@ class Connection:
 
             self.connect()
 
-            assert self.is_active()  # TODO: get rid of asserts
+            if not self.is_active():
+                raise RuntimeError(
+                    f"Reconnection to {self.hostname}:{self.port} failed"
+                )
 
     def new_session(self) -> Channel | None:
         logger.debug("Creating new session at %s:%s", self.hostname, self.port)
+        session: Channel | None = None
         try:
             if transport := self.client.get_transport():
                 transport.set_keepalive(60)
@@ -169,12 +171,10 @@ class Connection:
 
         except paramiko.SSHException:
             logger.debug(
-                "Creating of new session at {}:{} failed".format(
-                    self.hostname, self.port
-                )
+                "Creating of new session at %s:%s failed", self.hostname, self.port
             )
-            if "session" in locals():
-                session.close()  # noqa
+            if session is not None:
+                session.close()
             session = None
         return session
 
@@ -185,25 +185,25 @@ class Connection:
             try:
                 session.shutdown(2)
                 session.close()
-            except BaseException:
+            except Exception:
                 # pass all exceptions since the session is already closed or broken
                 pass
 
-    def __run_command(self, command) -> Channel | None:
+    def __run_command(self, command: str) -> Channel | None:
         """open new session and run command in it
 
         parameter: command -> str
         result: Succes - session instance with running command
-                Fail - False
+                Fail - None
         """
-
+        session: Channel | None = self.new_session()
         try:
-            if session := self.new_session():
+            if session is not None:
                 session.exec_command(command)
             else:
                 raise AttributeError
         except (AttributeError, paramiko.ChannelException, paramiko.SSHException):
-            if "session" in locals() and isinstance(session, paramiko.channel.Channel):
+            if isinstance(session, paramiko.Channel):
                 self.close_session(session)
             return None
         return session
@@ -237,7 +237,10 @@ class Connection:
             # wait for data to be transmitted. if the timeout is hit,
             # ask the user on how to procceed
             if select.select([session], [], [], self.timeout) == ([], [], []):
-                assert session
+                if session is None:
+                    raise RuntimeError(
+                        "Session is unexpectedly None during timeout handling"
+                    )
 
                 # writing on stdout needs locking as all run threads could
                 # write at the same time to stdout
@@ -290,10 +293,11 @@ class Connection:
         return (stdout.decode(), stderr.decode(), exitcode)
 
     def __sftp_open(self) -> SFTPClient | None:
+        sftp: SFTPClient | None = None
         try:
             sftp = self.client.open_sftp()
         except (AttributeError, paramiko.ChannelException, paramiko.SSHException):
-            if "sftp" in locals() and isinstance(sftp, paramiko.sftp_client.SFTPClient):
+            if isinstance(sftp, SFTPClient):
                 sftp.close()
             return None
         return sftp
@@ -332,12 +336,11 @@ class Connection:
         logger.debug("  -> sftp.open")
         try:
             ofile = sftp.open(filename, mode, bufsize)
-        except BaseException:
+        except Exception:
             logger.debug(format_exc())
             # TODO: recheck if is needed
-            if "sftp" in locals():
-                if isinstance(sftp, SFTPClient):
-                    sftp.close()
+            if isinstance(sftp, SFTPClient):
+                sftp.close()
             raise
         return ofile
 
