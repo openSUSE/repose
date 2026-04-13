@@ -1,39 +1,38 @@
-[build-system]
-requires = ["setuptools>=61.0", "wheel"]
-build-backend = "setuptools.build_meta"
-
 [project]
 name = "repose"
-dynamic = ["version"]
 description = "Manipulate repositories in QAM refhosts"
 readme = "README.md"
-authors = [{name = "Ondřej Súkup", email = "osukup@suse.cz"}]
-license = {text = "GPLv3"}
-classifiers = [
-    "Development Status :: 4 - Beta",
-    "Intended Audience :: Developers",
-    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
-    "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.13",
-]
 requires-python = ">=3.11"
-dependencies = [
-    "paramiko",
-    "ruamel.yaml",
+license = "GPL-3.0-or-later"
+authors = [{ name = "Ondřej Súkup", email = "osukup@suse.cz" }]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Developers",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.13",
 ]
 scripts = { repose = "repose.main:main" }
-
-[dependency-groups]
-dev = [
-    "pytest",
-    "pytest-cov",
-    "ruff",
+dependencies = [
+  "paramiko",
+  "ruamel.yaml",
 ]
+dynamic = ["version"]
 
 [project.urls]
 Homepage = "https://github.com/openSUSE/repose"
 Repository = "https://github.com/openSUSE/repose"
 
+[dependency-groups]
+dev = [
+  "pytest",
+  "pytest-cov",
+  "ruff",
+]
+
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
 [tool.setuptools.dynamic]
-version = {attr = "repose.__version__"}
+version = { attr = "repose.__version__" }
