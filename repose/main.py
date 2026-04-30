@@ -6,10 +6,6 @@ from .argparsing import get_parser
 
 def main():
     parser = get_parser()
-    if len(sys.argv) < 1:
-        parser.print_help()
-        sys.exit(0)
-
     logger = create_logger("repose")
     args = parser.parse_args(sys.argv[1:])
 
@@ -20,8 +16,6 @@ def main():
     if args.debug:
         logger.setLevel("DEBUG")
     elif args.quiet:
-        logger.setLevel(level="WARNING")
-    else:
-        pass
+        logger.setLevel("WARNING")
 
     sys.exit(args.func(args))
