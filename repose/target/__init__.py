@@ -57,11 +57,15 @@ class Target:
         logger.debug("run %s on %s:%s", command, self.hostname, self.port)
         time_before = timestamp()
 
+        # Pre-initialize so the exception branches below never leave
+        # stdout/stderr unbound (would otherwise raise UnboundLocalError
+        # at the self.out.append call below).
+        stdout, stderr, exitcode = "", "", -1
+
         try:
             stdout, stderr, exitcode = self.connection.run(command, lock)
         except CommandTimeout:
             logger.critical('%s: command "%s" timed out', self.hostname, command)
-            exitcode = -1
         except AssertionError:
             logger.debug("zombie command terminated", exc_info=True)
             return
@@ -69,7 +73,6 @@ class Target:
             # failed to run command
             logger.error('%s: failed to run command "%s"', self.hostname, command)
             logger.debug("exception %s", e, exc_info=True)
-            exitcode = -1
 
         runtime = int(timestamp()) - int(time_before)
 
