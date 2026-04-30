@@ -27,6 +27,8 @@ Repository = "https://github.com/openSUSE/repose"
 dev = [
   "pytest",
   "pytest-cov",
+  "pytest-mock",
+  "hypothesis",
   "ruff",
 ]
 
@@ -36,3 +38,32 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.dynamic]
 version = { attr = "repose.__version__" }
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = [
+  "-v",
+  "--strict-markers",
+  "--cov=repose",
+  "--cov-report=term-missing",
+]
+markers = [
+  "unit: pure-logic unit tests (default, fast)",
+  "integration: tests exercising multiple modules together",
+  "slow: tests that take noticeable time",
+]
+
+[tool.coverage.run]
+source = ["repose"]
+omit = [
+  "*/tests/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+  "pragma: no cover",
+  "def __repr__",
+  "raise NotImplementedError",
+  "if TYPE_CHECKING:",
+  "if __name__ == .__main__.:",
+]
