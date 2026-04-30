@@ -65,3 +65,87 @@ def test_remove_command_run(monkeypatch, mock_args_and_repa, mock_ssh_client):
     mock_target.run.assert_called_once_with(expected_cmd)
 
     mock_host_group_instance.close.assert_called_once()
+
+
+def _build_remove_env(monkeypatch, args, products, repos):
+    mock_target = MagicMock()
+    mock_target.products.flatten.return_value = products
+    mock_target.repos.keys.return_value = repos
+
+    mock_hg = MagicMock()
+    mock_hg.keys.return_value = ["user@host1"]
+    mock_hg.__getitem__.return_value = mock_target
+
+    monkeypatch.setattr(concurrent.futures, "ThreadPoolExecutor", ImmediateExecutor)
+    monkeypatch.setattr(
+        repose.command._command,
+        "HostGroup",
+        MagicMock(return_value=mock_hg),
+    )
+    return mock_target, mock_hg
+
+
+def test_remove_command_dryrun_does_not_run(monkeypatch, capsys, mock_ssh_client):
+    args = Namespace(
+        dry=True,
+        target=[{"user@host1": MagicMock()}],
+        repa=[Repa("SLES:::repo1")],
+        config="dummy",
+        yaml=False,
+    )
+    target, _ = _build_remove_env(
+        monkeypatch,
+        args,
+        [MockProduct("SLES", "15-SP4")],
+        ["SLES:15-SP4::repo1"],
+    )
+
+    Remove(args).run()
+    target.run.assert_not_called()
+    out = capsys.readouterr().out
+    assert "user@host1" in out
+    assert "repo1" in out
+
+
+def test_remove_command_no_matching_pattern_logs(monkeypatch, caplog, mock_ssh_client):
+    args = Namespace(
+        dry=False,
+        target=[{"user@host1": MagicMock()}],
+        repa=[Repa("OTHER:::repo1")],
+        config="dummy",
+        yaml=False,
+    )
+    target, _ = _build_remove_env(
+        monkeypatch,
+        args,
+        [MockProduct("SLES", "15-SP4")],
+        ["SLES:15-SP4::repo1"],
+    )
+
+    with caplog.at_level("INFO", logger="repose.command.remove"):
+        Remove(args).run()
+
+    target.run.assert_not_called()
+    assert any("no repos for remove" in r.message for r in caplog.records)
+
+
+def test_remove_command_version_mismatch_skipped(monkeypatch, caplog, mock_ssh_client):
+    """If version is specified but doesn't match, the product is skipped."""
+    args = Namespace(
+        dry=False,
+        target=[{"user@host1": MagicMock()}],
+        repa=[Repa("SLES:99-SP1::repo1")],
+        config="dummy",
+        yaml=False,
+    )
+    target, _ = _build_remove_env(
+        monkeypatch,
+        args,
+        [MockProduct("SLES", "15-SP4")],
+        ["SLES:15-SP4::repo1"],
+    )
+
+    with caplog.at_level("INFO", logger="repose.command.remove"):
+        Remove(args).run()
+
+    target.run.assert_not_called()
