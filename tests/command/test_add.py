@@ -83,3 +83,101 @@ def test_add_command_run(monkeypatch, mock_args_and_repa, mock_ssh_client):
 
     mock_host_group_instance.run.assert_called_once_with(add_command.refcmd)
     mock_host_group_instance.close.assert_called_once()
+
+
+def test_add_command_dryrun_prints_and_skips_run(
+    monkeypatch, mock_args_and_repa, capsys, mock_ssh_client
+):
+    args, _ = mock_args_and_repa
+    args.dry = True
+
+    mock_repoq = MagicMock()
+    mock_repoq.solve_repa.return_value = {
+        "product": [MockRepo("repo1", "http://repo1.url", refresh=True)]
+    }
+    mock_target = MagicMock()
+    mock_target.products.get_base.return_value = "dummy_base"
+
+    mock_hg = MagicMock()
+    mock_hg.keys.return_value = ["user@host1"]
+    mock_hg.__getitem__.return_value = mock_target
+
+    monkeypatch.setattr(concurrent.futures, "ThreadPoolExecutor", ImmediateExecutor)
+    monkeypatch.setattr(
+        repose.command._command,
+        "HostGroup",
+        MagicMock(return_value=mock_hg),
+    )
+    monkeypatch.setattr(Add, "_init_repoq", MagicMock(return_value=mock_repoq))
+    monkeypatch.setattr(Add, "check_url", MagicMock(return_value=True))
+
+    Add(args).run()
+
+    mock_target.run.assert_not_called()
+    # refcmd skipped on dryrun
+    mock_hg.run.assert_not_called()
+
+    out = capsys.readouterr().out
+    assert "repo1" in out
+    assert "user@host1" in out
+
+
+def test_add_command_solve_repa_value_error_logged(
+    monkeypatch, mock_args_and_repa, caplog, mock_ssh_client
+):
+    args, _ = mock_args_and_repa
+
+    mock_repoq = MagicMock()
+    mock_repoq.solve_repa.side_effect = ValueError("Not known product: X")
+
+    mock_target = MagicMock()
+    mock_target.products.get_base.return_value = "dummy_base"
+
+    mock_hg = MagicMock()
+    mock_hg.keys.return_value = ["user@host1"]
+    mock_hg.__getitem__.return_value = mock_target
+
+    monkeypatch.setattr(concurrent.futures, "ThreadPoolExecutor", ImmediateExecutor)
+    monkeypatch.setattr(
+        repose.command._command,
+        "HostGroup",
+        MagicMock(return_value=mock_hg),
+    )
+    monkeypatch.setattr(Add, "_init_repoq", MagicMock(return_value=mock_repoq))
+    monkeypatch.setattr(Add, "check_url", MagicMock(return_value=True))
+
+    with caplog.at_level("ERROR", logger="repose.command.add"):
+        Add(args).run()
+
+    assert any("Not known product" in r.message for r in caplog.records)
+    mock_target.run.assert_not_called()
+
+
+def test_add_command_skips_repo_when_check_url_false(
+    monkeypatch, mock_args_and_repa, mock_ssh_client
+):
+    args, _ = mock_args_and_repa
+
+    mock_repoq = MagicMock()
+    mock_repoq.solve_repa.return_value = {
+        "product": [MockRepo("repo1", "http://bad.url", refresh=False)]
+    }
+    mock_target = MagicMock()
+    mock_target.products.get_base.return_value = "dummy_base"
+    mock_hg = MagicMock()
+    mock_hg.keys.return_value = ["user@host1"]
+    mock_hg.__getitem__.return_value = mock_target
+
+    monkeypatch.setattr(concurrent.futures, "ThreadPoolExecutor", ImmediateExecutor)
+    monkeypatch.setattr(
+        repose.command._command,
+        "HostGroup",
+        MagicMock(return_value=mock_hg),
+    )
+    monkeypatch.setattr(Add, "_init_repoq", MagicMock(return_value=mock_repoq))
+    monkeypatch.setattr(Add, "check_url", MagicMock(return_value=False))
+
+    Add(args).run()
+
+    # Repo got filtered out because URL check failed → no per-target add cmd
+    mock_target.run.assert_not_called()

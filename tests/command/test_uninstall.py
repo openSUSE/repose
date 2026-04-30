@@ -82,3 +82,86 @@ def test_uninstall_command_run(monkeypatch, mock_args_and_repa, mock_ssh_client)
     assert run_calls[1] == call(rm_cmd)
 
     mock_host_group_instance.close.assert_called_once()
+
+
+def _setup_uninstall(monkeypatch, args, products, repos):
+    mock_target = MagicMock()
+    mock_target.products.flatten.return_value = products
+    mock_target.repos = repos
+    mock_hg = MagicMock()
+    mock_hg.keys.return_value = ["user@host1"]
+    mock_hg.__getitem__.return_value = mock_target
+    monkeypatch.setattr(concurrent.futures, "ThreadPoolExecutor", ImmediateExecutor)
+    monkeypatch.setattr(
+        repose.command._command,
+        "HostGroup",
+        MagicMock(return_value=mock_hg),
+    )
+    return mock_target, mock_hg
+
+
+def test_uninstall_dryrun_does_not_run(monkeypatch, capsys, mock_ssh_client):
+    args = Namespace(
+        dry=True,
+        target=[{"user@host1": MagicMock()}],
+        repa=[Repa("SLES:15-SP4")],
+        config="dummy",
+        yaml=False,
+    )
+    target, _ = _setup_uninstall(
+        monkeypatch,
+        args,
+        [MockProduct("SLES", "15-SP4")],
+        {"SLES:15-SP4::repo1": MockRepo("SLES")},
+    )
+
+    Uninstall(args).run()
+
+    target.run.assert_not_called()
+    out = capsys.readouterr().out
+    assert "user@host1" in out
+
+
+def test_uninstall_no_patterns_logs(monkeypatch, caplog, mock_ssh_client):
+    args = Namespace(
+        dry=False,
+        target=[{"user@host1": MagicMock()}],
+        repa=[Repa("OTHER:99")],
+        config="dummy",
+        yaml=False,
+    )
+    target, _ = _setup_uninstall(
+        monkeypatch,
+        args,
+        [MockProduct("SLES", "15-SP4")],
+        {"SLES:15-SP4::repo1": MockRepo("SLES")},
+    )
+
+    with caplog.at_level("INFO", logger="repose.command.uninstall"):
+        Uninstall(args).run()
+
+    target.run.assert_not_called()
+    assert any("no products for remove" in r.message for r in caplog.records)
+
+
+def test_uninstall_no_matching_repos_runs_only_pdcmd(monkeypatch, mock_ssh_client):
+    """Patterns match but no repos in dict → rrcmd skipped, only pdcmd runs."""
+    args = Namespace(
+        dry=False,
+        target=[{"user@host1": MagicMock()}],
+        repa=[Repa("SLES:15-SP4")],
+        config="dummy",
+        yaml=False,
+    )
+    target, _ = _setup_uninstall(
+        monkeypatch,
+        args,
+        [MockProduct("SLES", "15-SP4")],
+        {},  # no repositories at all
+    )
+
+    Uninstall(args).run()
+
+    # Only one command issued: rrpcmd (no rrcmd because no rdict)
+    assert target.run.call_count == 1
+    assert "rm -t product" in target.run.call_args[0][0]
