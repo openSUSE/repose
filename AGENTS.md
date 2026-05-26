@@ -17,9 +17,11 @@
 
 ### Installing Dependencies
 ```bash
-uv pip install -r requirements.txt          # Main dependencies (paramiko, ruamel.yaml)
-uv pip install -r requirements-test.txt     # Test dependencies (pytest, pytest-cov)
+uv sync                                     # All deps + dev group (pyproject.toml is authoritative)
 ```
+
+Note: `requirements.txt` and `requirements-test.txt` are deprecated and
+retained only for downstream packaging compatibility.
 
 ### Running Tests
 - **All tests**: `python3 -m pytest -v --cov=repose`
