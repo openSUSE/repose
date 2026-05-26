@@ -55,6 +55,7 @@ class Remove(Command):
 
         if not repolist:
             logger.info("For %s no repos for remove found", host)
+            return
         cmd = self.rrcmd.format(repos=" ".join(repolist))
 
         if self.dryrun:

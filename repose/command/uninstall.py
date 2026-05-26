@@ -38,16 +38,14 @@ class Uninstall(Remove):
                 repos=" ".join(chain.from_iterable(rdict.values()))
             )
 
-        transactional = False
-        if "SL-Micro" in patterns:
-            transactional = True
-            pdcmd = self.rrpdtcmd.format(
-                prodcuts=" ".join(x.split(":")[0] for x in patterns)
-            )
+        # Patterns are formatted as "<product>:<version>::<repo>" — detect
+        # SL-Micro by matching the product component, not the whole pattern.
+        transactional = any(p.split(":", 1)[0] == "SL-Micro" for p in patterns)
+        products_arg = " ".join(x.split(":")[0] for x in patterns)
+        if transactional:
+            pdcmd = self.rrpdtcmd.format(products=products_arg)
         else:
-            pdcmd = self.rrpcmd.format(
-                products=" ".join(x.split(":")[0] for x in patterns)
-            )
+            pdcmd = self.rrpcmd.format(products=products_arg)
 
         if self.dryrun:
             if rrcmd:

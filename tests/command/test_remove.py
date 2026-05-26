@@ -129,6 +129,34 @@ def test_remove_command_no_matching_pattern_logs(monkeypatch, caplog, mock_ssh_c
     assert any("no repos for remove" in r.message for r in caplog.records)
 
 
+def test_remove_command_empty_repolist_does_not_run_rrcmd(
+    monkeypatch, caplog, mock_ssh_client
+):
+    """Patterns are computed but no repo on the host contains them →
+    we must log and return without issuing ``zypper -n rr`` with an empty
+    argument list."""
+    args = Namespace(
+        dry=False,
+        target=[{"user@host1": MagicMock()}],
+        repa=[Repa("SLES:15-SP4::repo-missing")],
+        config="dummy",
+        yaml=False,
+    )
+    target, _ = _build_remove_env(
+        monkeypatch,
+        args,
+        [MockProduct("SLES", "15-SP4")],
+        # Host has a repo, but none containing the requested "repo-missing".
+        ["SLES:15-SP4::repo-other"],
+    )
+
+    with caplog.at_level("INFO", logger="repose.command.remove"):
+        Remove(args).run()
+
+    target.run.assert_not_called()
+    assert any("no repos for remove" in r.message for r in caplog.records)
+
+
 def test_remove_command_version_mismatch_skipped(monkeypatch, caplog, mock_ssh_client):
     """If version is specified but doesn't match, the product is skipped."""
     args = Namespace(
