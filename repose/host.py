@@ -24,17 +24,18 @@ class ParseHosts(dict):
         arg is string with hosts in socket format username@host:port
         """
         x = urlparse(f"//{arg}")
+        hostname = x.hostname or ""
         try:
             if x.port:
-                keyname = f"{x.hostname}:{x.port}"
+                keyname = f"{hostname}:{x.port}"
                 port = x.port
             else:
-                keyname = x.hostname
+                keyname = hostname
                 port = 22
 
             username = x.username if x.username else "root"
 
-            host = [(keyname, Target(x.hostname, port, username))]
+            host = [(keyname, Target(hostname, port, username))]
         except ValueError:
-            raise PortNotIntError(x.hostname)
+            raise PortNotIntError(hostname)
         super().__init__(host)

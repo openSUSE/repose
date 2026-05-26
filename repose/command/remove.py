@@ -1,8 +1,10 @@
 import concurrent.futures
 import logging
+from typing import Any, Iterable
 
 from . import Command
 from ..types import ExitCode
+from ..types.repa import Repa
 from ..utils import blue
 
 logger = logging.getLogger("repose.command.remove")
@@ -11,10 +13,10 @@ logger = logging.getLogger("repose.command.remove")
 class Remove(Command):
     command = True
 
-    def _calculate_pattern(self, orepa, host):
+    def _calculate_pattern(self, orepa: Iterable[Repa], host: str) -> set[str]:
         pattern = "{product}:{version}::{repo}"
         products = self.targets[host].products.flatten()
-        patterns = set()
+        patterns: set[str] = set()
         for repa in orepa:
             for prd in products:
                 if repa.product:
@@ -37,15 +39,15 @@ class Remove(Command):
                 )
         return patterns
 
-    def _calculate_repolist(self, host, patterns):
-        repolist = set()
+    def _calculate_repolist(self, host: str, patterns: set[str]) -> set[str]:
+        repolist: set[str] = set()
         for pattern in patterns:
             for repo in self.targets[host].repos.keys():
                 if pattern in repo:
                     repolist.add(repo)
         return repolist
 
-    def _run(self, host, *args) -> None:
+    def _run(self, host: str, *args: Any) -> None:
         patterns = self._calculate_pattern(self.repa, host)
 
         if not patterns:

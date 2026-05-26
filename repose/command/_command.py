@@ -1,6 +1,8 @@
 from abc import ABC, abstractmethod
+from argparse import Namespace
 import logging
 import sys
+from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.request import urlopen
 
@@ -9,6 +11,7 @@ from ..target.hostgroup import HostGroup
 from ..template import load_template
 from ..template.resolver import Repoq
 from ..types import ExitCode
+from ..types.repa import Repa
 from ..utils import blue
 
 logger = logging.getLogger("repose.command")
@@ -24,8 +27,8 @@ class Command(ABC):
     rrpdtcmd: str = "transactional-update pkg rm -t product -l -f {products}"
     reboot: str = "rebootmgrctl reboot now"
 
-    def __init__(self, args) -> None:
-        __dtargets = {}
+    def __init__(self, args: Namespace) -> None:
+        __dtargets: dict = {}
 
         if "target" in args:
             for x in args.target:
@@ -40,19 +43,22 @@ class Command(ABC):
                 del targets[target]
         self.targets = targets
 
-        self.dryrun = args.dry
-        self.template_path = args.config
+        self.dryrun: bool = args.dry
+        self.template_path: str = args.config
         self.display = CommandDisplay(sys.stdout)
-        self.repa = args.repa if "repa" in args else None
-        self.yaml = args.yaml if "yaml" in args else False
+        # ``repa`` is None for commands that don't accept a REPA argument
+        # (list, known, clear, reset). Commands that *do* iterate over it
+        # (add, install, remove, uninstall) gate on truthiness first.
+        self.repa: list[Repa] = args.repa if "repa" in args else []
+        self.yaml: bool = args.yaml if "yaml" in args else False
 
-    def _load_template(self):
-        return load_template(self.template_path)
+    def _load_template(self) -> dict:
+        return load_template(Path(self.template_path))
 
     def _init_repoq(self) -> Repoq:
         return Repoq(self._load_template())
 
-    def _report_target(self, target) -> None:
+    def _report_target(self, target: str) -> None:
         if self.targets[target].out[-1][3] == 0:
             for line in self.targets[target].out[-1][1].splitlines():
                 logger.info(blue(f"{target}") + f" - {line}")
@@ -64,7 +70,7 @@ class Command(ABC):
                 logger.warning(blue(f"{target}") + f" - {line}")
 
     @staticmethod
-    def check_url(url) -> bool:
+    def check_url(url: str) -> bool:
         """Check whether a repository URL exposes a valid repomd.xml.
 
         Tries ``<url>repodata/repomd.xml`` first and falls back to

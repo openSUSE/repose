@@ -11,7 +11,7 @@ def parse_repositories(xml) -> set[Repository]:
         alias = repo.attrib["alias"]
         name = repo.attrib["name"]
         enabled = True if repo.attrib["enabled"] == "1" else False
-        url = repo.find("./url").text
-        repos.add(Repository(alias, name, url, enabled))
+        url = repo.find("./url").text  # ty: ignore[unresolved-attribute]  # FOLLOWUP-ty-residuals
+        repos.add(Repository(alias, name, url, enabled))  # ty: ignore[invalid-argument-type]  # FOLLOWUP-ty-residuals
 
     return repos
