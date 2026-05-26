@@ -1,6 +1,8 @@
 import concurrent.futures
 import logging
 from itertools import chain
+from typing import Any
+
 from ..utils import blue
 from .remove import Remove
 from ..types import ExitCode
@@ -12,8 +14,10 @@ logger = logging.getLogger("repose.command.uninstall")
 class Uninstall(Remove):
     command = True
 
-    def _calculate_repodict(self, host, patterns):
-        rdict = {}
+    def _calculate_repodict(
+        self, host: str, patterns: set[str]
+    ) -> dict[str, list[str]]:
+        rdict: dict[str, list[str]] = {}
         for pattern in patterns:
             for repo in self.targets[host].repos.items():
                 if pattern in repo[0]:
@@ -23,7 +27,9 @@ class Uninstall(Remove):
                         rdict[repo[1].name] = [repo[0]]
         return rdict
 
-    def _run(self, orepa, host):
+    def _run(self, host: str, *args: Any) -> None:
+        # First positional ``args`` element is the orepa list (see ``run``).
+        orepa = args[0]
         patterns = self._calculate_pattern(orepa, host)
         if not patterns:
             logger.info("For %s no products for remove found", host)
@@ -71,7 +77,7 @@ class Uninstall(Remove):
 
         with concurrent.futures.ThreadPoolExecutor() as executor:
             targets = [
-                executor.submit(self._run, orepa, target)
+                executor.submit(self._run, target, orepa)
                 for target in self.targets.keys()
             ]
             concurrent.futures.wait(targets)

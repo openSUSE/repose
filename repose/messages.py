@@ -6,14 +6,19 @@ class UserMessage(BaseException, metaclass=ABCMeta):
     Message to be displayed to the user
     """
 
-    def __str__(self):
+    # Subclasses set ``message`` either as a class attribute or by
+    # overriding ``__str__``. Declared here so static type checkers
+    # see the attribute used below.
+    message: str = ""
+
+    def __str__(self) -> str:
         return self.message
 
-    def __eq__(self, x):
+    def __eq__(self, x: object) -> bool:
         return str(self) == str(x)
 
     @classmethod
-    def __hash__(cls):
+    def __hash__(cls) -> int:
         return hash(cls)
 
 

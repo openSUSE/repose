@@ -5,6 +5,7 @@ from string import Template
 from typing import NamedTuple
 
 from ..messages import UnsuportedProductMessage
+from ..target.parsers import Product
 from ..types.repa import Repa
 from ..types.system import System
 
@@ -21,17 +22,19 @@ logger = logging.getLogger("repose.template.resolver")
 class Repoq:
     """resolve and return template data for requested repositories"""
 
-    def __init__(self, template) -> None:
+    def __init__(self, template: dict) -> None:
         self.template = template
 
-    def solve_repa(self, orepa: Repa, base):
+    def solve_repa(self, orepa: Repa, base: Product) -> dict[str, list[Repos]]:
         """.. returns needed repositories for REPA
         ::param:: orepa - instance of Repa object
         ::param:: base -- System.get_base()
         ::return:: {release-file:[(name, url, refresh-state,),]}"""
         repa = deepcopy(orepa)
         if repa.product not in self.template:
-            candidates = get_close_matches(repa.product, self.template)
+            candidates = get_close_matches(
+                repa.product or "", list(self.template.keys())
+            )
             error_msg = f"Not known product: {repa.product}"
             if candidates:
                 error_msg += f" Did you mean {candidates[0]}?"
@@ -81,7 +84,7 @@ class Repoq:
 
         return result
 
-    def solve_product(self, products: System):
+    def solve_product(self, products: System) -> dict[str, list[Repos]]:
         """.. returns needed repositories for products from system :D
         ::param:: products -- instance of System object
         ::return:: { release-file:[(name, url, refresh-state,),] ..}"""

@@ -11,25 +11,25 @@ logger = logging.getLogger("repose.tartget.parsers.product")
 
 def __parse_product(prod: Any) -> tuple[str, str, str]:
     root = ET.fromstringlist(prod)
-    name = root.find("./name").text
-    arch = root.find("./arch").text
+    name = root.find("./name").text  # ty: ignore[unresolved-attribute]  # FOLLOWUP-ty-residuals
+    arch = root.find("./arch").text  # ty: ignore[unresolved-attribute]  # FOLLOWUP-ty-residuals
     try:
-        version = root.find("./baseversion").text
+        version = root.find("./baseversion").text  # ty: ignore[unresolved-attribute]  # FOLLOWUP-ty-residuals
         sp = (
-            root.find("./patchlevel").text
-            if root.find("./patchlevel").text != "0"
+            root.find("./patchlevel").text  # ty: ignore[unresolved-attribute]  # FOLLOWUP-ty-residuals
+            if root.find("./patchlevel").text != "0"  # ty: ignore[unresolved-attribute]  # FOLLOWUP-ty-residuals
             else ""
         )
-        version += f"-SP{sp}" if sp else ""
+        version += f"-SP{sp}" if sp else ""  # ty: ignore[unsupported-operator]  # FOLLOWUP-ty-residuals
     except AttributeError:
-        version = root.find("./version").text
+        version = root.find("./version").text  # ty: ignore[unresolved-attribute]  # FOLLOWUP-ty-residuals
         logger.debug("simpleversion")
 
     # CAASP uses ALL for update repos and there is only one supported version at time
     # can change in tommorow
     if name == "CAASP":
         version = "ALL"
-    return (name, version, arch)
+    return (name, version, arch)  # ty: ignore[invalid-return-type]  # FOLLOWUP-ty-residuals
 
 
 def __parse_os_release(f: Any) -> tuple[str, str, str]:
@@ -61,9 +61,9 @@ def parse_system(connection: Connection) -> System:
         return System(Product(name, version, arch))
 
     basefile = connection.readlink("/etc/products.d/baseproduct")
-    if "/" in basefile:
-        basefile = basefile.split("/")[-1]
-    files.remove(basefile)
+    if "/" in basefile:  # ty: ignore[unsupported-operator]  # FOLLOWUP-ty-residuals
+        basefile = basefile.split("/")[-1]  # ty: ignore[unresolved-attribute]  # FOLLOWUP-ty-residuals
+    files.remove(basefile)  # ty: ignore[invalid-argument-type]  # FOLLOWUP-ty-residuals
 
     with connection.open(f"/etc/products.d/{basefile}") as f:
         logger.debug("Parsing basefile")
