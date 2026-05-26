@@ -65,18 +65,24 @@ class Command(ABC):
 
     @staticmethod
     def check_url(url) -> bool:
-        state = True
+        """Check whether a repository URL exposes a valid repomd.xml.
+
+        Tries ``<url>repodata/repomd.xml`` first and falls back to
+        ``<url>suse/repodata/repomd.xml`` (used by SUSE-style layouts).
+
+        Returns ``True`` if either probe succeeds, ``False`` otherwise.
+        """
         try:
             urlopen(url + "repodata/repomd.xml")
+            return True
         except (HTTPError, URLError):
-            state = False
+            pass
 
-        if not state:
-            try:
-                urlopen(url + "suse/repodata/repomd.xml")
-            except (HTTPError, URLError):
-                state = False
-        return state
+        try:
+            urlopen(url + "suse/repodata/repomd.xml")
+            return True
+        except (HTTPError, URLError):
+            return False
 
     @abstractmethod
     def run(self) -> ExitCode:

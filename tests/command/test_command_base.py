@@ -63,6 +63,39 @@ def test_check_url_handles_http_error(monkeypatch):
     assert Command.check_url("http://example.com/") is False
 
 
+def test_check_url_returns_true_when_suse_fallback_succeeds(monkeypatch):
+    """If the canonical repomd.xml is missing but the ``suse/`` variant
+    answers, the URL is still considered valid."""
+    called: list[str] = []
+
+    def _selective(url):
+        called.append(url)
+        if "suse/repodata/repomd.xml" in url:
+            return MagicMock()
+        raise URLError("not at root")
+
+    monkeypatch.setattr(cmdmod, "urlopen", _selective)
+    assert Command.check_url("http://example.com/") is True
+    # Both probes should have been attempted, in order.
+    assert called == [
+        "http://example.com/repodata/repomd.xml",
+        "http://example.com/suse/repodata/repomd.xml",
+    ]
+
+
+def test_check_url_short_circuits_on_first_success(monkeypatch):
+    """If the canonical repomd.xml answers we do not probe the fallback."""
+    called: list[str] = []
+
+    def _ok(url):
+        called.append(url)
+        return MagicMock()
+
+    monkeypatch.setattr(cmdmod, "urlopen", _ok)
+    assert Command.check_url("http://example.com/") is True
+    assert called == ["http://example.com/repodata/repomd.xml"]
+
+
 # ---------------------------------------------------------------------------
 # Filtering of unconnected targets
 # ---------------------------------------------------------------------------

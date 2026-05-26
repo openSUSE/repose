@@ -165,3 +165,37 @@ def test_uninstall_no_matching_repos_runs_only_pdcmd(monkeypatch, mock_ssh_clien
     # Only one command issued: rrpcmd (no rrcmd because no rdict)
     assert target.run.call_count == 1
     assert "rm -t product" in target.run.call_args[0][0]
+
+
+def test_uninstall_sl_micro_uses_transactional(monkeypatch, caplog, mock_ssh_client):
+    """SL-Micro uninstalls must dispatch via ``transactional-update``.
+
+    Patterns are formatted ``<product>:<version>::<repo>`` so SL-Micro
+    detection has to match on the product component, not the whole pattern.
+    """
+    args = Namespace(
+        dry=False,
+        target=[{"user@host1": MagicMock()}],
+        repa=[Repa("SL-Micro:6.0")],
+        config="dummy",
+        yaml=False,
+    )
+    target, _ = _setup_uninstall(
+        monkeypatch,
+        args,
+        [MockProduct("SL-Micro", "6.0")],
+        {"SL-Micro:6.0::repo1": MockRepo("SL-Micro")},
+    )
+
+    with caplog.at_level("INFO", logger="repose.command.uninstall"):
+        Uninstall(args).run()
+
+    issued = [c.args[0] for c in target.run.call_args_list]
+    # Both rr (for the matched repo) and the transactional rm should fire.
+    assert any(cmd.startswith("zypper -n rr") for cmd in issued)
+    assert any(
+        "transactional-update pkg rm -t product" in cmd and "SL-Micro" in cmd
+        for cmd in issued
+    )
+    # And the reboot reminder must be emitted.
+    assert any("Reboot" in r.message for r in caplog.records)
