@@ -1,3 +1,6 @@
+# DEPRECATED: CI uses `uv sync`. See pyproject.toml [dependency-groups].dev.
+# Retained for one release cycle for downstream packaging compatibility
+# (openSUSE rpm spec).
 pytest
 pytest-cov
 pytest-mock
