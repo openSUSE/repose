@@ -106,7 +106,12 @@ run output) through a single sink. Two global flags govern its shape:
 - `--format={text,json}`: select human-readable text (default) or
   newline-delimited JSON for scripts.
 
-In JSON mode, each output line is a single JSON object with these fields:
+In JSON mode, every command emits newline-delimited JSON (one object per
+line). Action commands (`add`, `install`, `remove`, `uninstall`, `clear`,
+`reset`) emit event envelopes; query commands (`list-products`,
+`list-repos`, `known-products`) emit payload events.
+
+### Event envelopes (action commands)
 
 | field   | type   | description                                              |
 | ------- | ------ | -------------------------------------------------------- |
@@ -117,10 +122,28 @@ In JSON mode, each output line is a single JSON object with these fields:
 | `line`  | string | a single output line (for `report`/`error`/`info`)       |
 | `ok`    | bool   | per-host success flag (for `report`/`error`)             |
 
-Example:
+### Payload events (query commands)
+
+`list-products --format=json` emits one `product` event per product per host
+(`{event:"product", host, port, kind:"base"|"addon", name, version, arch}`).
+
+`list-repos --format=json` emits one `repo` event per repository per host
+(`{event:"repo", host, port, alias, name, url, state}`).
+
+`known-products --format=json` emits one `known_product` event per known
+product (`{event:"known_product", name}`).
+
+`list-products --yaml --format=json` emits one `host_spec` event per host
+carrying the same payload the YAML dumper produces (location, arch,
+product, addons, name) — useful for machine consumers that want the
+refhost.yml spec without the YAML envelope.
+
+### Examples
 
 ```
 repose add -n --format=json -t fubar.suse.cz sle-sdk | jq .
+repose list-products --format=json -t fubar.suse.cz | jq 'select(.kind=="base")'
+repose known-products --format=json | jq -r '.name'
 ```
 
 Note: per-host run output (previously emitted via the logger at info/warning

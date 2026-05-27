@@ -10,7 +10,7 @@ from urllib.error import HTTPError, URLError
 from urllib.request import urlopen
 
 from ..console import Console
-from ..display import CommandDisplay
+from ..display import CommandDisplay, JsonCommandDisplay
 from ..target.hostgroup import HostGroup
 from ..template import load_template
 from ..template.resolver import Repoq
@@ -62,16 +62,24 @@ class Command(ABC):
 
         self.dryrun: bool = args.dry
         self.template_path: str = args.config
-        self.display = CommandDisplay(sys.stdout)
         # ``repa`` is None for commands that don't accept a REPA argument
         # (list, known, clear, reset). Commands that *do* iterate over it
         # (add, install, remove, uninstall) gate on truthiness first.
         self.repa: list[Repa] = args.repa if "repa" in args else []
         self.yaml: bool = args.yaml if "yaml" in args else False
+        output_format = "json" if getattr(args, "format", "text") == "json" else "text"
         self.console = Console(
-            format=getattr(args, "format", "text"),
+            format=output_format,
             color="never" if getattr(args, "no_color", False) else "auto",
         )
+        # Payload-emitting commands (list-products, list-repos,
+        # known-products) write through ``self.display``. The JSON
+        # variant mirrors the Console envelope so ``--format=json``
+        # produces a uniform NDJSON stream across every subcommand.
+        if output_format == "json":
+            self.display = JsonCommandDisplay(sys.stdout)
+        else:
+            self.display = CommandDisplay(sys.stdout)
 
     def _load_template(self) -> dict:
         return load_template(Path(self.template_path))

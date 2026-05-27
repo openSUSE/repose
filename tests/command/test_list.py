@@ -83,3 +83,47 @@ def test_list_products_command_yaml(monkeypatch, mock_args, mock_ssh_client):
         list_products_command.display.list_products_yaml
     )
     mock_host_group_instance.close.assert_called_once()
+
+
+def test_list_products_format_json_selects_json_display(
+    monkeypatch, mock_args, mock_ssh_client
+):
+    """--format=json swaps in JsonCommandDisplay."""
+    from repose.display import JsonCommandDisplay
+
+    mock_args.format = "json"
+    monkeypatch.setattr(
+        repose.command._command, "HostGroup", MagicMock(return_value=MagicMock())
+    )
+
+    cmd = ListProducts(mock_args)
+    assert isinstance(cmd.display, JsonCommandDisplay)
+
+
+def test_list_products_format_text_keeps_text_display(
+    monkeypatch, mock_args, mock_ssh_client
+):
+    """Default (text) keeps CommandDisplay."""
+    from repose.display import CommandDisplay
+
+    mock_args.format = "text"
+    monkeypatch.setattr(
+        repose.command._command, "HostGroup", MagicMock(return_value=MagicMock())
+    )
+
+    cmd = ListProducts(mock_args)
+    assert isinstance(cmd.display, CommandDisplay)
+
+
+def test_list_repos_format_json_selects_json_display(
+    monkeypatch, mock_args, mock_ssh_client
+):
+    from repose.display import JsonCommandDisplay
+
+    mock_args.format = "json"
+    monkeypatch.setattr(
+        repose.command._command, "HostGroup", MagicMock(return_value=MagicMock())
+    )
+
+    cmd = ListRepos(mock_args)
+    assert isinstance(cmd.display, JsonCommandDisplay)
