@@ -1,4 +1,3 @@
-import concurrent.futures
 import logging
 from typing import Any, Iterable
 
@@ -69,12 +68,6 @@ class Remove(Command):
     def run(self) -> ExitCode:
         self.targets.read_repos()
         self.targets.parse_repos()
-
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            targets = [
-                executor.submit(self._run, target) for target in self.targets.keys()
-            ]
-            concurrent.futures.wait(targets)
-
+        self._run_parallel(self._run)
         self.targets.close()
         return 0

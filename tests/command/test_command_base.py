@@ -1,6 +1,7 @@
 """Tests for ``repose.command._command.Command`` base class."""
 
-from unittest.mock import MagicMock
+from concurrent.futures import Future
+from unittest.mock import MagicMock, call
 from urllib.error import HTTPError, URLError
 
 import pytest
@@ -162,3 +163,50 @@ def test_init_repoq_loads_template(monkeypatch, tmp_path):
     )
     repoq = cmd._init_repoq()
     assert "SLES" in repoq.template
+
+
+# ---------------------------------------------------------------------------
+# _run_parallel
+# ---------------------------------------------------------------------------
+
+
+def test_run_parallel_invokes_fn_per_host(monkeypatch):
+    """Helper fans ``fn(host)`` across every live target and returns
+    one completed ``Future`` per host."""
+    hg = MagicMock()
+    hg.keys.return_value = ["h1", "h2", "h3"]
+    hg.__getitem__.side_effect = lambda k: MagicMock()
+
+    cmd, _ = _make(monkeypatch, host_group=hg)
+
+    fn = MagicMock(return_value=None)
+    futures = cmd._run_parallel(fn)
+
+    # Worker threads may interleave, so compare unordered.
+    assert sorted(fn.call_args_list) == sorted([call("h1"), call("h2"), call("h3")])
+    assert len(futures) == 3
+    assert all(isinstance(f, Future) for f in futures)
+    assert all(f.done() for f in futures)
+
+
+def test_run_parallel_passes_extra_args_after_host(monkeypatch):
+    """Extra positional args are forwarded after ``host`` so callers
+    like ``Uninstall`` keep ``_run(host, *args)`` ergonomics."""
+    hg = MagicMock()
+    hg.keys.return_value = ["h1", "h2"]
+    hg.__getitem__.side_effect = lambda k: MagicMock()
+
+    cmd, _ = _make(monkeypatch, host_group=hg)
+
+    fn = MagicMock(return_value=None)
+    sentinel = object()
+    futures = cmd._run_parallel(fn, sentinel, "extra")
+
+    # Worker threads may interleave, so compare unordered.
+    assert sorted(fn.call_args_list) == sorted(
+        [
+            call("h1", sentinel, "extra"),
+            call("h2", sentinel, "extra"),
+        ]
+    )
+    assert [f.result() for f in futures] == [None, None]
