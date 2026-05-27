@@ -156,3 +156,28 @@ def test_list_products_yaml_flag():
 def test_list_products_yaml_default_false():
     args = get_parser().parse_args(["list-products", "-t", "h"])
     assert args.yaml is False
+
+
+def test_no_color_flag_default_false(mock_types):
+    args = get_parser().parse_args(["add", "-t", "h", "x"])
+    assert args.no_color is False
+
+
+def test_no_color_flag_sets_true(mock_types):
+    args = get_parser().parse_args(["--no-color", "add", "-t", "h", "x"])
+    assert args.no_color is True
+
+
+def test_format_default_text(mock_types):
+    args = get_parser().parse_args(["add", "-t", "h", "x"])
+    assert args.format == "text"
+
+
+def test_format_json_accepted(mock_types):
+    args = get_parser().parse_args(["--format", "json", "add", "-t", "h", "x"])
+    assert args.format == "json"
+
+
+def test_format_invalid_rejected(mock_types):
+    with pytest.raises(SystemExit):
+        get_parser().parse_args(["--format", "xml", "add", "-t", "h", "x"])

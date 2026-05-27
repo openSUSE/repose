@@ -2,7 +2,6 @@ import logging
 from itertools import chain
 from typing import Any
 
-from ..utils import blue
 from .remove import Remove
 from ..types import ExitCode
 
@@ -52,8 +51,8 @@ class Uninstall(Remove, name="uninstall"):
 
         if self.dryrun:
             if rrcmd:
-                print(blue(host) + " - {}".format(rrcmd))
-            print(blue(host) + " - {}".format(pdcmd))
+                self.console.dry(host, rrcmd)
+            self.console.dry(host, pdcmd)
             return True
 
         ok = True

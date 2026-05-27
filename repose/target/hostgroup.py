@@ -1,5 +1,8 @@
 from collections import UserDict
 import concurrent.futures
+import logging
+
+logger = logging.getLogger("repose.target.hostgroup")
 
 
 class HostGroup(UserDict):
@@ -24,7 +27,7 @@ class HostGroup(UserDict):
                 try:
                     self.data[hostname] = future.result()
                 except Exception as exc:
-                    print(exc)
+                    logger.warning("failed to connect %s: %s", hostname, exc)
 
     def close(self) -> None:
         with concurrent.futures.ThreadPoolExecutor() as executor:

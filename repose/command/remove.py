@@ -4,7 +4,6 @@ from typing import Any, Iterable
 from . import Command
 from ..types import ExitCode
 from ..types.repa import Repa
-from ..utils import blue
 
 logger = logging.getLogger("repose.command.remove")
 
@@ -64,7 +63,7 @@ class Remove(Command, name="remove"):
         cmd = self.rrcmd.format(repos=" ".join(repolist))
 
         if self.dryrun:
-            print(blue(host) + f" - {cmd}")
+            self.console.dry(host, cmd)
             return True
 
         self.targets[host].run(cmd)

@@ -9,13 +9,13 @@ from typing import Any, Callable, ClassVar
 from urllib.error import HTTPError, URLError
 from urllib.request import urlopen
 
+from ..console import Console
 from ..display import CommandDisplay
 from ..target.hostgroup import HostGroup
 from ..template import load_template
 from ..template.resolver import Repoq
 from ..types import ExitCode
 from ..types.repa import Repa
-from ..utils import blue
 
 logger = logging.getLogger("repose.command")
 
@@ -68,6 +68,10 @@ class Command(ABC):
         # (add, install, remove, uninstall) gate on truthiness first.
         self.repa: list[Repa] = args.repa if "repa" in args else []
         self.yaml: bool = args.yaml if "yaml" in args else False
+        self.console = Console(
+            format=getattr(args, "format", "text"),
+            color="never" if getattr(args, "no_color", False) else "auto",
+        )
 
     def _load_template(self) -> dict:
         return load_template(Path(self.template_path))
@@ -76,26 +80,26 @@ class Command(ABC):
         return Repoq(self._load_template())
 
     def _report_target(self, target: str) -> bool:
-        """Log the last command's output for ``target`` and report success.
+        """Report the last command's output for ``target`` via Console.
 
         Returns ``True`` for zypper exit 0 (success) and exit 4
-        (no repositories — benign, kept as info-warning for parity with
-        prior behaviour). Any other exit code is treated as failure and
-        the call returns ``False`` so the caller can propagate the
-        per-host status into ``_aggregate``.
+        (no repositories — benign, surfaced at ``level="warning"`` for
+        parity with prior behaviour). Any other exit code is treated as
+        failure and the call returns ``False`` so the caller can
+        propagate the per-host status into ``_aggregate``.
         """
         exitcode = self.targets[target].out[-1][3]
         if exitcode == 0:
             for line in self.targets[target].out[-1][1].splitlines():
-                logger.info(blue(f"{target}") + f" - {line}")
+                self.console.report(target, line, ok=True, level="info")
             return True
         if exitcode == 4:
             # zypper: "no repositories defined" — benign in our flow.
             for line in self.targets[target].out[-1][1].splitlines():
-                logger.warning(blue(f"{target}") + f" - {line}")
+                self.console.report(target, line, ok=True, level="warning")
             return True
         for line in self.targets[target].out[-1][2].splitlines():
-            logger.warning(blue(f"{target}") + f" - {line}")
+            self.console.report(target, line, ok=False, level="error")
         return False
 
     def _run_parallel(

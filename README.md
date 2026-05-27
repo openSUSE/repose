@@ -94,6 +94,40 @@ Show products in yaml format needed for refhost.yaml genetor:
 repose list-products --yaml -t foobar.suse.cz
 ```
 
+## Output Control
+
+Repose routes all user-facing output (dry-run command previews and per-host
+run output) through a single sink. Two global flags govern its shape:
+
+- `--no-color`: disable ANSI color sequences. The
+  [`NO_COLOR`](https://no-color.org) environment variable is also honored.
+  By default, color is enabled only when stdout is a terminal. The legacy
+  `COLOR=always|never` environment variable still overrides detection.
+- `--format={text,json}`: select human-readable text (default) or
+  newline-delimited JSON for scripts.
+
+In JSON mode, each output line is a single JSON object with these fields:
+
+| field   | type   | description                                              |
+| ------- | ------ | -------------------------------------------------------- |
+| `event` | string | `"dry"` \| `"report"` \| `"error"` \| `"info"`           |
+| `level` | string | `"info"` \| `"warning"` \| `"error"`                     |
+| `host`  | string | target host (omitted for unscoped `info` events)         |
+| `cmd`   | string | the dry-run command (only for `event="dry"`)             |
+| `line`  | string | a single output line (for `report`/`error`/`info`)       |
+| `ok`    | bool   | per-host success flag (for `report`/`error`)             |
+
+Example:
+
+```
+repose add -n --format=json -t fubar.suse.cz sle-sdk | jq .
+```
+
+Note: per-host run output (previously emitted via the logger at info/warning
+level) now goes through this sink on stdout. The `--quiet` flag still
+silences logger messages but no longer hides per-host output; redirect
+stdout or use `--format=json` with filtering to suppress it.
+
 ## License
 
 This project is licensed under the GPLv3 license, see LICENSE file for

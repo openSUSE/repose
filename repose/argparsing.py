@@ -50,6 +50,17 @@ def get_parser():
     group.add_argument(
         "-q", "--quiet", action="store_true", help="suppress messages from repose"
     )
+    parser.add_argument(
+        "--no-color",
+        action="store_true",
+        help="disable ANSI color in console output (honors NO_COLOR)",
+    )
+    parser.add_argument(
+        "--format",
+        choices=["text", "json"],
+        default="text",
+        help="console output format: 'text' (default) or 'json' (one event per line)",
+    )
 
     commands = parser.add_subparsers()
 

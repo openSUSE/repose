@@ -3,7 +3,6 @@ import logging
 
 from ..messages import UnsuportedProductMessage
 from ..types import ExitCode
-from ..utils import blue
 from .clear import Clear
 
 logger = logging.getLogger("repose.command.reset")
@@ -32,12 +31,9 @@ class Reset(Clear, name="reset"):
             cmds = self._add(host)
 
             if self.dryrun:
-                print(
-                    blue(host)
-                    + " - {}".format(self.rrcmd.format(repos=" ".join(repoaliases)))
-                )
+                self.console.dry(host, self.rrcmd.format(repos=" ".join(repoaliases)))
                 for cmd in cmds:
-                    print(blue(host) + f" - {cmd}")
+                    self.console.dry(host, cmd)
                 return True
 
             self.targets[host].run(self.rrcmd.format(repos=" ".join(repoaliases)))

@@ -3,7 +3,6 @@ import logging
 
 from . import Command
 from ..types import ExitCode
-from ..utils import blue
 
 logger = logging.getLogger("repose.command.add")
 
@@ -45,7 +44,7 @@ class Add(Command, name="add"):
         cmds, ok = self._add(target)
         for cmd in cmds:
             if self.dryrun:
-                print("{} - {}".format(blue(target), cmd))
+                self.console.dry(target, cmd)
             else:
                 self.targets[target].run(cmd)
                 if not self._report_target(target):
