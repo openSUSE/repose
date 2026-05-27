@@ -21,6 +21,14 @@ class MockProduct:
         self.version = version
 
 
+def _ok_out():
+    return [["cmd", "", "", 0, 0]]
+
+
+def _fail_out():
+    return [["cmd", "", "boom", 1, 0]]
+
+
 @pytest.fixture
 def mock_args_and_repa():
     repa_instance = Repa("SLES:15-SP4")
@@ -45,6 +53,7 @@ def test_uninstall_command_run(monkeypatch, mock_args_and_repa, mock_ssh_client)
         "SLES:15-SP4::repo2": MockRepo(name="SLES"),
         "other:repo": MockRepo(name="other"),
     }
+    mock_target.out = _ok_out()
 
     mock_host_group_instance = MagicMock()
     mock_host_group_instance.keys.return_value = ["user@host1"]
@@ -59,7 +68,7 @@ def test_uninstall_command_run(monkeypatch, mock_args_and_repa, mock_ssh_client)
 
     # Run
     uninstall_command = Uninstall(mock_args)
-    uninstall_command.run()
+    assert uninstall_command.run() == 0
 
     # Assertions
     mock_host_group_instance.read_repos.assert_called_once()
@@ -84,12 +93,15 @@ def test_uninstall_command_run(monkeypatch, mock_args_and_repa, mock_ssh_client)
     mock_host_group_instance.close.assert_called_once()
 
 
-def _setup_uninstall(monkeypatch, args, products, repos):
+def _setup_uninstall(monkeypatch, args, products, repos, out=None, hosts=None):
+    if hosts is None:
+        hosts = ["user@host1"]
     mock_target = MagicMock()
     mock_target.products.flatten.return_value = products
     mock_target.repos = repos
+    mock_target.out = out if out is not None else _ok_out()
     mock_hg = MagicMock()
-    mock_hg.keys.return_value = ["user@host1"]
+    mock_hg.keys.return_value = hosts
     mock_hg.__getitem__.return_value = mock_target
     monkeypatch.setattr(concurrent.futures, "ThreadPoolExecutor", ImmediateExecutor)
     monkeypatch.setattr(
@@ -115,7 +127,7 @@ def test_uninstall_dryrun_does_not_run(monkeypatch, capsys, mock_ssh_client):
         {"SLES:15-SP4::repo1": MockRepo("SLES")},
     )
 
-    Uninstall(args).run()
+    assert Uninstall(args).run() == 0
 
     target.run.assert_not_called()
     out = capsys.readouterr().out
@@ -138,7 +150,8 @@ def test_uninstall_no_patterns_logs(monkeypatch, caplog, mock_ssh_client):
     )
 
     with caplog.at_level("INFO", logger="repose.command.uninstall"):
-        Uninstall(args).run()
+        # No matching pattern → INFO no-op → exit 0.
+        assert Uninstall(args).run() == 0
 
     target.run.assert_not_called()
     assert any("no products for remove" in r.message for r in caplog.records)
@@ -160,7 +173,7 @@ def test_uninstall_no_matching_repos_runs_only_pdcmd(monkeypatch, mock_ssh_clien
         {},  # no repositories at all
     )
 
-    Uninstall(args).run()
+    assert Uninstall(args).run() == 0
 
     # Only one command issued: rrpcmd (no rrcmd because no rdict)
     assert target.run.call_count == 1
@@ -188,7 +201,7 @@ def test_uninstall_sl_micro_uses_transactional(monkeypatch, caplog, mock_ssh_cli
     )
 
     with caplog.at_level("INFO", logger="repose.command.uninstall"):
-        Uninstall(args).run()
+        assert Uninstall(args).run() == 0
 
     issued = [c.args[0] for c in target.run.call_args_list]
     # Both rr (for the matched repo) and the transactional rm should fire.
@@ -199,3 +212,69 @@ def test_uninstall_sl_micro_uses_transactional(monkeypatch, caplog, mock_ssh_cli
     )
     # And the reboot reminder must be emitted.
     assert any("Reboot" in r.message for r in caplog.records)
+
+
+# ---------------------------------------------------------------------------
+# Exit code propagation (PR 06)
+# ---------------------------------------------------------------------------
+
+
+def _setup_uninstall_multi(monkeypatch, hosts):
+    targets = {}
+    for host, out in hosts.items():
+        t = MagicMock()
+        t.products.flatten.return_value = [MockProduct("SLES", "15-SP4")]
+        t.repos = {"SLES:15-SP4::repo1": MockRepo("SLES")}
+        t.out = out
+        targets[host] = t
+
+    hg = MagicMock()
+    hg.keys.return_value = list(hosts.keys())
+    hg.__getitem__.side_effect = lambda k: targets[k]
+
+    monkeypatch.setattr(concurrent.futures, "ThreadPoolExecutor", ImmediateExecutor)
+    monkeypatch.setattr(
+        repose.command._command,
+        "HostGroup",
+        MagicMock(return_value=hg),
+    )
+    return targets, hg
+
+
+def test_uninstall_run_returns_0_when_all_succeed(monkeypatch, mock_ssh_client):
+    args = Namespace(
+        dry=False,
+        target=[{"h1": MagicMock(), "h2": MagicMock()}],
+        repa=[Repa("SLES:15-SP4")],
+        config="dummy",
+        yaml=False,
+    )
+    _setup_uninstall_multi(monkeypatch, {"h1": _ok_out(), "h2": _ok_out()})
+
+    assert Uninstall(args).run() == 0
+
+
+def test_uninstall_run_returns_1_on_partial_failure(monkeypatch, mock_ssh_client):
+    args = Namespace(
+        dry=False,
+        target=[{"h1": MagicMock(), "h2": MagicMock()}],
+        repa=[Repa("SLES:15-SP4")],
+        config="dummy",
+        yaml=False,
+    )
+    _setup_uninstall_multi(monkeypatch, {"h1": _ok_out(), "h2": _fail_out()})
+
+    assert Uninstall(args).run() == 1
+
+
+def test_uninstall_run_returns_2_when_all_fail(monkeypatch, mock_ssh_client):
+    args = Namespace(
+        dry=False,
+        target=[{"h1": MagicMock(), "h2": MagicMock()}],
+        repa=[Repa("SLES:15-SP4")],
+        config="dummy",
+        yaml=False,
+    )
+    _setup_uninstall_multi(monkeypatch, {"h1": _fail_out(), "h2": _fail_out()})
+
+    assert Uninstall(args).run() == 2

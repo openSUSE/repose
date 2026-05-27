@@ -44,28 +44,35 @@ class Remove(Command, name="remove"):
                     repolist.add(repo)
         return repolist
 
-    def _run(self, host: str, *args: Any) -> None:
+    def _run(self, host: str, *args: Any) -> bool:
+        """Compute and (optionally) issue the ``zypper rr`` command.
+
+        Returns ``True`` when no work was found (an INFO-level no-op,
+        not an error) and ``True``/``False`` from ``_report_target``
+        when the command actually ran.
+        """
         patterns = self._calculate_pattern(self.repa, host)
 
         if not patterns:
             logger.info("For %s no repos for remove found", host)
-            return
+            return True
         repolist = self._calculate_repolist(host, patterns)
 
         if not repolist:
             logger.info("For %s no repos for remove found", host)
-            return
+            return True
         cmd = self.rrcmd.format(repos=" ".join(repolist))
 
         if self.dryrun:
             print(blue(host) + f" - {cmd}")
-        else:
-            self.targets[host].run(cmd)
-            self._report_target(host)
+            return True
+
+        self.targets[host].run(cmd)
+        return self._report_target(host)
 
     def run(self) -> ExitCode:
         self.targets.read_repos()
         self.targets.parse_repos()
-        self._run_parallel(self._run)
+        futures = self._run_parallel(self._run)
         self.targets.close()
-        return 0
+        return self._aggregate(futures)

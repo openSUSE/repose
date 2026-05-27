@@ -17,6 +17,14 @@ class MockRepo:
         self.refresh = refresh
 
 
+def _ok_out():
+    return [["cmd", "", "", 0, 0]]
+
+
+def _fail_out():
+    return [["cmd", "", "boom", 1, 0]]
+
+
 @pytest.fixture
 def mock_args_and_repa():
     repa_instance = Repa("dummy-repa")
@@ -41,6 +49,7 @@ def test_install_command_run(monkeypatch, mock_args_and_repa, mock_ssh_client):
 
     mock_target = MagicMock()
     mock_target.products.get_base.return_value = "dummy_base"
+    mock_target.out = _ok_out()
     mock_host_group_instance = MagicMock()
     mock_host_group_instance.keys.return_value = ["user@host1"]
     mock_host_group_instance.__getitem__.return_value = mock_target
@@ -55,7 +64,7 @@ def test_install_command_run(monkeypatch, mock_args_and_repa, mock_ssh_client):
 
     # Run
     install_command = Install(mock_args)
-    install_command.run()
+    assert install_command.run() == 0
 
     # Assertions
     mock_host_group_instance.read_products.assert_called_once()
@@ -79,12 +88,13 @@ def test_install_command_run(monkeypatch, mock_args_and_repa, mock_ssh_client):
     mock_host_group_instance.close.assert_called_once()
 
 
-def _setup_install(monkeypatch, args, repoq_solution):
+def _setup_install(monkeypatch, args, repoq_solution, out=None):
     mock_repoq = MagicMock()
     mock_repoq.solve_repa.return_value = repoq_solution
 
     mock_target = MagicMock()
     mock_target.products.get_base.return_value = "dummy_base"
+    mock_target.out = out if out is not None else _ok_out()
     mock_hg = MagicMock()
     mock_hg.keys.return_value = ["user@host1"]
     mock_hg.__getitem__.return_value = mock_target
@@ -111,7 +121,7 @@ def test_install_command_dryrun_skips_run(
         {"product": [MockRepo("repo1", "http://repo1.url", refresh=True)]},
     )
 
-    Install(args).run()
+    assert Install(args).run() == 0
 
     target.run.assert_not_called()
     out = capsys.readouterr().out
@@ -131,7 +141,7 @@ def test_install_command_sl_micro_uses_transactional(
     )
 
     with caplog.at_level("INFO", logger="repose.command.install"):
-        Install(args).run()
+        assert Install(args).run() == 0
 
     # Find the install command issued
     issued = [c.args[0] for c in target.run.call_args_list]
@@ -151,7 +161,9 @@ def test_install_command_no_products_logs_error(
     )
 
     with caplog.at_level("ERROR", logger="repose.command.install"):
-        Install(args).run()
+        # Empty solution → "No products to install" error → all hosts
+        # failed → exit 2.
+        assert Install(args).run() == 2
 
     assert any("No products to install" in r.message for r in caplog.records)
 
@@ -179,6 +191,74 @@ def test_install_command_solve_repa_value_error_logged(
     monkeypatch.setattr(Install, "_init_repoq", MagicMock(return_value=mock_repoq))
 
     with caplog.at_level("ERROR", logger="repose.command.install"):
-        Install(args).run()
+        # solve_repa raises AND no products → exit 2.
+        assert Install(args).run() == 2
 
     assert any("Unknow product" in r.message for r in caplog.records)
+
+
+# ---------------------------------------------------------------------------
+# Exit code propagation (PR 06)
+# ---------------------------------------------------------------------------
+
+
+def _setup_install_multi(monkeypatch, hosts):
+    """Multi-host variant: one target per host, each with its own ``out``.
+
+    A single-product repoq solution is shared so all hosts attempt the
+    same add+install commands.
+    """
+    mock_repoq = MagicMock()
+    mock_repoq.solve_repa.return_value = {
+        "product-to-install": [MockRepo("repo1", "http://repo1.url", refresh=False)]
+    }
+
+    targets = {}
+    for host, out in hosts.items():
+        t = MagicMock()
+        t.products.get_base.return_value = "dummy_base"
+        t.out = out
+        targets[host] = t
+
+    hg = MagicMock()
+    hg.keys.return_value = list(hosts.keys())
+    hg.__getitem__.side_effect = lambda k: targets[k]
+
+    monkeypatch.setattr(concurrent.futures, "ThreadPoolExecutor", ImmediateExecutor)
+    monkeypatch.setattr(
+        repose.command._command,
+        "HostGroup",
+        MagicMock(return_value=hg),
+    )
+    monkeypatch.setattr(Install, "_init_repoq", MagicMock(return_value=mock_repoq))
+    return targets, hg
+
+
+def test_install_run_returns_0_when_all_succeed(
+    monkeypatch, mock_args_and_repa, mock_ssh_client
+):
+    args, _ = mock_args_and_repa
+    args.target = [{"h1": MagicMock(), "h2": MagicMock()}]
+    _setup_install_multi(monkeypatch, {"h1": _ok_out(), "h2": _ok_out()})
+
+    assert Install(args).run() == 0
+
+
+def test_install_run_returns_1_on_partial_failure(
+    monkeypatch, mock_args_and_repa, mock_ssh_client
+):
+    args, _ = mock_args_and_repa
+    args.target = [{"h1": MagicMock(), "h2": MagicMock()}]
+    _setup_install_multi(monkeypatch, {"h1": _ok_out(), "h2": _fail_out()})
+
+    assert Install(args).run() == 1
+
+
+def test_install_run_returns_2_when_all_fail(
+    monkeypatch, mock_args_and_repa, mock_ssh_client
+):
+    args, _ = mock_args_and_repa
+    args.target = [{"h1": MagicMock(), "h2": MagicMock()}]
+    _setup_install_multi(monkeypatch, {"h1": _fail_out(), "h2": _fail_out()})
+
+    assert Install(args).run() == 2

@@ -24,13 +24,13 @@ class Uninstall(Remove, name="uninstall"):
                         rdict[repo[1].name] = [repo[0]]
         return rdict
 
-    def _run(self, host: str, *args: Any) -> None:
+    def _run(self, host: str, *args: Any) -> bool:
         # First positional ``args`` element is the orepa list (see ``run``).
         orepa = args[0]
         patterns = self._calculate_pattern(orepa, host)
         if not patterns:
             logger.info("For %s no products for remove found", host)
-            return
+            return True
 
         rdict = self._calculate_repodict(host, patterns)
         if not rdict:
@@ -54,14 +54,19 @@ class Uninstall(Remove, name="uninstall"):
             if rrcmd:
                 print(blue(host) + " - {}".format(rrcmd))
             print(blue(host) + " - {}".format(pdcmd))
-        else:
-            if rrcmd:
-                self.targets[host].run(rrcmd)
-                self._report_target(host)
-            self.targets[host].run(pdcmd)
-            self._report_target(host)
-            if transactional:
-                logger.info("Reboot %s to switch into updated snapshot", host)
+            return True
+
+        ok = True
+        if rrcmd:
+            self.targets[host].run(rrcmd)
+            if not self._report_target(host):
+                ok = False
+        self.targets[host].run(pdcmd)
+        if not self._report_target(host):
+            ok = False
+        if transactional:
+            logger.info("Reboot %s to switch into updated snapshot", host)
+        return ok
 
     def run(self) -> ExitCode:
         self.targets.read_repos()
@@ -72,6 +77,6 @@ class Uninstall(Remove, name="uninstall"):
             r.repo = None
             orepa.append(r)
 
-        self._run_parallel(self._run, orepa)
+        futures = self._run_parallel(self._run, orepa)
         self.targets.close()
-        return 0
+        return self._aggregate(futures)
