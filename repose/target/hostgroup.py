@@ -1,12 +1,18 @@
 from collections import UserDict
 import concurrent.futures
 
-from .actions import RunCommand
-
 
 class HostGroup(UserDict):
-    def run(self, cmd) -> None:
-        return RunCommand(self.data, cmd).run()
+    def run(self, cmd: dict[str, str] | str) -> None:
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            futures = [
+                executor.submit(
+                    self.data[hn].run,
+                    cmd[hn] if isinstance(cmd, dict) else cmd,
+                )
+                for hn in self.data
+            ]
+            concurrent.futures.wait(futures)
 
     def connect(self) -> None:
         with concurrent.futures.ThreadPoolExecutor() as executor:
