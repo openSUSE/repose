@@ -1,21 +1,12 @@
 import sys
+from unittest.mock import MagicMock
 
 import pytest
 
 import repose.argparsing
 from repose import __version__
-from repose.argparsing import (
-    do_add,
-    do_clear,
-    do_install,
-    do_known_products,
-    do_list_products,
-    do_list_repos,
-    do_remove,
-    do_reset,
-    do_uninstall,
-    get_parser,
-)
+from repose.argparsing import get_parser
+from repose.command import Command
 
 
 @pytest.fixture
@@ -44,23 +35,56 @@ def test_debug_action():
 
 
 @pytest.mark.parametrize(
-    "command, expected_func, cli_args",
+    "command, registry_key, cli_args",
     [
-        ("add", do_add, ["add", "-t", "dummy", "dummy"]),
-        ("remove", do_remove, ["remove", "-t", "dummy", "dummy"]),
-        ("reset", do_reset, ["reset", "-t", "dummy"]),
-        ("install", do_install, ["install", "-t", "dummy", "dummy"]),
-        ("clear", do_clear, ["clear", "-t", "dummy"]),
-        ("uninstall", do_uninstall, ["uninstall", "-t", "dummy", "dummy"]),
-        ("list-products", do_list_products, ["list-products", "-t", "dummy"]),
-        ("list-repos", do_list_repos, ["list-repos", "-t", "dummy"]),
-        ("known-products", do_known_products, ["known-products"]),
+        ("add", "add", ["add", "-t", "dummy", "dummy"]),
+        ("remove", "remove", ["remove", "-t", "dummy", "dummy"]),
+        ("reset", "reset", ["reset", "-t", "dummy"]),
+        ("install", "install", ["install", "-t", "dummy", "dummy"]),
+        ("clear", "clear", ["clear", "-t", "dummy"]),
+        ("uninstall", "uninstall", ["uninstall", "-t", "dummy", "dummy"]),
+        ("list-products", "list-products", ["list-products", "-t", "dummy"]),
+        ("list-repos", "list-repos", ["list-repos", "-t", "dummy"]),
+        ("known-products", "known-products", ["known-products"]),
     ],
 )
-def test_command_functions(mock_types, command, expected_func, cli_args):
+def test_command_dispatches_to_registry(
+    monkeypatch, mock_types, command, registry_key, cli_args
+):
+    """args.func resolves the matching Command class via the registry."""
+    instance = MagicMock()
+    fake_cls = MagicMock(return_value=instance)
+    monkeypatch.setitem(Command.registry, registry_key, fake_cls)
+
+    args = get_parser().parse_args(cli_args)
+    args.func(args)
+
+    fake_cls.assert_called_once_with(args)
+    instance.run.assert_called_once()
+
+
+def test_dispatch_uses_late_binding_per_subcommand(monkeypatch, mock_types):
+    """Each subparser dispatches to its OWN command, not the last one
+    registered (regression test for the closure late-binding trap)."""
+    add_instance = MagicMock()
+    add_cls = MagicMock(return_value=add_instance)
+    clear_instance = MagicMock()
+    clear_cls = MagicMock(return_value=clear_instance)
+    monkeypatch.setitem(Command.registry, "add", add_cls)
+    monkeypatch.setitem(Command.registry, "clear", clear_cls)
+
     parser = get_parser()
-    args = parser.parse_args(cli_args)
-    assert args.func == expected_func
+
+    add_args = parser.parse_args(["add", "-t", "h", "x"])
+    add_args.func(add_args)
+    add_cls.assert_called_once_with(add_args)
+    add_instance.run.assert_called_once()
+    clear_cls.assert_not_called()
+
+    clear_args = parser.parse_args(["clear", "-t", "h"])
+    clear_args.func(clear_args)
+    clear_cls.assert_called_once_with(clear_args)
+    clear_instance.run.assert_called_once()
 
 
 # ---------------------------------------------------------------------------
@@ -132,40 +156,3 @@ def test_list_products_yaml_flag():
 def test_list_products_yaml_default_false():
     args = get_parser().parse_args(["list-products", "-t", "h"])
     assert args.yaml is False
-
-
-# Smoke tests for do_* dispatchers — make sure they import the right
-# command class and call .run().
-
-
-@pytest.mark.parametrize(
-    "do_func,submodule,class_name",
-    [
-        (do_add, "add", "Add"),
-        (do_remove, "remove", "Remove"),
-        (do_install, "install", "Install"),
-        (do_uninstall, "uninstall", "Uninstall"),
-        (do_clear, "clear", "Clear"),
-        (do_reset, "reset", "Reset"),
-        (do_list_products, "list", "ListProducts"),
-        (do_list_repos, "list", "ListRepos"),
-        (do_known_products, "known", "KnownProducts"),
-    ],
-)
-def test_do_funcs_invoke_command_run(monkeypatch, do_func, submodule, class_name):
-    """Each ``do_*`` instantiates the named command class and calls run()."""
-    from unittest.mock import MagicMock
-    import importlib
-
-    mod = importlib.import_module(f"repose.command.{submodule}")
-
-    instance = MagicMock()
-    klass = MagicMock(return_value=instance)
-    # do_* funcs do `from repose.command.<sub> import <Class>` — patch
-    # the name on the submodule where the do_* import looks it up.
-    monkeypatch.setattr(mod, class_name, klass)
-
-    do_func("the-args")
-
-    klass.assert_called_once_with("the-args")
-    instance.run.assert_called_once()

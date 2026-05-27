@@ -2,66 +2,14 @@ import argparse
 import logging
 from pathlib import Path
 
+import repose.command  # noqa: F401 — populate Command.registry
 from repose import __version__
+from repose.command import Command
 
 from .host import ParseHosts
 from .types.repa import Repa
 
 logger = logging.getLogger("repose.arg")
-
-
-def do_install(args):
-    from repose.command.install import Install
-
-    Install(args).run()
-
-
-def do_list_products(args):
-    from repose.command.list import ListProducts
-
-    ListProducts(args).run()
-
-
-def do_list_repos(args):
-    from repose.command.list import ListRepos
-
-    ListRepos(args).run()
-
-
-def do_remove(args):
-    from repose.command.remove import Remove
-
-    Remove(args).run()
-
-
-def do_clear(args):
-    from repose.command.clear import Clear
-
-    Clear(args).run()
-
-
-def do_uninstall(args):
-    from repose.command.uninstall import Uninstall
-
-    Uninstall(args).run()
-
-
-def do_add(args):
-    from repose.command.add import Add
-
-    Add(args).run()
-
-
-def do_reset(args):
-    from repose.command.reset import Reset
-
-    Reset(args).run()
-
-
-def do_known_products(args):
-    from repose.command.known import KnownProducts
-
-    KnownProducts(args).run()
 
 
 def get_parser():
@@ -105,8 +53,12 @@ def get_parser():
 
     commands = parser.add_subparsers()
 
-    def add_subparser(name, help_text, func, arguments=None):
-        """Helper to create a subparser and add common arguments."""
+    def add_subparser(name, help_text, arguments=None):
+        """Create a subparser dispatched via ``Command.registry``.
+
+        The CLI ``name`` must match the ``name=`` kwarg used when the
+        corresponding ``Command`` subclass is declared.
+        """
         if arguments is None:
             arguments = []
         subparser = commands.add_parser(name, help=help_text)
@@ -128,24 +80,24 @@ def get_parser():
                 type=Repa,
                 help="REPA pattern specification for needed repository",
             )
-        subparser.set_defaults(func=func)
+        # Late-bind via default arg to dodge the closure late-binding
+        # trap, and resolve through the registry at call time so tests
+        # can monkeypatch ``Command.registry`` entries.
+        subparser.set_defaults(
+            func=lambda args, _n=name: Command.registry[_n](args).run()
+        )
         return subparser
 
     # command ADD
-    add_subparser(
-        "add", "add specified repository to target", do_add, ["target", "repa"]
-    )
+    add_subparser("add", "add specified repository to target", ["target", "repa"])
 
     # command REMOVE
-    add_subparser(
-        "remove", "remove repository from target", do_remove, ["target", "repa"]
-    )
+    add_subparser("remove", "remove repository from target", ["target", "repa"])
 
     # command RESET
     add_subparser(
         "reset",
         "reset target repositories to only installed products repositories",
-        do_reset,
         ["target"],
     )
 
@@ -153,25 +105,21 @@ def get_parser():
     add_subparser(
         "install",
         "add specified repository to target and install product",
-        do_install,
         ["target", "repa"],
     )
 
     # command CLEAR
-    add_subparser("clear", "clear all repositories from target", do_clear, ["target"])
+    add_subparser("clear", "clear all repositories from target", ["target"])
 
     # command Uninstall
     add_subparser(
         "uninstall",
         "remove specified repository from target and uninstall product",
-        do_uninstall,
         ["target", "repa"],
     )
 
     # command LIST-Products
-    cmdlistp = add_subparser(
-        "list-products", "list products on target", do_list_products, ["target"]
-    )
+    cmdlistp = add_subparser("list-products", "list products on target", ["target"])
     glistp = cmdlistp.add_mutually_exclusive_group()
     glistp.add_argument(
         "--yaml",
@@ -180,13 +128,9 @@ def get_parser():
     )
 
     # command LIST-Repos
-    add_subparser(
-        "list-repos", "list repositories on target", do_list_repos, ["target"]
-    )
+    add_subparser("list-repos", "list repositories on target", ["target"])
 
     # command KnownProducts
-    add_subparser(
-        "known-products", "list known products by 'repose'", do_known_products
-    )
+    add_subparser("known-products", "list known products by 'repose'")
 
     return parser
