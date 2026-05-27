@@ -3,7 +3,6 @@ import logging
 
 from . import Command
 from ..types import ExitCode
-from ..utils import blue
 
 logger = logging.getLogger("repose.command.install")
 
@@ -26,7 +25,7 @@ class Install(Command, name="install"):
                 name=repo.name, url=repo.url, params="-cfkn" if repo.refresh else "-ckn"
             )
             if self.dryrun:
-                print(blue(f"{target}") + f" - {addcmd}")
+                self.console.dry(target, addcmd)
             else:
                 self.targets[target].run(addcmd)
                 if not self._report_target(target):
@@ -41,7 +40,7 @@ class Install(Command, name="install"):
             else:
                 inscmd = self.ipdcmd.format(products=" ".join(repositories.keys()))
             if self.dryrun:
-                print(blue(str(target)) + f" - {inscmd}")
+                self.console.dry(str(target), inscmd)
             else:
                 self.targets[target].run(inscmd)
                 if not self._report_target(target):

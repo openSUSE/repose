@@ -86,6 +86,43 @@ def test_clear_command_dryrun_skips_run(monkeypatch, capsys, mock_ssh_client):
     assert "repo1" in out
 
 
+def test_clear_command_dryrun_json_format(monkeypatch, capsys, mock_ssh_client):
+    """End-to-end: --format=json emits a parseable JSON event per dry-run line."""
+    import json
+
+    args = Namespace(
+        dry=True,
+        target=[{"user@host1": MagicMock()}],
+        repa=None,
+        config="dummy_config",
+        yaml=False,
+        format="json",
+        no_color=False,
+    )
+    mock_target = MagicMock()
+    mock_target.raw_repos = [MockRawRepo("repo1")]
+
+    mock_hg = MagicMock()
+    mock_hg.keys.return_value = ["user@host1"]
+    mock_hg.__getitem__.return_value = mock_target
+
+    monkeypatch.setattr(concurrent.futures, "ThreadPoolExecutor", ImmediateExecutor)
+    monkeypatch.setattr(
+        repose.command._command,
+        "HostGroup",
+        MagicMock(return_value=mock_hg),
+    )
+
+    assert Clear(args).run() == 0
+
+    lines = [line for line in capsys.readouterr().out.splitlines() if line.strip()]
+    assert lines, "expected at least one JSON event line"
+    payload = json.loads(lines[0])
+    assert payload["event"] == "dry"
+    assert payload["host"] == "user@host1"
+    assert "repo1" in payload["cmd"]
+
+
 def test_clear_command_empty_repos(monkeypatch, mock_ssh_client):
     args = Namespace(
         dry=False,

@@ -26,16 +26,17 @@ def test_connect_calls_each_target_connect(two_targets):
         t.connect.assert_called_once()
 
 
-def test_connect_swallows_per_host_exception(two_targets, capsys):
+def test_connect_swallows_per_host_exception(two_targets, caplog):
     """If one target's connect() raises, others still finish."""
     two_targets["host-a"].connect.side_effect = RuntimeError("boom")
     two_targets["host-b"].connect.return_value = two_targets["host-b"]
 
     hg = HostGroup(two_targets)
-    hg.connect()  # should not raise
+    with caplog.at_level("WARNING", logger="repose.target.hostgroup"):
+        hg.connect()  # should not raise
 
-    captured = capsys.readouterr()
-    assert "boom" in captured.out
+    messages = [r.getMessage() for r in caplog.records]
+    assert any("boom" in m and "host-a" in m for m in messages)
     two_targets["host-b"].connect.assert_called_once()
 
 

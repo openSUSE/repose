@@ -2,7 +2,6 @@ import logging
 
 from . import Command
 from ..types import ExitCode
-from ..utils import blue
 
 
 logger = logging.getLogger("repose.command.clear")
@@ -16,12 +15,7 @@ class Clear(Command, name="clear"):
         repoaliases = self._clear(host)
 
         if self.dryrun:
-            print(
-                blue("host:")
-                + " {} - cmd: {}".format(
-                    host, self.rrcmd.format(repos=" ".join(repoaliases))
-                )
-            )
+            self.console.dry(host, self.rrcmd.format(repos=" ".join(repoaliases)))
             return True
 
         self.targets[host].run(self.rrcmd.format(repos=" ".join(repoaliases)))
