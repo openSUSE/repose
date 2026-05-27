@@ -25,8 +25,9 @@ class Reset(Clear, name="reset"):
         )
         return cmds
 
-    def _run(self, host) -> None:
+    def _run(self, host) -> bool:
         repoaliases = self._clear(host)
+        ok = True
         try:
             cmds = self._add(host)
 
@@ -37,17 +38,21 @@ class Reset(Clear, name="reset"):
                 )
                 for cmd in cmds:
                     print(blue(host) + f" - {cmd}")
-            else:
-                self.targets[host].run(self.rrcmd.format(repos=" ".join(repoaliases)))
-                for cmd in cmds:
-                    self.targets[host].run(cmd)
-                    self._report_target(host)
+                return True
+
+            self.targets[host].run(self.rrcmd.format(repos=" ".join(repoaliases)))
+            for cmd in cmds:
+                self.targets[host].run(cmd)
+                if not self._report_target(host):
+                    ok = False
         except UnsuportedProductMessage as e:
             logger.error("Refhost %s - %s", host, e)
+            ok = False
+        return ok
 
     def run(self) -> ExitCode:
         self.targets.read_products()
         self.targets.read_repos()
-        self._run_parallel(self._run)
+        futures = self._run_parallel(self._run)
         self.targets.close()
-        return 0
+        return self._aggregate(futures)

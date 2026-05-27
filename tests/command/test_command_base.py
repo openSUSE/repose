@@ -130,16 +130,19 @@ def test_unconnected_targets_are_dropped(monkeypatch):
 
 
 @pytest.mark.parametrize(
-    "exitcode,expected_stream",
+    "exitcode,expected_stream,expected_ok",
     [
-        (0, "stdout"),  # logger.info on stdout
-        (4, "stdout"),  # logger.warning on stdout
-        (1, "stderr"),  # logger.warning on stderr
-        (-1, "stderr"),
+        (0, "stdout", True),  # logger.info on stdout, success
+        (4, "stdout", True),  # logger.warning on stdout, benign success
+        (1, "stderr", False),  # logger.warning on stderr, failure
+        (-1, "stderr", False),
     ],
 )
-def test_report_target_routes_by_exitcode(monkeypatch, exitcode, expected_stream):
-    """_report_target picks the right output stream depending on exitcode."""
+def test_report_target_routes_by_exitcode(
+    monkeypatch, exitcode, expected_stream, expected_ok
+):
+    """_report_target picks the right output stream depending on exitcode
+    and returns ``True`` for success/benign exits, ``False`` for failures."""
     target = MagicMock()
     # out is list of [cmd, stdout, stderr, exitcode, runtime]
     target.out = [["cmd", "out-line", "err-line", exitcode, 0]]
@@ -149,8 +152,7 @@ def test_report_target_routes_by_exitcode(monkeypatch, exitcode, expected_stream
     hg.__getitem__.return_value = target
 
     cmd, _ = _make(monkeypatch, host_group=hg)
-    # Should not raise
-    cmd._report_target("host")
+    assert cmd._report_target("host") is expected_ok
 
 
 def test_init_repoq_loads_template(monkeypatch, tmp_path):
@@ -210,3 +212,74 @@ def test_run_parallel_passes_extra_args_after_host(monkeypatch):
         ]
     )
     assert [f.result() for f in futures] == [None, None]
+
+
+# ---------------------------------------------------------------------------
+# _aggregate
+# ---------------------------------------------------------------------------
+
+
+def _ok_future(value: bool = True) -> Future:
+    """Return a completed Future whose result is ``value``."""
+    f: Future = Future()
+    f.set_result(value)
+    return f
+
+
+def _failed_future(exc: BaseException | None = None) -> Future:
+    """Return a completed Future that holds an exception."""
+    f: Future = Future()
+    f.set_exception(exc or RuntimeError("boom"))
+    return f
+
+
+def test_aggregate_returns_0_when_no_futures(monkeypatch):
+    """No targets at all is treated as success — there's nothing that
+    could have failed."""
+    cmd, _ = _make(monkeypatch)
+    assert cmd._aggregate([]) == 0
+
+
+def test_aggregate_returns_0_when_all_succeed(monkeypatch):
+    cmd, _ = _make(monkeypatch)
+    futures = [_ok_future(True), _ok_future(True), _ok_future(True)]
+    assert cmd._aggregate(futures) == 0
+
+
+def test_aggregate_returns_2_when_all_fail_via_exception(monkeypatch):
+    cmd, _ = _make(monkeypatch)
+    futures = [_failed_future(), _failed_future()]
+    assert cmd._aggregate(futures) == 2
+
+
+def test_aggregate_returns_2_when_all_fail_via_false_result(monkeypatch):
+    cmd, _ = _make(monkeypatch)
+    futures = [_ok_future(False), _ok_future(False)]
+    assert cmd._aggregate(futures) == 2
+
+
+def test_aggregate_returns_2_for_single_host_failure(monkeypatch):
+    """Degenerate all-failed case: 1 of 1 failed → still exit 2."""
+    cmd, _ = _make(monkeypatch)
+    assert cmd._aggregate([_ok_future(False)]) == 2
+    assert cmd._aggregate([_failed_future()]) == 2
+
+
+def test_aggregate_returns_1_on_partial_failure(monkeypatch):
+    cmd, _ = _make(monkeypatch)
+    futures = [_ok_future(True), _ok_future(False)]
+    assert cmd._aggregate(futures) == 1
+
+
+def test_aggregate_returns_1_when_some_raise_and_some_succeed(monkeypatch):
+    cmd, _ = _make(monkeypatch)
+    futures = [_ok_future(True), _failed_future(), _ok_future(True)]
+    assert cmd._aggregate(futures) == 1
+
+
+def test_aggregate_treats_none_result_as_success(monkeypatch):
+    """Forward-compatibility: any non-False result counts as success
+    so legacy callers returning ``None`` don't accidentally fail."""
+    cmd, _ = _make(monkeypatch)
+    futures = [_ok_future(None), _ok_future(True)]  # type: ignore[arg-type]
+    assert cmd._aggregate(futures) == 0

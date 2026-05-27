@@ -17,6 +17,18 @@ class MockRepo:
         self.refresh = refresh
 
 
+def _ok_out():
+    """Return a target.out list with a single zero-exitcode entry,
+    so ``_report_target`` returns True."""
+    return [["cmd", "", "", 0, 0]]
+
+
+def _fail_out():
+    """Return a target.out list with a non-zero exitcode so
+    ``_report_target`` returns False."""
+    return [["cmd", "", "boom", 1, 0]]
+
+
 @pytest.fixture
 def mock_args_and_repa():
     """Fixture for command arguments."""
@@ -44,6 +56,7 @@ def test_add_command_run(monkeypatch, mock_args_and_repa, mock_ssh_client):
     }
 
     mock_target = MagicMock()
+    mock_target.out = _ok_out()
     mock_host_group_instance = MagicMock()
     mock_host_group_instance.keys.return_value = ["user@host1"]
     mock_host_group_instance.__getitem__.return_value = mock_target
@@ -60,7 +73,7 @@ def test_add_command_run(monkeypatch, mock_args_and_repa, mock_ssh_client):
 
     # Instantiate and Run
     add_command = Add(mock_args)
-    add_command.run()
+    assert add_command.run() == 0
 
     # Assertions
     mock_host_group_instance.read_products.assert_called_once()
@@ -111,7 +124,7 @@ def test_add_command_dryrun_prints_and_skips_run(
     monkeypatch.setattr(Add, "_init_repoq", MagicMock(return_value=mock_repoq))
     monkeypatch.setattr(Add, "check_url", MagicMock(return_value=True))
 
-    Add(args).run()
+    assert Add(args).run() == 0
 
     mock_target.run.assert_not_called()
     # refcmd skipped on dryrun
@@ -147,7 +160,8 @@ def test_add_command_solve_repa_value_error_logged(
     monkeypatch.setattr(Add, "check_url", MagicMock(return_value=True))
 
     with caplog.at_level("ERROR", logger="repose.command.add"):
-        Add(args).run()
+        # solve_repa failure on the only host → all hosts failed → exit 2.
+        assert Add(args).run() == 2
 
     assert any("Not known product" in r.message for r in caplog.records)
     mock_target.run.assert_not_called()
@@ -177,7 +191,77 @@ def test_add_command_skips_repo_when_check_url_false(
     monkeypatch.setattr(Add, "_init_repoq", MagicMock(return_value=mock_repoq))
     monkeypatch.setattr(Add, "check_url", MagicMock(return_value=False))
 
-    Add(args).run()
+    # Repo filtered out by check_url → no cmds attempted, no failures → 0.
+    assert Add(args).run() == 0
 
     # Repo got filtered out because URL check failed → no per-target add cmd
     mock_target.run.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# Exit code propagation (PR 06)
+# ---------------------------------------------------------------------------
+
+
+def _setup_add_hosts(monkeypatch, hosts):
+    """Build a HostGroup-like mock with one target per host and stub
+    out the URL probe + repoq resolution to a single repo.
+
+    ``hosts`` is a dict mapping ``host -> target.out`` so callers can
+    decide which hosts succeed and which fail.
+    """
+    targets = {}
+    for host, out in hosts.items():
+        t = MagicMock()
+        t.products.get_base.return_value = "dummy_base"
+        t.out = out
+        targets[host] = t
+
+    hg = MagicMock()
+    hg.keys.return_value = list(hosts.keys())
+    hg.__getitem__.side_effect = lambda k: targets[k]
+
+    monkeypatch.setattr(concurrent.futures, "ThreadPoolExecutor", ImmediateExecutor)
+    monkeypatch.setattr(
+        repose.command._command,
+        "HostGroup",
+        MagicMock(return_value=hg),
+    )
+
+    mock_repoq = MagicMock()
+    mock_repoq.solve_repa.return_value = {
+        "product": [MockRepo("repo1", "http://repo1.url", refresh=False)]
+    }
+    monkeypatch.setattr(Add, "_init_repoq", MagicMock(return_value=mock_repoq))
+    monkeypatch.setattr(Add, "check_url", MagicMock(return_value=True))
+    return targets, hg
+
+
+def test_add_run_returns_0_when_all_succeed(
+    monkeypatch, mock_args_and_repa, mock_ssh_client
+):
+    args, _ = mock_args_and_repa
+    args.target = [{"h1": MagicMock(), "h2": MagicMock()}]
+    _setup_add_hosts(monkeypatch, {"h1": _ok_out(), "h2": _ok_out()})
+
+    assert Add(args).run() == 0
+
+
+def test_add_run_returns_1_on_partial_failure(
+    monkeypatch, mock_args_and_repa, mock_ssh_client
+):
+    args, _ = mock_args_and_repa
+    args.target = [{"h1": MagicMock(), "h2": MagicMock()}]
+    _setup_add_hosts(monkeypatch, {"h1": _ok_out(), "h2": _fail_out()})
+
+    assert Add(args).run() == 1
+
+
+def test_add_run_returns_2_when_all_fail(
+    monkeypatch, mock_args_and_repa, mock_ssh_client
+):
+    args, _ = mock_args_and_repa
+    args.target = [{"h1": MagicMock(), "h2": MagicMock()}]
+    _setup_add_hosts(monkeypatch, {"h1": _fail_out(), "h2": _fail_out()})
+
+    assert Add(args).run() == 2

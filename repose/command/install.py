@@ -9,8 +9,9 @@ logger = logging.getLogger("repose.command.install")
 
 
 class Install(Command, name="install"):
-    def _run(self, target, repoq) -> None:
+    def _run(self, target, repoq) -> bool:
         repositories = {}
+        ok = True
         for repa in self.repa:
             try:
                 repositories.update(
@@ -18,6 +19,7 @@ class Install(Command, name="install"):
                 )
             except ValueError as error:
                 logger.error(error)
+                ok = False
 
         for repo in chain.from_iterable(x for x in (y for y in repositories.values())):
             addcmd = self.addcmd.format(
@@ -27,7 +29,8 @@ class Install(Command, name="install"):
                 print(blue(f"{target}") + f" - {addcmd}")
             else:
                 self.targets[target].run(addcmd)
-                self._report_target(target)
+                if not self._report_target(target):
+                    ok = False
                 self.targets[target].run(self.refcmd)
 
         if repositories.keys():
@@ -41,18 +44,21 @@ class Install(Command, name="install"):
                 print(blue(str(target)) + f" - {inscmd}")
             else:
                 self.targets[target].run(inscmd)
-                self._report_target(target)
+                if not self._report_target(target):
+                    ok = False
                 if transactional:
                     logger.info(
                         "Reboot %s to switch into correct snapshot", str(target)
                     )
         else:
             logger.error("No products to install")
+            ok = False
+        return ok
 
     def run(self) -> ExitCode:
         repoq = self._init_repoq()
         self.targets.read_products()
         self.targets.read_repos()
-        self._run_parallel(self._run, repoq)
+        futures = self._run_parallel(self._run, repoq)
         self.targets.close()
-        return 0
+        return self._aggregate(futures)

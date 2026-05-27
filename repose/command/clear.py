@@ -12,7 +12,7 @@ class Clear(Command, name="clear"):
     def _clear(self, host):
         return set(r.alias for r in self.targets[host].raw_repos)
 
-    def _run(self, host):
+    def _run(self, host) -> bool:
         repoaliases = self._clear(host)
 
         if self.dryrun:
@@ -22,12 +22,14 @@ class Clear(Command, name="clear"):
                     host, self.rrcmd.format(repos=" ".join(repoaliases))
                 )
             )
-        else:
-            self.targets[host].run(self.rrcmd.format(repos=" ".join(repoaliases)))
-            logger.info("Repositories cleared from %s", host)
+            return True
+
+        self.targets[host].run(self.rrcmd.format(repos=" ".join(repoaliases)))
+        logger.info("Repositories cleared from %s", host)
+        return True
 
     def run(self) -> ExitCode:
         self.targets.read_repos()
-        self._run_parallel(self._run)
+        futures = self._run_parallel(self._run)
         self.targets.close()
-        return 0
+        return self._aggregate(futures)

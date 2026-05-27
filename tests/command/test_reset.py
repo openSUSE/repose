@@ -28,6 +28,14 @@ class MockProduct:
         self.version = version
 
 
+def _ok_out():
+    return [["cmd", "", "", 0, 0]]
+
+
+def _fail_out():
+    return [["cmd", "", "boom", 1, 0]]
+
+
 @pytest.fixture
 def mock_args():
     """Fixture for command arguments."""
@@ -55,6 +63,7 @@ def test_reset_command_run(monkeypatch, mock_args, mock_ssh_client):
         MockRawRepo("existing-repo1"),
         MockRawRepo("existing-repo2"),
     ]
+    mock_target.out = _ok_out()
 
     mock_host_group_instance = MagicMock()
     mock_host_group_instance.keys.return_value = ["user@host1"]
@@ -71,7 +80,7 @@ def test_reset_command_run(monkeypatch, mock_args, mock_ssh_client):
 
     # Instantiate and Run
     reset_command = Reset(mock_args)
-    reset_command.run()
+    assert reset_command.run() == 0
 
     # Assertions
     mock_host_group_instance.read_products.assert_called_once()
@@ -103,6 +112,7 @@ def _setup_reset(
     products=None,
     check_url=True,
     solve_side_effect=None,
+    out=None,
 ):
     mock_repoq = MagicMock()
     if solve_side_effect is not None:
@@ -113,6 +123,7 @@ def _setup_reset(
     mock_target = MagicMock()
     mock_target.products = products or [MockProduct("SLES", "15-SP4")]
     mock_target.raw_repos = raw_repos or [MockRawRepo("existing-repo1")]
+    mock_target.out = out if out is not None else _ok_out()
 
     mock_hg = MagicMock()
     mock_hg.keys.return_value = ["user@host1"]
@@ -137,7 +148,7 @@ def test_reset_dryrun_does_not_run(monkeypatch, mock_args, capsys, mock_ssh_clie
         repoq_solution={"product": [MockRepo("repo1", "http://r1", refresh=True)]},
     )
 
-    Reset(mock_args).run()
+    assert Reset(mock_args).run() == 0
 
     target.run.assert_not_called()
     out = capsys.readouterr().out
@@ -156,7 +167,8 @@ def test_reset_unsupported_product_logs_error(
     )
 
     with caplog.at_level("ERROR", logger="repose.command.reset"):
-        Reset(mock_args).run()
+        # UnsuportedProductMessage on the only host → exit 2.
+        assert Reset(mock_args).run() == 2
 
     assert any("Refhost" in r.message for r in caplog.records)
     # _add() raised before reaching the run() block — no commands executed.
@@ -171,9 +183,83 @@ def test_reset_check_url_false_skips_add(monkeypatch, mock_args, mock_ssh_client
         check_url=False,
     )
 
-    Reset(mock_args).run()
+    # rr fires (and succeeds via _ok_out), no ar attempted → exit 0.
+    assert Reset(mock_args).run() == 0
 
     issued = [c.args[0] for c in target.run.call_args_list]
     # rr executed but no ar (filtered out by check_url=False)
     assert any(c.startswith("zypper -n rr") for c in issued)
     assert not any(c.startswith("zypper -n ar") for c in issued)
+
+
+# ---------------------------------------------------------------------------
+# Exit code propagation (PR 06)
+# ---------------------------------------------------------------------------
+
+
+def _setup_reset_multi(monkeypatch, hosts):
+    mock_repoq = MagicMock()
+    mock_repoq.solve_product.return_value = {
+        "product": [MockRepo("repo1", "http://repo1.url", refresh=False)]
+    }
+
+    targets = {}
+    for host, out in hosts.items():
+        t = MagicMock()
+        t.products = [MockProduct("SLES", "15-SP4")]
+        t.raw_repos = [MockRawRepo(f"{host}-existing")]
+        t.out = out
+        targets[host] = t
+
+    hg = MagicMock()
+    hg.keys.return_value = list(hosts.keys())
+    hg.__getitem__.side_effect = lambda k: targets[k]
+
+    monkeypatch.setattr(concurrent.futures, "ThreadPoolExecutor", ImmediateExecutor)
+    monkeypatch.setattr(
+        repose.command._command,
+        "HostGroup",
+        MagicMock(return_value=hg),
+    )
+    monkeypatch.setattr(Reset, "_init_repoq", MagicMock(return_value=mock_repoq))
+    monkeypatch.setattr(Reset, "check_url", MagicMock(return_value=True))
+    return targets, hg
+
+
+def test_reset_run_returns_0_when_all_succeed(monkeypatch, mock_ssh_client):
+    args = Namespace(
+        dry=False,
+        target=[{"h1": MagicMock(), "h2": MagicMock()}],
+        config="dummy_config",
+        repa=None,
+        yaml=False,
+    )
+    _setup_reset_multi(monkeypatch, {"h1": _ok_out(), "h2": _ok_out()})
+
+    assert Reset(args).run() == 0
+
+
+def test_reset_run_returns_1_on_partial_failure(monkeypatch, mock_ssh_client):
+    args = Namespace(
+        dry=False,
+        target=[{"h1": MagicMock(), "h2": MagicMock()}],
+        config="dummy_config",
+        repa=None,
+        yaml=False,
+    )
+    _setup_reset_multi(monkeypatch, {"h1": _ok_out(), "h2": _fail_out()})
+
+    assert Reset(args).run() == 1
+
+
+def test_reset_run_returns_2_when_all_fail(monkeypatch, mock_ssh_client):
+    args = Namespace(
+        dry=False,
+        target=[{"h1": MagicMock(), "h2": MagicMock()}],
+        config="dummy_config",
+        repa=None,
+        yaml=False,
+    )
+    _setup_reset_multi(monkeypatch, {"h1": _fail_out(), "h2": _fail_out()})
+
+    assert Reset(args).run() == 2

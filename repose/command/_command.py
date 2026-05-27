@@ -75,31 +75,73 @@ class Command(ABC):
     def _init_repoq(self) -> Repoq:
         return Repoq(self._load_template())
 
-    def _report_target(self, target: str) -> None:
-        if self.targets[target].out[-1][3] == 0:
+    def _report_target(self, target: str) -> bool:
+        """Log the last command's output for ``target`` and report success.
+
+        Returns ``True`` for zypper exit 0 (success) and exit 4
+        (no repositories — benign, kept as info-warning for parity with
+        prior behaviour). Any other exit code is treated as failure and
+        the call returns ``False`` so the caller can propagate the
+        per-host status into ``_aggregate``.
+        """
+        exitcode = self.targets[target].out[-1][3]
+        if exitcode == 0:
             for line in self.targets[target].out[-1][1].splitlines():
                 logger.info(blue(f"{target}") + f" - {line}")
-        elif self.targets[target].out[-1][3] == 4:
+            return True
+        if exitcode == 4:
+            # zypper: "no repositories defined" — benign in our flow.
             for line in self.targets[target].out[-1][1].splitlines():
                 logger.warning(blue(f"{target}") + f" - {line}")
-        else:
-            for line in self.targets[target].out[-1][2].splitlines():
-                logger.warning(blue(f"{target}") + f" - {line}")
+            return True
+        for line in self.targets[target].out[-1][2].splitlines():
+            logger.warning(blue(f"{target}") + f" - {line}")
+        return False
 
     def _run_parallel(
         self,
-        fn: Callable[..., None],
+        fn: Callable[..., bool],
         *extra_args: Any,
-    ) -> list[Future[None]]:
+    ) -> list[Future[bool]]:
         """Fan ``fn(host, *extra_args)`` across all live targets.
 
         Returns the futures so callers can inspect ``.exception()``
-        (used by PR 6 for exit-code propagation).
+        and ``.result()`` (consumed by ``_aggregate`` for exit-code
+        propagation).
         """
         with concurrent.futures.ThreadPoolExecutor() as ex:
             futures = [ex.submit(fn, host, *extra_args) for host in self.targets.keys()]
             concurrent.futures.wait(futures)
             return futures
+
+    def _aggregate(self, futures: list[Future[bool]]) -> ExitCode:
+        """Collapse per-target futures into a process exit code.
+
+        A future counts as failed when it raised (``f.exception() is not
+        None``) or when its result is explicitly ``False``. A result of
+        ``True`` (or any non-``False`` truthy value) counts as success
+        for forward compatibility with callers that may still return
+        ``None`` during transition.
+
+        Returns ``0`` when every future succeeded, ``2`` when every
+        future failed (including the degenerate single-host all-failed
+        case), and ``1`` otherwise.
+        """
+        total = len(futures)
+        if total == 0:
+            return 0
+        failed = 0
+        for f in futures:
+            if f.exception() is not None:
+                failed += 1
+                continue
+            if f.result() is False:
+                failed += 1
+        if failed == 0:
+            return 0
+        if failed == total:
+            return 2
+        return 1
 
     @staticmethod
     def check_url(url: str) -> bool:
