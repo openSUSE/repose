@@ -1,4 +1,3 @@
-import concurrent.futures
 from itertools import chain
 import logging
 
@@ -46,11 +45,7 @@ class Add(Command):
 
     def run(self) -> ExitCode:
         self.targets.read_products()
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            targets = [
-                executor.submit(self._run, target) for target in self.targets.keys()
-            ]
-            concurrent.futures.wait(targets)
+        self._run_parallel(self._run)
 
         if not self.dryrun:
             self.targets.run(self.refcmd)

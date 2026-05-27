@@ -1,4 +1,3 @@
-import concurrent.futures
 import logging
 from itertools import chain
 from typing import Any
@@ -75,12 +74,6 @@ class Uninstall(Remove):
             r.repo = None
             orepa.append(r)
 
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            targets = [
-                executor.submit(self._run, target, orepa)
-                for target in self.targets.keys()
-            ]
-            concurrent.futures.wait(targets)
-
+        self._run_parallel(self._run, orepa)
         self.targets.close()
         return 0

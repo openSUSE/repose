@@ -1,4 +1,3 @@
-import concurrent.futures
 from itertools import chain
 import logging
 
@@ -12,7 +11,7 @@ logger = logging.getLogger("repose.command.install")
 class Install(Command):
     command = True
 
-    def _run(self, repoq, target) -> None:
+    def _run(self, target, repoq) -> None:
         repositories = {}
         for repa in self.repa:
             try:
@@ -56,13 +55,6 @@ class Install(Command):
         repoq = self._init_repoq()
         self.targets.read_products()
         self.targets.read_repos()
-
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            targets = [
-                executor.submit(self._run, repoq, target)
-                for target in self.targets.keys()
-            ]
-            concurrent.futures.wait(targets)
-
+        self._run_parallel(self._run, repoq)
         self.targets.close()
         return 0

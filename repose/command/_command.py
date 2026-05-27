@@ -1,8 +1,11 @@
 from abc import ABC, abstractmethod
 from argparse import Namespace
+import concurrent.futures
+from concurrent.futures import Future
 import logging
 import sys
 from pathlib import Path
+from typing import Any, Callable
 from urllib.error import HTTPError, URLError
 from urllib.request import urlopen
 
@@ -68,6 +71,21 @@ class Command(ABC):
         else:
             for line in self.targets[target].out[-1][2].splitlines():
                 logger.warning(blue(f"{target}") + f" - {line}")
+
+    def _run_parallel(
+        self,
+        fn: Callable[..., None],
+        *extra_args: Any,
+    ) -> list[Future[None]]:
+        """Fan ``fn(host, *extra_args)`` across all live targets.
+
+        Returns the futures so callers can inspect ``.exception()``
+        (used by PR 6 for exit-code propagation).
+        """
+        with concurrent.futures.ThreadPoolExecutor() as ex:
+            futures = [ex.submit(fn, host, *extra_args) for host in self.targets.keys()]
+            concurrent.futures.wait(futures)
+            return futures
 
     @staticmethod
     def check_url(url: str) -> bool:
