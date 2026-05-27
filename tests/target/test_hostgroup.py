@@ -3,6 +3,7 @@
 from unittest.mock import MagicMock
 
 import pytest
+from conftest import ImmediateExecutor
 
 from repose.target.hostgroup import HostGroup
 
@@ -91,19 +92,29 @@ def test_report_repos_iterates_sorted(two_targets):
         t.report_repos.assert_called_once_with(sink)
 
 
-def test_run_delegates_to_runcommand(monkeypatch, two_targets):
-    captured = {}
+def test_run_fans_out_with_str_command(monkeypatch, two_targets):
+    """A bare ``str`` command broadcasts the same string to every host."""
+    monkeypatch.setattr(
+        "repose.target.hostgroup.concurrent.futures.ThreadPoolExecutor",
+        ImmediateExecutor,
+    )
 
-    class FakeRC:
-        def __init__(self, data, cmd):
-            captured["data"] = data
-            captured["cmd"] = cmd
-
-        def run(self):
-            return "ok"
-
-    monkeypatch.setattr("repose.target.hostgroup.RunCommand", FakeRC)
     hg = HostGroup(two_targets)
-    assert hg.run("zypper -n ref") == "ok"
-    assert captured["cmd"] == "zypper -n ref"
-    assert set(captured["data"].keys()) == {"host-a", "host-b"}
+    hg.run("zypper -n ref")
+
+    for t in two_targets.values():
+        t.run.assert_called_once_with("zypper -n ref")
+
+
+def test_run_fans_out_with_dict_command(monkeypatch, two_targets):
+    """A ``dict`` command dispatches per-host commands."""
+    monkeypatch.setattr(
+        "repose.target.hostgroup.concurrent.futures.ThreadPoolExecutor",
+        ImmediateExecutor,
+    )
+
+    hg = HostGroup(two_targets)
+    hg.run({"host-a": "cmd-a", "host-b": "cmd-b"})
+
+    two_targets["host-a"].run.assert_called_once_with("cmd-a")
+    two_targets["host-b"].run.assert_called_once_with("cmd-b")
