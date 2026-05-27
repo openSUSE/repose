@@ -10,9 +10,7 @@ from ..types import ExitCode
 logger = logging.getLogger("repose.command.uninstall")
 
 
-class Uninstall(Remove):
-    command = True
-
+class Uninstall(Remove, name="uninstall"):
     def _calculate_repodict(
         self, host: str, patterns: set[str]
     ) -> dict[str, list[str]]:

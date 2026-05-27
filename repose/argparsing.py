@@ -11,55 +11,55 @@ logger = logging.getLogger("repose.arg")
 
 
 def do_install(args):
-    from repose.command import Install  # ty: ignore[unresolved-import]  # FOLLOWUP-ty-residuals (PR 04)
+    from repose.command.install import Install
 
     Install(args).run()
 
 
 def do_list_products(args):
-    from repose.command import ListProducts  # ty: ignore[unresolved-import]  # FOLLOWUP-ty-residuals (PR 04)
+    from repose.command.list import ListProducts
 
     ListProducts(args).run()
 
 
 def do_list_repos(args):
-    from repose.command import ListRepos  # ty: ignore[unresolved-import]  # FOLLOWUP-ty-residuals (PR 04)
+    from repose.command.list import ListRepos
 
     ListRepos(args).run()
 
 
 def do_remove(args):
-    from repose.command import Remove  # ty: ignore[unresolved-import]  # FOLLOWUP-ty-residuals (PR 04)
+    from repose.command.remove import Remove
 
     Remove(args).run()
 
 
 def do_clear(args):
-    from repose.command import Clear  # ty: ignore[unresolved-import]  # FOLLOWUP-ty-residuals (PR 04)
+    from repose.command.clear import Clear
 
     Clear(args).run()
 
 
 def do_uninstall(args):
-    from repose.command import Uninstall  # ty: ignore[unresolved-import]  # FOLLOWUP-ty-residuals (PR 04)
+    from repose.command.uninstall import Uninstall
 
     Uninstall(args).run()
 
 
 def do_add(args):
-    from repose.command import Add  # ty: ignore[unresolved-import]  # FOLLOWUP-ty-residuals (PR 04)
+    from repose.command.add import Add
 
     Add(args).run()
 
 
 def do_reset(args):
-    from repose.command import Reset  # ty: ignore[unresolved-import]  # FOLLOWUP-ty-residuals (PR 04)
+    from repose.command.reset import Reset
 
     Reset(args).run()
 
 
 def do_known_products(args):
-    from repose.command import KnownProducts  # ty: ignore[unresolved-import]  # FOLLOWUP-ty-residuals (PR 04)
+    from repose.command.known import KnownProducts
 
     KnownProducts(args).run()
 

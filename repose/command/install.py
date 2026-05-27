@@ -8,9 +8,7 @@ from ..utils import blue
 logger = logging.getLogger("repose.command.install")
 
 
-class Install(Command):
-    command = True
-
+class Install(Command, name="install"):
     def _run(self, target, repoq) -> None:
         repositories = {}
         for repa in self.repa:

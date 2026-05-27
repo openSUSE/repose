@@ -6,9 +6,7 @@ from ..types import ExitCode
 logger = logging.getLogger("repose.command.list")
 
 
-class ListRepos(Command):
-    command = True
-
+class ListRepos(Command, name="list-repos"):
     def run(self) -> ExitCode:
         self.targets.read_repos()
         self.targets.report_repos(self.display.list_update_repos)
@@ -16,9 +14,7 @@ class ListRepos(Command):
         return 0
 
 
-class ListProducts(Command):
-    command = True
-
+class ListProducts(Command, name="list-products"):
     def run(self) -> ExitCode:
         self.targets.read_products()
         if self.yaml:

@@ -5,7 +5,7 @@ from concurrent.futures import Future
 import logging
 import sys
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, ClassVar
 from urllib.error import HTTPError, URLError
 from urllib.request import urlopen
 
@@ -21,6 +21,20 @@ logger = logging.getLogger("repose.command")
 
 
 class Command(ABC):
+    registry: ClassVar[dict[str, type["Command"]]] = {}
+
+    def __init_subclass__(cls, *, name: str | None = None, **kwargs: Any) -> None:
+        super().__init_subclass__(**kwargs)
+        # ``name`` is optional so abstract intermediates (e.g. a future
+        # base shared by several concrete commands) can inherit from
+        # ``Command`` without polluting the CLI registry. Concrete
+        # commands MUST pass ``name=``.
+        if name is None:
+            return
+        if name in Command.registry:
+            raise RuntimeError(f"Duplicate command name: {name!r}")
+        Command.registry[name] = cls
+
     addcmd: str = "zypper -n ar {params} {name} {url} {name}"
     rrcmd: str = "zypper -n rr {repos}"
     refcmd: str = "zypper -n --gpg-auto-import-keys ref -f"

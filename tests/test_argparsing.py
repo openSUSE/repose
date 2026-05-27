@@ -139,29 +139,31 @@ def test_list_products_yaml_default_false():
 
 
 @pytest.mark.parametrize(
-    "do_func,class_name",
+    "do_func,submodule,class_name",
     [
-        (do_add, "Add"),
-        (do_remove, "Remove"),
-        (do_install, "Install"),
-        (do_uninstall, "Uninstall"),
-        (do_clear, "Clear"),
-        (do_reset, "Reset"),
-        (do_list_products, "ListProducts"),
-        (do_list_repos, "ListRepos"),
-        (do_known_products, "KnownProducts"),
+        (do_add, "add", "Add"),
+        (do_remove, "remove", "Remove"),
+        (do_install, "install", "Install"),
+        (do_uninstall, "uninstall", "Uninstall"),
+        (do_clear, "clear", "Clear"),
+        (do_reset, "reset", "Reset"),
+        (do_list_products, "list", "ListProducts"),
+        (do_list_repos, "list", "ListRepos"),
+        (do_known_products, "known", "KnownProducts"),
     ],
 )
-def test_do_funcs_invoke_command_run(monkeypatch, do_func, class_name):
+def test_do_funcs_invoke_command_run(monkeypatch, do_func, submodule, class_name):
     """Each ``do_*`` instantiates the named command class and calls run()."""
     from unittest.mock import MagicMock
-    import repose.command as cmd_pkg
+    import importlib
+
+    mod = importlib.import_module(f"repose.command.{submodule}")
 
     instance = MagicMock()
     klass = MagicMock(return_value=instance)
-    # do_* funcs do `from repose.command import <Class>` — patch the
-    # name on the package namespace.
-    monkeypatch.setattr(cmd_pkg, class_name, klass)
+    # do_* funcs do `from repose.command.<sub> import <Class>` — patch
+    # the name on the submodule where the do_* import looks it up.
+    monkeypatch.setattr(mod, class_name, klass)
 
     do_func("the-args")
 
