@@ -9,9 +9,7 @@ from ..utils import blue
 logger = logging.getLogger("repose.command.remove")
 
 
-class Remove(Command):
-    command = True
-
+class Remove(Command, name="remove"):
     def _calculate_pattern(self, orepa: Iterable[Repa], host: str) -> set[str]:
         pattern = "{product}:{version}::{repo}"
         products = self.targets[host].products.flatten()

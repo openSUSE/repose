@@ -8,9 +8,7 @@ from ..utils import blue
 logger = logging.getLogger("repose.command.add")
 
 
-class Add(Command):
-    command = True
-
+class Add(Command, name="add"):
     def _add(self, target):
         repoq = self._init_repoq()
         repolist = []

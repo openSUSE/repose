@@ -9,9 +9,7 @@ from .clear import Clear
 logger = logging.getLogger("repose.command.reset")
 
 
-class Reset(Clear):
-    command = True
-
+class Reset(Clear, name="reset"):
     def _add(self, target):
         repoq = self._init_repoq()
         cmds = set()

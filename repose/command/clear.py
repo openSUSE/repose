@@ -8,9 +8,7 @@ from ..utils import blue
 logger = logging.getLogger("repose.command.clear")
 
 
-class Clear(Command):
-    command = True
-
+class Clear(Command, name="clear"):
     def _clear(self, host):
         return set(r.alias for r in self.targets[host].raw_repos)
 

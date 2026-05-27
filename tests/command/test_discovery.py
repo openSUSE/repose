@@ -1,32 +1,64 @@
-"""Tests for ``repose.command`` dynamic command discovery."""
+"""Tests for ``repose.command`` registry-based command discovery."""
 
-import repose.command as cmd_pkg
+import pytest
+
+import repose.command  # noqa: F401  # populate Command.registry
+from repose.command import Command
+from repose.types import ExitCode
 
 
 EXPECTED_COMMANDS = {
-    "Add",
-    "Remove",
-    "Install",
-    "Uninstall",
-    "Clear",
-    "Reset",
-    "ListRepos",
-    "ListProducts",
-    "KnownProducts",
+    "add",
+    "remove",
+    "reset",
+    "install",
+    "clear",
+    "uninstall",
+    "list-products",
+    "list-repos",
+    "known-products",
 }
 
 
-def test_cmd_list_contains_expected_commands():
-    assert EXPECTED_COMMANDS.issubset(set(cmd_pkg.cmd_list))
+def test_registry_contains_expected_commands():
+    """Registry holds exactly the 9 CLI names — no more, no less."""
+    assert set(Command.registry) == EXPECTED_COMMANDS
 
 
-def test_each_command_class_exposed_at_module_level():
-    for name in EXPECTED_COMMANDS:
-        assert hasattr(cmd_pkg, name)
-        assert getattr(cmd_pkg, name).command is True
+def test_registered_classes_inherit_command_base():
+    for name, klass in Command.registry.items():
+        assert issubclass(klass, Command), (
+            f"{name!r} -> {klass!r} is not a Command subclass"
+        )
 
 
-def test_command_classes_inherit_command_base():
-    for name in EXPECTED_COMMANDS:
-        klass = getattr(cmd_pkg, name)
-        assert issubclass(klass, cmd_pkg.Command)
+def test_subclass_without_name_kwarg_is_not_registered():
+    """Subclasses that omit ``name=`` must not pollute the registry."""
+
+    class _Anon(Command):
+        def run(self) -> ExitCode:
+            return 0
+
+    assert _Anon not in Command.registry.values()
+
+
+def test_duplicate_name_raises():
+    """Registering two classes under the same name must fail loudly."""
+    sentinel = "__pr04_duplicate_test_name"
+    assert sentinel not in Command.registry
+
+    try:
+
+        class _First(Command, name=sentinel):
+            def run(self) -> ExitCode:
+                return 0
+
+        assert Command.registry[sentinel] is _First
+
+        with pytest.raises(RuntimeError, match="Duplicate command name"):
+
+            class _Second(Command, name=sentinel):
+                def run(self) -> ExitCode:
+                    return 0
+    finally:
+        Command.registry.pop(sentinel, None)
