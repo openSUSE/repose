@@ -1,11 +1,35 @@
 import os
 import sys
 import time
+from urllib.error import HTTPError, URLError
+from urllib.request import urlopen
 
 
 def timestamp() -> str:
     # remove fractional part
     return str(int(time.time()))
+
+
+def check_repo_url(url: str, *, timeout: float = 5.0) -> bool:
+    """Check whether a repository URL exposes a valid ``repomd.xml``.
+
+    Tries ``<url>repodata/repomd.xml`` first and falls back to
+    ``<url>suse/repodata/repomd.xml`` (used by SUSE-style layouts).
+
+    The ``timeout`` keyword bounds each individual ``urlopen`` call in
+    seconds; without it ``urlopen`` would honour
+    ``socket.getdefaulttimeout()``, which is typically unset and hangs
+    forever on a black-holed IP.
+
+    Returns ``True`` if either probe succeeds, ``False`` otherwise.
+    """
+    for suffix in ("repodata/repomd.xml", "suse/repodata/repomd.xml"):
+        try:
+            urlopen(url + suffix, timeout=timeout)
+            return True
+        except (HTTPError, URLError, TimeoutError, OSError):
+            continue
+    return False
 
 
 def _color_enabled() -> bool:

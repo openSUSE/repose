@@ -6,9 +6,7 @@ import functools
 import logging
 import sys
 from pathlib import Path
-from typing import Any, Callable, ClassVar
-from urllib.error import HTTPError, URLError
-from urllib.request import urlopen
+from typing import Any, Callable, ClassVar, Iterable
 
 from ..console import Console
 from ..display import CommandDisplay, JsonCommandDisplay
@@ -17,6 +15,7 @@ from ..template import load_template
 from ..template.resolver import Repoq
 from ..types import ExitCode
 from ..types.repa import Repa
+from ..utils import check_repo_url
 
 logger = logging.getLogger("repose.command")
 
@@ -83,6 +82,12 @@ class Command(ABC):
             self.display = JsonCommandDisplay(sys.stdout)
         else:
             self.display = CommandDisplay(sys.stdout)
+        # Probe knobs. ``getattr`` is defensive: commands without the
+        # ``probe`` argparse group (list-products, clear, known-products,
+        # ...) construct cleanly with the same defaults that apply when
+        # the flag is absent for probing commands.
+        self.probe_timeout: float = getattr(args, "probe_timeout", 5.0)
+        self.no_probe: bool = getattr(args, "no_probe", False)
 
     @functools.cached_property
     def repoq(self) -> Repoq:
@@ -169,26 +174,31 @@ class Command(ABC):
             return 2
         return 1
 
-    @staticmethod
-    def check_url(url: str) -> bool:
-        """Check whether a repository URL exposes a valid repomd.xml.
+    def _filter_live_urls(self, repos: Iterable[Any]) -> list[Any]:
+        """Return only the repos whose URL passes ``check_repo_url``.
 
-        Tries ``<url>repodata/repomd.xml`` first and falls back to
-        ``<url>suse/repodata/repomd.xml`` (used by SUSE-style layouts).
+        Probes run in parallel via ``ThreadPoolExecutor`` so wall time
+        scales with ``max(latency)`` rather than ``sum(latency)``.
+        Pool size is capped at 16 to keep concurrent connections to a
+        single mirror reasonable; smaller batches use a correspondingly
+        smaller pool.
 
-        Returns ``True`` if either probe succeeds, ``False`` otherwise.
+        Honors ``self.no_probe`` (short-circuits, returning every repo
+        unchanged) and ``self.probe_timeout`` (per-probe socket
+        timeout). Order of the returned list mirrors the input order.
         """
-        try:
-            urlopen(url + "repodata/repomd.xml")
-            return True
-        except (HTTPError, URLError):
-            pass
-
-        try:
-            urlopen(url + "suse/repodata/repomd.xml")
-            return True
-        except (HTTPError, URLError):
-            return False
+        repos = list(repos)
+        if self.no_probe or not repos:
+            return repos
+        max_workers = min(16, len(repos))
+        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as ex:
+            alive = list(
+                ex.map(
+                    lambda r: check_repo_url(r.url, timeout=self.probe_timeout),
+                    repos,
+                )
+            )
+        return [r for r, ok in zip(repos, alive) if ok]
 
     @abstractmethod
     def run(self) -> ExitCode:

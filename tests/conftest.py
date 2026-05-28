@@ -36,6 +36,12 @@ def mock_ssh_client(monkeypatch):
 class ImmediateExecutor:
     __name__ = "ImmediateExecutor"
 
+    def __init__(self, *args, **kwargs):
+        # Accept (and ignore) any ``ThreadPoolExecutor``-style kwargs
+        # so callers that pass ``max_workers=`` keep working under the
+        # stub.
+        pass
+
     def __enter__(self):
         return self
 
@@ -50,6 +56,11 @@ class ImmediateExecutor:
         except Exception as e:
             future.set_exception(e)
         return future
+
+    def map(self, fn, *iterables):
+        # Mirror ``Executor.map`` semantics enough for the production
+        # call sites: run sequentially, eagerly materialise results.
+        return [fn(*args) for args in zip(*iterables)]
 
     @staticmethod
     def wait(futures):

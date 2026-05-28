@@ -76,7 +76,9 @@ def test_reset_command_run(monkeypatch, mock_args, mock_ssh_client):
         MagicMock(return_value=mock_host_group_instance),
     )
     monkeypatch.setattr(Reset, "repoq", mock_repoq)
-    monkeypatch.setattr(Reset, "check_url", MagicMock(return_value=True))
+    monkeypatch.setattr(
+        repose.command._command, "check_repo_url", lambda url, *, timeout: True
+    )
 
     # Instantiate and Run
     reset_command = Reset(mock_args)
@@ -110,7 +112,7 @@ def _setup_reset(
     repoq_solution=None,
     raw_repos=None,
     products=None,
-    check_url=True,
+    probe=True,
     solve_side_effect=None,
     out=None,
 ):
@@ -136,7 +138,11 @@ def _setup_reset(
         MagicMock(return_value=mock_hg),
     )
     monkeypatch.setattr(Reset, "repoq", mock_repoq)
-    monkeypatch.setattr(Reset, "check_url", MagicMock(return_value=check_url))
+    monkeypatch.setattr(
+        repose.command._command,
+        "check_repo_url",
+        lambda url, *, timeout: probe,
+    )
     return mock_target, mock_hg, mock_repoq
 
 
@@ -175,19 +181,19 @@ def test_reset_unsupported_product_logs_error(
     target.run.assert_not_called()
 
 
-def test_reset_check_url_false_skips_add(monkeypatch, mock_args, mock_ssh_client):
+def test_reset_dead_probe_skips_add(monkeypatch, mock_args, mock_ssh_client):
     target, _, _ = _setup_reset(
         monkeypatch,
         mock_args,
         repoq_solution={"product": [MockRepo("r1", "http://bad", refresh=False)]},
-        check_url=False,
+        probe=False,
     )
 
     # rr fires (and succeeds via _ok_out), no ar attempted → exit 0.
     assert Reset(mock_args).run() == 0
 
     issued = [c.args[0] for c in target.run.call_args_list]
-    # rr executed but no ar (filtered out by check_url=False)
+    # rr executed but no ar (filtered out by failing probe).
     assert any(c.startswith("zypper -n rr") for c in issued)
     assert not any(c.startswith("zypper -n ar") for c in issued)
 
@@ -222,7 +228,9 @@ def _setup_reset_multi(monkeypatch, hosts):
         MagicMock(return_value=hg),
     )
     monkeypatch.setattr(Reset, "repoq", mock_repoq)
-    monkeypatch.setattr(Reset, "check_url", MagicMock(return_value=True))
+    monkeypatch.setattr(
+        repose.command._command, "check_repo_url", lambda url, *, timeout: True
+    )
     return targets, hg
 
 

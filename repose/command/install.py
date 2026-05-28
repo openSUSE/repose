@@ -22,7 +22,14 @@ class Install(Command, name="install"):
                 logger.error(error)
                 ok = False
 
-        for repo in chain.from_iterable(x for x in (y for y in repositories.values())):
+        # New in PR 08: probe candidate URLs in parallel and skip
+        # adding repos whose mirror is dead. The product install below
+        # is unchanged - it still iterates ``repositories.keys()`` so a
+        # product whose repos all fail the probe is still requested
+        # from whatever sources zypper already knows about.
+        all_repos = list(chain.from_iterable(repositories.values()))
+        live_repos = self._filter_live_urls(all_repos)
+        for repo in live_repos:
             addcmd = self.addcmd.format(
                 name=repo.name, url=repo.url, params="-cfkn" if repo.refresh else "-ckn"
             )

@@ -61,6 +61,9 @@ def test_install_command_run(monkeypatch, mock_args_and_repa, mock_ssh_client):
         MagicMock(return_value=mock_host_group_instance),
     )
     monkeypatch.setattr(Install, "repoq", mock_repoq)
+    monkeypatch.setattr(
+        repose.command._command, "check_repo_url", lambda url, *, timeout: True
+    )
 
     # Run
     install_command = Install(mock_args)
@@ -88,7 +91,7 @@ def test_install_command_run(monkeypatch, mock_args_and_repa, mock_ssh_client):
     mock_host_group_instance.close.assert_called_once()
 
 
-def _setup_install(monkeypatch, args, repoq_solution, out=None):
+def _setup_install(monkeypatch, args, repoq_solution, out=None, probe=True):
     mock_repoq = MagicMock()
     mock_repoq.solve_repa.return_value = repoq_solution
 
@@ -106,6 +109,11 @@ def _setup_install(monkeypatch, args, repoq_solution, out=None):
         MagicMock(return_value=mock_hg),
     )
     monkeypatch.setattr(Install, "repoq", mock_repoq)
+    monkeypatch.setattr(
+        repose.command._command,
+        "check_repo_url",
+        lambda url, *, timeout: probe,
+    )
     return mock_target, mock_hg, mock_repoq
 
 
@@ -168,6 +176,31 @@ def test_install_command_no_products_logs_error(
     assert any("No products to install" in r.message for r in caplog.records)
 
 
+def test_install_command_dead_probe_skips_ar_but_runs_product_install(
+    monkeypatch, mock_args_and_repa, mock_ssh_client
+):
+    """New in PR 08: probes that fail filter out the ``ar`` command,
+    but the per-product ``in -t product`` step still runs (so a host
+    can still install the product from whatever repos zypper already
+    knows about)."""
+    args, _ = mock_args_and_repa
+
+    target, _, _ = _setup_install(
+        monkeypatch,
+        args,
+        {"product-to-install": [MockRepo("repo1", "http://dead", refresh=False)]},
+        probe=False,
+    )
+
+    assert Install(args).run() == 0
+
+    issued = [c.args[0] for c in target.run.call_args_list]
+    # ar suppressed by probe filter.
+    assert not any(cmd.startswith("zypper -n ar") for cmd in issued)
+    # Product install still issued.
+    assert any("in -t product" in cmd for cmd in issued)
+
+
 def test_install_command_solve_repa_value_error_logged(
     monkeypatch, mock_args_and_repa, caplog, mock_ssh_client
 ):
@@ -189,6 +222,9 @@ def test_install_command_solve_repa_value_error_logged(
         MagicMock(return_value=mock_hg),
     )
     monkeypatch.setattr(Install, "repoq", mock_repoq)
+    monkeypatch.setattr(
+        repose.command._command, "check_repo_url", lambda url, *, timeout: True
+    )
 
     with caplog.at_level("ERROR", logger="repose.command.install"):
         # solve_repa raises AND no products → exit 2.
@@ -231,6 +267,9 @@ def _setup_install_multi(monkeypatch, hosts):
         MagicMock(return_value=hg),
     )
     monkeypatch.setattr(Install, "repoq", mock_repoq)
+    monkeypatch.setattr(
+        repose.command._command, "check_repo_url", lambda url, *, timeout: True
+    )
     return targets, hg
 
 
