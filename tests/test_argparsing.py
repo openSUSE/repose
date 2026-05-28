@@ -264,3 +264,70 @@ def test_probe_flags_absent_from_non_probing_commands(mock_types, subcmd, cli_ar
 
     with pytest.raises(SystemExit):
         get_parser().parse_args([*cli_args, "--no-probe"])
+
+
+# ---------------------------------------------------------------------------
+# PR 12 — SSH host-key policy flags + two-pass ``parse()``.
+# ---------------------------------------------------------------------------
+
+
+def test_strict_host_key_checking_default(mock_types):
+    args = get_parser().parse_args(["add", "-t", "h", "x"])
+    assert args.strict_host_key_checking == "accept-new"
+    assert args.known_hosts is None
+
+
+@pytest.mark.parametrize("mode", ["yes", "accept-new", "no", "off"])
+def test_strict_host_key_checking_accepts_all_modes(mock_types, mode):
+    args = get_parser().parse_args(
+        [f"--strict-host-key-checking={mode}", "add", "-t", "h", "x"]
+    )
+    assert args.strict_host_key_checking == mode
+
+
+def test_strict_host_key_checking_rejects_unknown_mode(mock_types):
+    with pytest.raises(SystemExit):
+        get_parser().parse_args(
+            ["--strict-host-key-checking=maybe", "add", "-t", "h", "x"]
+        )
+
+
+def test_known_hosts_flag_parses_to_path(mock_types, tmp_path):
+    kh = tmp_path / "kh"
+    args = get_parser().parse_args(["--known-hosts", str(kh), "add", "-t", "h", "x"])
+    from pathlib import Path
+
+    assert args.known_hosts == Path(str(kh))
+
+
+def test_parse_two_pass_threads_config_into_target():
+    """``parse()`` propagates the global flags into the ``Target``s built
+    by ``ParseHosts`` during the second pass."""
+    from repose.argparsing import parse
+
+    args = parse(
+        [
+            "--strict-host-key-checking=yes",
+            "add",
+            "-t",
+            "example.com:2222",
+            "SLES:15-SP3:x86_64:",
+        ]
+    )
+    assert args.strict_host_key_checking == "yes"
+    # args.target is a list of ParseHosts dicts ({key: Target}).
+    targets = args.target
+    assert len(targets) == 1
+    target = next(iter(targets[0].values()))
+    assert target.config.host_key_policy == "yes"
+
+
+def test_parse_two_pass_default_when_flag_absent():
+    """Without ``--strict-host-key-checking`` the default ``accept-new``
+    config reaches each ``Target``."""
+    from repose.argparsing import parse
+
+    args = parse(["add", "-t", "h", "SLES:15-SP3:x86_64:"])
+    target = next(iter(args.target[0].values()))
+    assert target.config.host_key_policy == "accept-new"
+    assert target.config.known_hosts is None

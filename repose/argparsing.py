@@ -7,16 +7,66 @@ from repose import __version__
 from repose.command import Command
 
 from .host import ParseHosts
+from .types.connection_config import ConnectionConfig
 from .types.repa import Repa
 
 logger = logging.getLogger("repose.arg")
 
 
-def get_parser():
+def _globals_parser() -> argparse.ArgumentParser:
+    """Tiny parser that only knows the SSH transport globals.
+
+    Used by ``parse()`` for a non-failing first pass that extracts
+    ``--strict-host-key-checking`` and ``--known-hosts`` before the
+    real parser is built. ``parse_known_args`` on this parser ignores
+    every other token, including subcommands and their flags.
     """
-    Process the parsed arguments and return the result
-    :param argv: passed arguments
+    p = argparse.ArgumentParser(add_help=False)
+    p.add_argument(
+        "--strict-host-key-checking",
+        choices=["yes", "accept-new", "no", "off"],
+        default="accept-new",
+        dest="strict_host_key_checking",
+    )
+    p.add_argument("--known-hosts", type=Path, default=None, dest="known_hosts")
+    return p
+
+
+def build_config_from_args(args: argparse.Namespace) -> ConnectionConfig:
+    """Materialise a ``ConnectionConfig`` from a parsed ``Namespace``."""
+    return ConnectionConfig(
+        host_key_policy=getattr(args, "strict_host_key_checking", "accept-new"),
+        known_hosts=getattr(args, "known_hosts", None),
+    )
+
+
+def parse(argv: list[str]) -> argparse.Namespace:
+    """Two-pass argparse driver used by ``main.py``.
+
+    First pass: extract the SSH transport globals so the
+    ``ParseHosts`` factory can be configured before the *real* parser
+    binds it as ``type=``. Second pass: full parser, returns the
+    fully-populated ``Namespace``.
+
+    Tests that previously called ``get_parser().parse_args(...)``
+    continue to work — they receive the parser built with a default
+    ``ConnectionConfig()``.
     """
+    pre_args, _ = _globals_parser().parse_known_args(argv)
+    cfg = build_config_from_args(pre_args)
+    return get_parser(cfg).parse_args(argv)
+
+
+def get_parser(config: ConnectionConfig | None = None):
+    """Build the full argparse parser.
+
+    ``config`` configures the ``ParseHosts`` factory bound to the
+    ``-t/--target`` flag. When omitted a default ``ConnectionConfig``
+    is used; this keeps the historical ``get_parser()`` no-arg call
+    shape working for tests that don't care about transport policy.
+    """
+    if config is None:
+        config = ConnectionConfig()
 
     parser = argparse.ArgumentParser(
         description="Repository manipulation tool for QAM", prog="repose"
@@ -61,6 +111,27 @@ def get_parser():
         default="text",
         help="console output format: 'text' (default) or 'json' (one event per line)",
     )
+    parser.add_argument(
+        "--strict-host-key-checking",
+        choices=["yes", "accept-new", "no", "off"],
+        default="accept-new",
+        dest="strict_host_key_checking",
+        help=(
+            "SSH host-key policy (OpenSSH semantics): "
+            "'yes' refuses unknown hosts; "
+            "'accept-new' (default) accepts unknown hosts on first "
+            "contact but rejects changed keys; "
+            "'no'/'off' accepts both unknown and changed keys "
+            "(pre-1.12 behaviour)"
+        ),
+    )
+    parser.add_argument(
+        "--known-hosts",
+        type=Path,
+        default=None,
+        dest="known_hosts",
+        help="path to a custom known_hosts file (overrides ~/.ssh/known_hosts)",
+    )
 
     commands = parser.add_subparsers()
 
@@ -74,11 +145,30 @@ def get_parser():
             arguments = []
         subparser = commands.add_parser(name, help=help_text)
         if "target" in arguments:
+            # Late-bind via the module attribute so test fixtures that
+            # monkeypatch ``repose.argparsing.ParseHosts`` to a plain
+            # ``lambda x: x`` keep working unchanged: we call whatever
+            # ``ParseHosts`` is *at parse time*, not what it was at
+            # parser-build time. The real factory class is detected by
+            # ``isinstance`` against the resolved type so swapping in a
+            # different callable (test stub, future replacement) still
+            # works as a one-arg ``type=`` adapter.
+            def _host_type(host_str, _cfg=config):
+                import repose.argparsing as _mod
+
+                ph = _mod.ParseHosts
+                if isinstance(ph, type) and issubclass(ph, ParseHosts):
+                    # Real factory class: configure with cfg, then call
+                    # the resulting instance with the host string.
+                    return ph(_cfg)(host_str)
+                # Test stub or any other one-arg callable.
+                return ph(host_str)
+
             subparser.add_argument(
                 "-t",
                 "--target",
                 metavar="HOST",
-                type=ParseHosts,
+                type=_host_type,
                 action="append",
                 required=True,
                 help="target to operate on",
