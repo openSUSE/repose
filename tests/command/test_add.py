@@ -68,7 +68,7 @@ def test_add_command_run(monkeypatch, mock_args_and_repa, mock_ssh_client):
         "HostGroup",
         MagicMock(return_value=mock_host_group_instance),
     )
-    monkeypatch.setattr(Add, "_init_repoq", MagicMock(return_value=mock_repoq))
+    monkeypatch.setattr(Add, "repoq", mock_repoq)
     monkeypatch.setattr(Add, "check_url", MagicMock(return_value=True))
 
     # Instantiate and Run
@@ -121,7 +121,7 @@ def test_add_command_dryrun_prints_and_skips_run(
         "HostGroup",
         MagicMock(return_value=mock_hg),
     )
-    monkeypatch.setattr(Add, "_init_repoq", MagicMock(return_value=mock_repoq))
+    monkeypatch.setattr(Add, "repoq", mock_repoq)
     monkeypatch.setattr(Add, "check_url", MagicMock(return_value=True))
 
     assert Add(args).run() == 0
@@ -156,7 +156,7 @@ def test_add_command_solve_repa_value_error_logged(
         "HostGroup",
         MagicMock(return_value=mock_hg),
     )
-    monkeypatch.setattr(Add, "_init_repoq", MagicMock(return_value=mock_repoq))
+    monkeypatch.setattr(Add, "repoq", mock_repoq)
     monkeypatch.setattr(Add, "check_url", MagicMock(return_value=True))
 
     with caplog.at_level("ERROR", logger="repose.command.add"):
@@ -188,7 +188,7 @@ def test_add_command_skips_repo_when_check_url_false(
         "HostGroup",
         MagicMock(return_value=mock_hg),
     )
-    monkeypatch.setattr(Add, "_init_repoq", MagicMock(return_value=mock_repoq))
+    monkeypatch.setattr(Add, "repoq", mock_repoq)
     monkeypatch.setattr(Add, "check_url", MagicMock(return_value=False))
 
     # Repo filtered out by check_url → no cmds attempted, no failures → 0.
@@ -232,7 +232,7 @@ def _setup_add_hosts(monkeypatch, hosts):
     mock_repoq.solve_repa.return_value = {
         "product": [MockRepo("repo1", "http://repo1.url", refresh=False)]
     }
-    monkeypatch.setattr(Add, "_init_repoq", MagicMock(return_value=mock_repoq))
+    monkeypatch.setattr(Add, "repoq", mock_repoq)
     monkeypatch.setattr(Add, "check_url", MagicMock(return_value=True))
     return targets, hg
 

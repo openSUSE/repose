@@ -155,7 +155,7 @@ def test_report_target_routes_by_exitcode(
     assert cmd._report_target("host") is expected_ok
 
 
-def test_init_repoq_loads_template(monkeypatch, tmp_path):
+def test_repoq_loads_template(monkeypatch, tmp_path):
     yml = tmp_path / "products.yml"
     yml.write_text("SLES:\n  '15':\n    default_repos:\n      - update\n")
 
@@ -163,8 +163,7 @@ def test_init_repoq_loads_template(monkeypatch, tmp_path):
         monkeypatch,
         args_overrides={"config": yml},
     )
-    repoq = cmd._init_repoq()
-    assert "SLES" in repoq.template
+    assert "SLES" in cmd.repoq.template
 
 
 # ---------------------------------------------------------------------------
