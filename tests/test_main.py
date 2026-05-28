@@ -27,21 +27,19 @@ def test_main_prints_usage_when_no_subcommand(monkeypatch, capsys):
     assert "usage" in out.lower()
 
 
+def _fake_namespace(*, func, debug=False, quiet=False):
+    """Build a minimal argparse-style Namespace for monkeypatching parse."""
+    import argparse
+
+    return argparse.Namespace(func=func, debug=debug, quiet=quiet)
+
+
 def test_main_invokes_subcommand_func(monkeypatch):
     sentinel_func = MagicMock(return_value=0)
 
-    def fake_get_parser():
-        import argparse
-
-        p = argparse.ArgumentParser(prog="repose")
-        p.add_argument("--debug", action="store_true")
-        p.add_argument("--quiet", action="store_true")
-        sub = p.add_subparsers()
-        s = sub.add_parser("foo")
-        s.set_defaults(func=sentinel_func)
-        return p
-
-    monkeypatch.setattr(main_mod, "get_parser", fake_get_parser)
+    monkeypatch.setattr(
+        main_mod, "parse", lambda argv: _fake_namespace(func=sentinel_func)
+    )
     monkeypatch.setattr(sys, "argv", ["repose", "foo"])
 
     with pytest.raises(SystemExit) as exc:
@@ -54,23 +52,17 @@ def test_main_invokes_subcommand_func(monkeypatch):
 def test_main_debug_sets_debug_level(monkeypatch):
     captured = {}
 
-    def fake_get_parser():
-        import argparse
-
-        p = argparse.ArgumentParser(prog="repose")
-        p.add_argument("--debug", action="store_true")
-        p.add_argument("--quiet", action="store_true")
-        sub = p.add_subparsers()
-        s = sub.add_parser("foo")
-        s.set_defaults(func=lambda a: 0)
-        return p
+    monkeypatch.setattr(
+        main_mod,
+        "parse",
+        lambda argv: _fake_namespace(func=lambda a: 0, debug=True),
+    )
 
     def fake_create_logger(name):
         log = logging.getLogger(name)
         captured["logger"] = log
         return log
 
-    monkeypatch.setattr(main_mod, "get_parser", fake_get_parser)
     monkeypatch.setattr(main_mod, "create_logger", fake_create_logger)
     monkeypatch.setattr(sys, "argv", ["repose", "--debug", "foo"])
 
@@ -83,23 +75,17 @@ def test_main_debug_sets_debug_level(monkeypatch):
 def test_main_quiet_sets_warning_level(monkeypatch):
     captured = {}
 
-    def fake_get_parser():
-        import argparse
-
-        p = argparse.ArgumentParser(prog="repose")
-        p.add_argument("--debug", action="store_true")
-        p.add_argument("--quiet", action="store_true")
-        sub = p.add_subparsers()
-        s = sub.add_parser("foo")
-        s.set_defaults(func=lambda a: 0)
-        return p
+    monkeypatch.setattr(
+        main_mod,
+        "parse",
+        lambda argv: _fake_namespace(func=lambda a: 0, quiet=True),
+    )
 
     def fake_create_logger(name):
         log = logging.getLogger(name)
         captured["logger"] = log
         return log
 
-    monkeypatch.setattr(main_mod, "get_parser", fake_get_parser)
     monkeypatch.setattr(main_mod, "create_logger", fake_create_logger)
     monkeypatch.setattr(sys, "argv", ["repose", "--quiet", "foo"])
 
@@ -110,18 +96,9 @@ def test_main_quiet_sets_warning_level(monkeypatch):
 
 
 def test_main_propagates_func_exit_code(monkeypatch):
-    def fake_get_parser():
-        import argparse
-
-        p = argparse.ArgumentParser(prog="repose")
-        p.add_argument("--debug", action="store_true")
-        p.add_argument("--quiet", action="store_true")
-        sub = p.add_subparsers()
-        s = sub.add_parser("foo")
-        s.set_defaults(func=lambda a: 7)
-        return p
-
-    monkeypatch.setattr(main_mod, "get_parser", fake_get_parser)
+    monkeypatch.setattr(
+        main_mod, "parse", lambda argv: _fake_namespace(func=lambda a: 7)
+    )
     monkeypatch.setattr(sys, "argv", ["repose", "foo"])
 
     with pytest.raises(SystemExit) as exc:

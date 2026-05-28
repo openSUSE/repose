@@ -10,6 +10,9 @@ from traceback import format_exc
 import paramiko
 from paramiko import Channel, SFTPClient, SFTPFile, SSHClient, SSHConfig
 
+from .connection_policy import AcceptNewPolicy
+from .types.connection_config import ConnectionConfig
+
 
 if not sys.warnoptions:
     import warnings
@@ -35,7 +38,13 @@ class Connection:
     """Manage ssh/sftp connection"""
 
     def __init__(
-        self, hostname: str, username: str, port: str | int, timeout=120
+        self,
+        hostname: str,
+        username: str,
+        port: str | int,
+        timeout: float | None = None,
+        *,
+        config: ConnectionConfig | None = None,
     ) -> None:
         """openSSH channel to the specified host
 
@@ -44,6 +53,18 @@ class Connection:
         If a connection can't be established (host not available, wrong password/key)
         exceptions are reraised from the ssh subsystem and need to be catched
         by the caller.
+
+        ``config`` carries transport-level knobs (host-key policy,
+        custom known_hosts path, default timeout). When ``None`` a
+        default ``ConnectionConfig`` is used, which preserves the
+        historical accept-unknown-keys behaviour transparently at the
+        wire level (``accept-new`` aliases to AutoAdd for genuinely
+        unknown hosts; only *changed* keys are now rejected).
+
+        ``timeout`` (positional) overrides ``config.timeout`` when
+        passed explicitly; this keeps the historical positional
+        signature working for callers that never adopted the config
+        record.
         """
 
         self.username = username
@@ -53,7 +74,12 @@ class Connection:
         except Exception:
             self.port = 22
 
-        self.timeout = timeout
+        self.config: ConnectionConfig = config or ConnectionConfig()
+        # Explicit positional ``timeout`` wins over ``config.timeout``;
+        # this preserves the pre-PR call shape ``Connection(h, u, p, 30)``.
+        self.timeout: float = (
+            float(timeout) if timeout is not None else self.config.timeout
+        )
 
         self.client: SSHClient = paramiko.SSHClient()
 
@@ -61,9 +87,39 @@ class Connection:
         return f"<{self.__class__.__name__} object username={self.username} hostname={self.hostname} port={self.port}>"
 
     def __load_keys(self) -> None:
-        self.client.load_system_host_keys()
-        # Dont check host keys --> StrictHostChecking no
-        self.client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        """Load known_hosts and install the configured host-key policy.
+
+        ``known_hosts`` from the config (when set) replaces the user's
+        system known_hosts file entirely — paramiko has no notion of
+        layered host-key stores, matching ``ssh -o UserKnownHostsFile``.
+        """
+        if self.config.known_hosts is not None:
+            self.client.load_host_keys(str(self.config.known_hosts))
+        else:
+            self.client.load_system_host_keys()
+
+        policy_name = self.config.host_key_policy
+        # paramiko already raises ``BadHostKeyException`` for keys that
+        # exist in the host-key store but mismatch on connect, *before*
+        # the missing-key policy is consulted. So both ``accept-new``
+        # (custom: persist on first contact) and ``yes`` (reject
+        # missing) get changed-key rejection automatically. ``no``/
+        # ``off`` use ``AutoAddPolicy`` which tolerates *changed* keys
+        # too — the historical pre-PR-12 behaviour.
+        policy: paramiko.MissingHostKeyPolicy
+        if policy_name == "yes":
+            policy = paramiko.RejectPolicy()
+        elif policy_name == "accept-new":
+            kh = (
+                str(self.config.known_hosts)
+                if self.config.known_hosts is not None
+                else None
+            )
+            policy = AcceptNewPolicy(known_hosts_path=kh)
+        else:
+            # "no" or "off"
+            policy = paramiko.AutoAddPolicy()
+        self.client.set_missing_host_key_policy(policy)
 
     def connect(self) -> None:
         cfg: SSHConfig = paramiko.config.SSHConfig()

@@ -6,6 +6,8 @@ import paramiko
 import pytest
 
 from repose.connection import CommandTimeout, Connection
+from repose.connection_policy import AcceptNewPolicy
+from repose.types.connection_config import ConnectionConfig
 
 
 @pytest.fixture(autouse=True)
@@ -165,3 +167,83 @@ def test_reconnect_when_active_does_nothing(mock_ssh_client):
     conn.reconnect()
     # connect() not called via reconnect
     mock_ssh_client.connect.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# Host-key policy (PR 12) — verify each policy mode wires the right
+# paramiko policy object through ``set_missing_host_key_policy`` and the
+# ``known_hosts`` override flips load_system_host_keys → load_host_keys.
+# ---------------------------------------------------------------------------
+
+
+def test_host_key_policy_yes_uses_reject_policy(mock_ssh_client):
+    """``host_key_policy='yes'`` installs ``paramiko.RejectPolicy``."""
+    cfg = ConnectionConfig(host_key_policy="yes")
+    conn = Connection("h", "u", 22, config=cfg)
+    conn.connect()
+
+    mock_ssh_client.set_missing_host_key_policy.assert_called_once()
+    policy = mock_ssh_client.set_missing_host_key_policy.call_args.args[0]
+    assert isinstance(policy, paramiko.RejectPolicy)
+
+
+def test_host_key_policy_accept_new_uses_accept_new_policy(mock_ssh_client):
+    """``host_key_policy='accept-new'`` (default) installs ``AcceptNewPolicy``."""
+    cfg = ConnectionConfig(host_key_policy="accept-new")
+    conn = Connection("h", "u", 22, config=cfg)
+    conn.connect()
+
+    mock_ssh_client.set_missing_host_key_policy.assert_called_once()
+    policy = mock_ssh_client.set_missing_host_key_policy.call_args.args[0]
+    assert isinstance(policy, AcceptNewPolicy)
+
+
+def test_host_key_policy_off_uses_auto_add(mock_ssh_client):
+    """``host_key_policy='off'`` preserves pre-PR-12 ``AutoAddPolicy``."""
+    cfg = ConnectionConfig(host_key_policy="off")
+    conn = Connection("h", "u", 22, config=cfg)
+    conn.connect()
+
+    mock_ssh_client.set_missing_host_key_policy.assert_called_once()
+    policy = mock_ssh_client.set_missing_host_key_policy.call_args.args[0]
+    assert isinstance(policy, paramiko.AutoAddPolicy)
+
+
+def test_known_hosts_loads_custom_file(mock_ssh_client, tmp_path):
+    """``known_hosts=<path>`` calls ``load_host_keys`` (not system)."""
+    kh = tmp_path / "kh"
+    kh.write_text("")  # empty but readable
+    cfg = ConnectionConfig(known_hosts=kh)
+    conn = Connection("h", "u", 22, config=cfg)
+    conn.connect()
+
+    mock_ssh_client.load_host_keys.assert_called_once_with(str(kh))
+    mock_ssh_client.load_system_host_keys.assert_not_called()
+
+
+def test_accept_new_policy_adds_unknown_key():
+    """``AcceptNewPolicy.missing_host_key`` records the key in-memory."""
+    client = MagicMock()
+    key = MagicMock()
+    key.get_name.return_value = "ssh-ed25519"
+
+    policy = AcceptNewPolicy()  # no path → no persistence attempt
+    policy.missing_host_key(client, "newhost.example.com", key)
+
+    client.get_host_keys.return_value.add.assert_called_once_with(
+        "newhost.example.com", "ssh-ed25519", key
+    )
+    client.save_host_keys.assert_not_called()
+
+
+def test_accept_new_policy_persists_when_path_given(tmp_path):
+    """When ``known_hosts_path`` is set, ``save_host_keys`` is called."""
+    kh = tmp_path / "kh"
+    client = MagicMock()
+    key = MagicMock()
+    key.get_name.return_value = "ssh-rsa"
+
+    policy = AcceptNewPolicy(known_hosts_path=str(kh))
+    policy.missing_host_key(client, "h.example.com", key)
+
+    client.save_host_keys.assert_called_once_with(str(kh))

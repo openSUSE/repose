@@ -151,6 +151,42 @@ level) now goes through this sink on stdout. The `--quiet` flag still
 silences logger messages but no longer hides per-host output; redirect
 stdout or use `--format=json` with filtering to suppress it.
 
+## SSH Host-Key Policy
+
+Repose talks to refhosts over SSH. The host-key behaviour follows OpenSSH's
+`StrictHostKeyChecking` semantics and is configured with two global flags:
+
+- `--strict-host-key-checking={yes,accept-new,no,off}` (default: `accept-new`)
+- `--known-hosts PATH` (default: `~/.ssh/known_hosts`)
+
+| Mode         | Unknown host (first contact)             | Changed host key             |
+| ------------ | ---------------------------------------- | ---------------------------- |
+| `yes`        | refuse (`BadHostKeyException`)           | refuse                       |
+| `accept-new` | accept + record in known_hosts (default) | refuse                       |
+| `no` / `off` | accept silently                          | accept silently (unsafe)     |
+
+`accept-new` matches the OpenSSH default since 7.6 (2017): unknown hosts are
+recorded on first contact, but a host whose key has *changed* since it was
+first recorded is refused. This is a behaviour change from pre-1.12 releases,
+which silently re-trusted any presented key (equivalent to `off`).
+
+If you operate a QA pool where refhost keys legitimately rotate and you
+cannot prune `known_hosts` between rotations, opt into the legacy behaviour
+explicitly:
+
+```
+repose --strict-host-key-checking=off add -t fubar.suse.cz sle-sdk
+```
+
+For paranoid setups (each refhost key pre-recorded in a dedicated file),
+pin both flags:
+
+```
+repose --strict-host-key-checking=yes \
+       --known-hosts /etc/repose/known_hosts \
+       add -t fubar.suse.cz sle-sdk
+```
+
 ## License
 
 This project is licensed under the GPLv3 license, see LICENSE file for

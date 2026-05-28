@@ -1,16 +1,18 @@
 import sys
 
+from .argparsing import get_parser, parse
 from .colorlog import create_logger
-from .argparsing import get_parser
 
 
 def main():
-    parser = get_parser()
     logger = create_logger("repose")
-    args = parser.parse_args(sys.argv[1:])
+    args = parse(sys.argv[1:])
 
     if not hasattr(args, "func"):
-        parser.print_usage()
+        # ``parse`` already executed a successful parse_args, so the
+        # only way to land here is a bare ``repose`` invocation; rebuild
+        # the parser cheaply just to render usage.
+        get_parser().print_usage()
         sys.exit(0)
 
     if args.debug:

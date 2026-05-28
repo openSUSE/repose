@@ -6,6 +6,7 @@ from ..connection import Connection, CommandTimeout
 from .parsers.product import parse_system
 from .parsers.repository import parse_repositories
 from ..messages import ConnectingTargetFailedMessage
+from ..types.connection_config import ConnectionConfig
 from ..types.repositories import Repositories
 from ..types.system import System
 
@@ -19,6 +20,8 @@ class Target:
         port: int,
         username: str,
         connector: type[Connection] = Connection,
+        *,
+        config: ConnectionConfig | None = None,
     ) -> None:
         # TODO: timeout handling ?
         self.port = port
@@ -28,8 +31,15 @@ class Target:
         self.raw_repos: Any = None
         self.repos: Repositories | None = None
         self.connector = connector
+        self.config: ConnectionConfig = config or ConnectionConfig()
         self.is_connected = False
-        self.connection = self.connector(self.hostname, self.username, self.port)
+        # ``connector`` is a class (or test stub) accepting the historical
+        # positional ``(hostname, username, port)`` plus the keyword-only
+        # ``config``. Test fixtures that pass a plain lambda swallow
+        # ``**kwargs`` already.
+        self.connection = self.connector(
+            self.hostname, self.username, self.port, config=self.config
+        )
         self.out: list[list[Any]] = []
 
     def __repr__(self) -> str:
