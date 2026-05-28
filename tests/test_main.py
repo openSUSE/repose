@@ -104,3 +104,88 @@ def test_main_propagates_func_exit_code(monkeypatch):
     with pytest.raises(SystemExit) as exc:
         main_mod.main()
     assert exc.value.code == 7
+
+
+def _raiser(exc):
+    def _f(_args):
+        raise exc
+
+    return _f
+
+
+def test_main_friendly_message_on_missing_config(monkeypatch, caplog):
+    err = FileNotFoundError(2, "No such file or directory", "/etc/repose/products.yml")
+    monkeypatch.setattr(
+        main_mod, "parse", lambda argv: _fake_namespace(func=_raiser(err))
+    )
+    monkeypatch.setattr(sys, "argv", ["repose", "known-products"])
+
+    with caplog.at_level(logging.ERROR, logger="repose"):
+        with pytest.raises(SystemExit) as exc:
+            main_mod.main()
+
+    assert exc.value.code == 2
+    assert "config file not found" in caplog.text
+    assert "/etc/repose/products.yml" in caplog.text
+
+
+def test_main_friendly_message_on_permission_error(monkeypatch, caplog):
+    err = PermissionError(13, "Permission denied", "/etc/repose/products.yml")
+    monkeypatch.setattr(
+        main_mod, "parse", lambda argv: _fake_namespace(func=_raiser(err))
+    )
+    monkeypatch.setattr(sys, "argv", ["repose", "known-products"])
+
+    with caplog.at_level(logging.ERROR, logger="repose"):
+        with pytest.raises(SystemExit) as exc:
+            main_mod.main()
+
+    assert exc.value.code == 2
+    assert "permission denied" in caplog.text.lower()
+
+
+def test_main_friendly_message_on_yaml_error(monkeypatch, caplog):
+    from ruamel.yaml import YAMLError
+
+    monkeypatch.setattr(
+        main_mod,
+        "parse",
+        lambda argv: _fake_namespace(func=_raiser(YAMLError("bad yaml"))),
+    )
+    monkeypatch.setattr(sys, "argv", ["repose", "known-products"])
+
+    with caplog.at_level(logging.ERROR, logger="repose"):
+        with pytest.raises(SystemExit) as exc:
+            main_mod.main()
+
+    assert exc.value.code == 2
+    assert "invalid yaml" in caplog.text.lower()
+
+
+def test_main_debug_propagates_traceback(monkeypatch):
+    """With ``--debug``, the original exception is re-raised intact."""
+    err = FileNotFoundError(2, "No such file or directory", "/nope")
+    monkeypatch.setattr(
+        main_mod,
+        "parse",
+        lambda argv: _fake_namespace(func=_raiser(err), debug=True),
+    )
+    monkeypatch.setattr(sys, "argv", ["repose", "--debug", "known-products"])
+
+    with pytest.raises(FileNotFoundError):
+        main_mod.main()
+
+
+def test_main_keyboard_interrupt_returns_130(monkeypatch, caplog):
+    monkeypatch.setattr(
+        main_mod,
+        "parse",
+        lambda argv: _fake_namespace(func=_raiser(KeyboardInterrupt())),
+    )
+    monkeypatch.setattr(sys, "argv", ["repose", "known-products"])
+
+    with caplog.at_level(logging.ERROR, logger="repose"):
+        with pytest.raises(SystemExit) as exc:
+            main_mod.main()
+
+    assert exc.value.code == 130
