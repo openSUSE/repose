@@ -60,7 +60,7 @@ def test_install_command_run(monkeypatch, mock_args_and_repa, mock_ssh_client):
         "HostGroup",
         MagicMock(return_value=mock_host_group_instance),
     )
-    monkeypatch.setattr(Install, "_init_repoq", MagicMock(return_value=mock_repoq))
+    monkeypatch.setattr(Install, "repoq", mock_repoq)
 
     # Run
     install_command = Install(mock_args)
@@ -105,7 +105,7 @@ def _setup_install(monkeypatch, args, repoq_solution, out=None):
         "HostGroup",
         MagicMock(return_value=mock_hg),
     )
-    monkeypatch.setattr(Install, "_init_repoq", MagicMock(return_value=mock_repoq))
+    monkeypatch.setattr(Install, "repoq", mock_repoq)
     return mock_target, mock_hg, mock_repoq
 
 
@@ -188,7 +188,7 @@ def test_install_command_solve_repa_value_error_logged(
         "HostGroup",
         MagicMock(return_value=mock_hg),
     )
-    monkeypatch.setattr(Install, "_init_repoq", MagicMock(return_value=mock_repoq))
+    monkeypatch.setattr(Install, "repoq", mock_repoq)
 
     with caplog.at_level("ERROR", logger="repose.command.install"):
         # solve_repa raises AND no products → exit 2.
@@ -230,7 +230,7 @@ def _setup_install_multi(monkeypatch, hosts):
         "HostGroup",
         MagicMock(return_value=hg),
     )
-    monkeypatch.setattr(Install, "_init_repoq", MagicMock(return_value=mock_repoq))
+    monkeypatch.setattr(Install, "repoq", mock_repoq)
     return targets, hg
 
 

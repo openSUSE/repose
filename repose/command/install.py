@@ -8,13 +8,15 @@ logger = logging.getLogger("repose.command.install")
 
 
 class Install(Command, name="install"):
-    def _run(self, target, repoq) -> bool:
+    def _run(self, target) -> bool:
         repositories = {}
         ok = True
         for repa in self.repa:
             try:
                 repositories.update(
-                    repoq.solve_repa(repa, self.targets[target].products.get_base())
+                    self.repoq.solve_repa(
+                        repa, self.targets[target].products.get_base()
+                    )
                 )
             except ValueError as error:
                 logger.error(error)
@@ -55,9 +57,11 @@ class Install(Command, name="install"):
         return ok
 
     def run(self) -> ExitCode:
-        repoq = self._init_repoq()
+        # Materialise the shared ``Repoq`` on the main thread before
+        # ``_run_parallel`` spawns workers (see ``Command.repoq``).
+        _ = self.repoq
         self.targets.read_products()
         self.targets.read_repos()
-        futures = self._run_parallel(self._run, repoq)
+        futures = self._run_parallel(self._run)
         self.targets.close()
         return self._aggregate(futures)

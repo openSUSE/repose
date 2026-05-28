@@ -10,10 +10,9 @@ logger = logging.getLogger("repose.command.reset")
 
 class Reset(Clear, name="reset"):
     def _add(self, target):
-        repoq = self._init_repoq()
         cmds = set()
         repolist = chain.from_iterable(
-            x for x in repoq.solve_product(self.targets[target].products).values()
+            x for x in self.repoq.solve_product(self.targets[target].products).values()
         )
         cmds.update(
             self.addcmd.format(
@@ -47,6 +46,9 @@ class Reset(Clear, name="reset"):
         return ok
 
     def run(self) -> ExitCode:
+        # Materialise the shared ``Repoq`` on the main thread before
+        # ``_run_parallel`` spawns workers (see ``Command.repoq``).
+        _ = self.repoq
         self.targets.read_products()
         self.targets.read_repos()
         futures = self._run_parallel(self._run)

@@ -4,6 +4,7 @@ from unittest.mock import MagicMock
 import pytest
 
 import repose.command._command
+import repose.command.known
 from repose.command.known import KnownProducts
 
 
@@ -23,7 +24,7 @@ def test_known_products_command(monkeypatch, mock_args):
     mock_load_template = MagicMock(
         return_value={"product-c": {}, "product-a": {}, "product-b": {}}
     )
-    monkeypatch.setattr(KnownProducts, "_load_template", mock_load_template)
+    monkeypatch.setattr(repose.command.known, "load_template", mock_load_template)
     monkeypatch.setattr(repose.command._command, "HostGroup", MagicMock())
 
     # Run
@@ -44,8 +45,8 @@ def test_known_products_format_json_end_to_end(monkeypatch, mock_args, capsys):
 
     mock_args.format = "json"
     monkeypatch.setattr(
-        KnownProducts,
-        "_load_template",
+        repose.command.known,
+        "load_template",
         MagicMock(return_value={"product-c": {}, "product-a": {}, "product-b": {}}),
     )
     monkeypatch.setattr(repose.command._command, "HostGroup", MagicMock())

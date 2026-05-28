@@ -75,7 +75,7 @@ def test_reset_command_run(monkeypatch, mock_args, mock_ssh_client):
         "HostGroup",
         MagicMock(return_value=mock_host_group_instance),
     )
-    monkeypatch.setattr(Reset, "_init_repoq", MagicMock(return_value=mock_repoq))
+    monkeypatch.setattr(Reset, "repoq", mock_repoq)
     monkeypatch.setattr(Reset, "check_url", MagicMock(return_value=True))
 
     # Instantiate and Run
@@ -135,7 +135,7 @@ def _setup_reset(
         "HostGroup",
         MagicMock(return_value=mock_hg),
     )
-    monkeypatch.setattr(Reset, "_init_repoq", MagicMock(return_value=mock_repoq))
+    monkeypatch.setattr(Reset, "repoq", mock_repoq)
     monkeypatch.setattr(Reset, "check_url", MagicMock(return_value=check_url))
     return mock_target, mock_hg, mock_repoq
 
@@ -221,7 +221,7 @@ def _setup_reset_multi(monkeypatch, hosts):
         "HostGroup",
         MagicMock(return_value=hg),
     )
-    monkeypatch.setattr(Reset, "_init_repoq", MagicMock(return_value=mock_repoq))
+    monkeypatch.setattr(Reset, "repoq", mock_repoq)
     monkeypatch.setattr(Reset, "check_url", MagicMock(return_value=True))
     return targets, hg
 

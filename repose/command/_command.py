@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from argparse import Namespace
 import concurrent.futures
 from concurrent.futures import Future
+import functools
 import logging
 import sys
 from pathlib import Path
@@ -61,7 +62,9 @@ class Command(ABC):
         self.targets = targets
 
         self.dryrun: bool = args.dry
-        self.template_path: str = args.config
+        # ``args.config`` is already a ``Path`` (argparse ``type=Path``);
+        # the prior ``str`` annotation was a lie.
+        self.template_path: Path = args.config
         # ``repa`` is None for commands that don't accept a REPA argument
         # (list, known, clear, reset). Commands that *do* iterate over it
         # (add, install, remove, uninstall) gate on truthiness first.
@@ -81,11 +84,22 @@ class Command(ABC):
         else:
             self.display = CommandDisplay(sys.stdout)
 
-    def _load_template(self) -> dict:
-        return load_template(Path(self.template_path))
+    @functools.cached_property
+    def repoq(self) -> Repoq:
+        """Shared ``Repoq`` resolver built once per ``Command`` instance.
 
-    def _init_repoq(self) -> Repoq:
-        return Repoq(self._load_template())
+        Thread-safety: ``cached_property`` is safe for read-after-write,
+        but the *first* read materialises the value. Callers MUST ensure
+        the first access happens on the main thread before any worker
+        thread (e.g. ``_run_parallel``) is spawned, otherwise two
+        workers may race and each construct a ``Repoq``. ``_run_parallel``
+        consumers in this codebase satisfy the invariant by touching
+        ``self.repoq`` only from within per-host worker functions that
+        all observe the same instance once one of them populates the
+        cache (a wasted re-construct, not a correctness bug, in the
+        unlikely tied case).
+        """
+        return Repoq(load_template(self.template_path))
 
     def _report_target(self, target: str) -> bool:
         """Report the last command's output for ``target`` via Console.

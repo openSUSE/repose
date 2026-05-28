@@ -6,6 +6,23 @@ import paramiko
 import pytest
 
 
+@pytest.fixture(autouse=True)
+def _clear_template_cache():
+    """Reset the ``load_template`` cache around every test.
+
+    ``load_template`` is decorated with ``@functools.cache`` for the
+    process lifetime. Without this fixture, tests that write different
+    contents to the same path between cases (e.g. ``tmp_path /
+    "products.yml"`` reused via a session-scoped fixture, or sequential
+    cases that mutate the file) would observe stale parsed YAML.
+    """
+    from repose.template import load_template
+
+    load_template.cache_clear()
+    yield
+    load_template.cache_clear()
+
+
 @pytest.fixture
 def mock_ssh_client(monkeypatch):
     mock_ssh_class = MagicMock()

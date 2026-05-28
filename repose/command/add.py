@@ -16,7 +16,6 @@ class Add(Command, name="add"):
         ``Repoq.solve_repa``). The caller uses ``ok`` to mark the host
         as failed in the aggregated exit code.
         """
-        repoq = self._init_repoq()
         repolist = []
         cmds = set()
         ok = True
@@ -24,7 +23,7 @@ class Add(Command, name="add"):
             try:
                 repolist += chain.from_iterable(
                     x
-                    for x in repoq.solve_repa(
+                    for x in self.repoq.solve_repa(
                         repa, self.targets[target].products.get_base()
                     ).values()
                 )
@@ -52,6 +51,9 @@ class Add(Command, name="add"):
         return ok
 
     def run(self) -> ExitCode:
+        # Materialise the shared ``Repoq`` on the main thread before
+        # ``_run_parallel`` spawns workers (see ``Command.repoq``).
+        _ = self.repoq
         self.targets.read_products()
         futures = self._run_parallel(self._run)
 
