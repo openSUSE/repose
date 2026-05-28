@@ -181,3 +181,86 @@ def test_format_json_accepted(mock_types):
 def test_format_invalid_rejected(mock_types):
     with pytest.raises(SystemExit):
         get_parser().parse_args(["--format", "xml", "add", "-t", "h", "x"])
+
+
+# ---------------------------------------------------------------------------
+# Probe flags (PR 08): --probe-timeout / --no-probe
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "subcmd, extra",
+    [
+        ("add", ["x"]),
+        ("install", ["x"]),
+        ("reset", []),
+    ],
+)
+def test_probe_timeout_default_is_5(mock_types, subcmd, extra):
+    args = get_parser().parse_args([subcmd, "-t", "h", *extra])
+    assert args.probe_timeout == 5.0
+
+
+@pytest.mark.parametrize(
+    "subcmd, extra",
+    [
+        ("add", ["x"]),
+        ("install", ["x"]),
+        ("reset", []),
+    ],
+)
+def test_probe_timeout_custom_value_is_float(mock_types, subcmd, extra):
+    args = get_parser().parse_args(
+        [subcmd, "-t", "h", "--probe-timeout", "0.25", *extra]
+    )
+    assert args.probe_timeout == 0.25
+    assert isinstance(args.probe_timeout, float)
+
+
+@pytest.mark.parametrize(
+    "subcmd, extra",
+    [
+        ("add", ["x"]),
+        ("install", ["x"]),
+        ("reset", []),
+    ],
+)
+def test_no_probe_default_is_false(mock_types, subcmd, extra):
+    args = get_parser().parse_args([subcmd, "-t", "h", *extra])
+    assert args.no_probe is False
+
+
+@pytest.mark.parametrize(
+    "subcmd, extra",
+    [
+        ("add", ["x"]),
+        ("install", ["x"]),
+        ("reset", []),
+    ],
+)
+def test_no_probe_flag_sets_true(mock_types, subcmd, extra):
+    args = get_parser().parse_args([subcmd, "-t", "h", "--no-probe", *extra])
+    assert args.no_probe is True
+
+
+@pytest.mark.parametrize(
+    "subcmd, cli_args",
+    [
+        ("clear", ["clear", "-t", "h"]),
+        ("known-products", ["known-products"]),
+        ("list-products", ["list-products", "-t", "h"]),
+        ("list-repos", ["list-repos", "-t", "h"]),
+        ("remove", ["remove", "-t", "h", "x"]),
+        ("uninstall", ["uninstall", "-t", "h", "x"]),
+    ],
+)
+def test_probe_flags_absent_from_non_probing_commands(mock_types, subcmd, cli_args):
+    """``--probe-timeout`` / ``--no-probe`` are scoped to add/reset/install
+    only; passing them to other subcommands errors out, and the parsed
+    namespace doesn't carry them."""
+    args = get_parser().parse_args(cli_args)
+    assert not hasattr(args, "probe_timeout")
+    assert not hasattr(args, "no_probe")
+
+    with pytest.raises(SystemExit):
+        get_parser().parse_args([*cli_args, "--no-probe"])

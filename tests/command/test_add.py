@@ -69,7 +69,9 @@ def test_add_command_run(monkeypatch, mock_args_and_repa, mock_ssh_client):
         MagicMock(return_value=mock_host_group_instance),
     )
     monkeypatch.setattr(Add, "repoq", mock_repoq)
-    monkeypatch.setattr(Add, "check_url", MagicMock(return_value=True))
+    monkeypatch.setattr(
+        repose.command._command, "check_repo_url", lambda url, *, timeout: True
+    )
 
     # Instantiate and Run
     add_command = Add(mock_args)
@@ -122,7 +124,9 @@ def test_add_command_dryrun_prints_and_skips_run(
         MagicMock(return_value=mock_hg),
     )
     monkeypatch.setattr(Add, "repoq", mock_repoq)
-    monkeypatch.setattr(Add, "check_url", MagicMock(return_value=True))
+    monkeypatch.setattr(
+        repose.command._command, "check_repo_url", lambda url, *, timeout: True
+    )
 
     assert Add(args).run() == 0
 
@@ -157,7 +161,9 @@ def test_add_command_solve_repa_value_error_logged(
         MagicMock(return_value=mock_hg),
     )
     monkeypatch.setattr(Add, "repoq", mock_repoq)
-    monkeypatch.setattr(Add, "check_url", MagicMock(return_value=True))
+    monkeypatch.setattr(
+        repose.command._command, "check_repo_url", lambda url, *, timeout: True
+    )
 
     with caplog.at_level("ERROR", logger="repose.command.add"):
         # solve_repa failure on the only host → all hosts failed → exit 2.
@@ -167,7 +173,7 @@ def test_add_command_solve_repa_value_error_logged(
     mock_target.run.assert_not_called()
 
 
-def test_add_command_skips_repo_when_check_url_false(
+def test_add_command_skips_repo_when_probe_fails(
     monkeypatch, mock_args_and_repa, mock_ssh_client
 ):
     args, _ = mock_args_and_repa
@@ -189,12 +195,14 @@ def test_add_command_skips_repo_when_check_url_false(
         MagicMock(return_value=mock_hg),
     )
     monkeypatch.setattr(Add, "repoq", mock_repoq)
-    monkeypatch.setattr(Add, "check_url", MagicMock(return_value=False))
+    monkeypatch.setattr(
+        repose.command._command, "check_repo_url", lambda url, *, timeout: False
+    )
 
-    # Repo filtered out by check_url → no cmds attempted, no failures → 0.
+    # Repo filtered out by probe → no cmds attempted, no failures → 0.
     assert Add(args).run() == 0
 
-    # Repo got filtered out because URL check failed → no per-target add cmd
+    # Repo got filtered out because URL probe failed → no per-target add cmd
     mock_target.run.assert_not_called()
 
 
@@ -233,7 +241,9 @@ def _setup_add_hosts(monkeypatch, hosts):
         "product": [MockRepo("repo1", "http://repo1.url", refresh=False)]
     }
     monkeypatch.setattr(Add, "repoq", mock_repoq)
-    monkeypatch.setattr(Add, "check_url", MagicMock(return_value=True))
+    monkeypatch.setattr(
+        repose.command._command, "check_repo_url", lambda url, *, timeout: True
+    )
     return targets, hg
 
 

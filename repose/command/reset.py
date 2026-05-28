@@ -14,12 +14,15 @@ class Reset(Clear, name="reset"):
         repolist = chain.from_iterable(
             x for x in self.repoq.solve_product(self.targets[target].products).values()
         )
+        # Probe all candidate URLs in parallel before issuing any
+        # ``zypper ar``; otherwise each per-host worker would serialise
+        # 1-2 probes per repository.
+        live = self._filter_live_urls(repolist)
         cmds.update(
             self.addcmd.format(
                 name=x.name, url=x.url, params="-cfkn" if x.refresh else "-ckn"
             )
-            for x in repolist
-            if self.check_url(x.url)
+            for x in live
         )
         return cmds
 

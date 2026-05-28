@@ -30,12 +30,14 @@ class Add(Command, name="add"):
             except ValueError as error:
                 logger.error(error)
                 ok = False
+        # Probe all candidate URLs in parallel before issuing any
+        # ``zypper ar`` so a slow mirror doesn't serialise the cohort.
+        live = self._filter_live_urls(repolist)
         cmds.update(
             self.addcmd.format(
                 name=x.name, url=x.url, params="-cfkn" if x.refresh else "-ckn"
             )
-            for x in repolist
-            if self.check_url(x.url)
+            for x in live
         )
         return cmds, ok
 

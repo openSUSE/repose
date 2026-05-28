@@ -2,7 +2,6 @@
 
 from concurrent.futures import Future
 from unittest.mock import MagicMock, call
-from urllib.error import HTTPError, URLError
 
 import pytest
 
@@ -39,62 +38,105 @@ def _make(monkeypatch, args_overrides=None, host_group=None):
 
 
 # ---------------------------------------------------------------------------
-# check_url
+# _filter_live_urls
 # ---------------------------------------------------------------------------
 
 
-def test_check_url_returns_true_when_url_opens(monkeypatch):
-    monkeypatch.setattr(cmdmod, "urlopen", lambda url: MagicMock())
-    assert Command.check_url("http://example.com/") is True
+class _StubRepo:
+    """Minimal stand-in matching the ``.url`` attribute consumed by the
+    helper. Real ``Repository`` instances carry more state, but the
+    filter doesn't touch any of it."""
+
+    def __init__(self, url: str) -> None:
+        self.url = url
 
 
-def test_check_url_returns_false_when_both_urls_fail(monkeypatch):
-    def _raise(url):
-        raise URLError("nope")
+def test_filter_live_urls_returns_only_live(monkeypatch):
+    """Each repo gets probed once; only those returning True survive,
+    and the relative ordering is preserved."""
+    calls: list[str] = []
 
-    monkeypatch.setattr(cmdmod, "urlopen", _raise)
-    assert Command.check_url("http://example.com/") is False
+    def _probe(url, *, timeout):
+        calls.append(url)
+        return url.endswith("/live/")
 
+    monkeypatch.setattr(cmdmod, "check_repo_url", _probe)
+    cmd, _ = _make(monkeypatch)
 
-def test_check_url_handles_http_error(monkeypatch):
-    def _raise(url):
-        raise HTTPError(url, 404, "not found", {}, None)
-
-    monkeypatch.setattr(cmdmod, "urlopen", _raise)
-    assert Command.check_url("http://example.com/") is False
-
-
-def test_check_url_returns_true_when_suse_fallback_succeeds(monkeypatch):
-    """If the canonical repomd.xml is missing but the ``suse/`` variant
-    answers, the URL is still considered valid."""
-    called: list[str] = []
-
-    def _selective(url):
-        called.append(url)
-        if "suse/repodata/repomd.xml" in url:
-            return MagicMock()
-        raise URLError("not at root")
-
-    monkeypatch.setattr(cmdmod, "urlopen", _selective)
-    assert Command.check_url("http://example.com/") is True
-    # Both probes should have been attempted, in order.
-    assert called == [
-        "http://example.com/repodata/repomd.xml",
-        "http://example.com/suse/repodata/repomd.xml",
+    repos = [
+        _StubRepo("http://a/dead/"),
+        _StubRepo("http://b/live/"),
+        _StubRepo("http://c/dead/"),
+        _StubRepo("http://d/live/"),
     ]
+    live = cmd._filter_live_urls(repos)
+
+    # One probe per repo (parallelism doesn't change call count).
+    assert sorted(calls) == sorted(r.url for r in repos)
+    # Order preserved among survivors.
+    assert [r.url for r in live] == ["http://b/live/", "http://d/live/"]
 
 
-def test_check_url_short_circuits_on_first_success(monkeypatch):
-    """If the canonical repomd.xml answers we do not probe the fallback."""
-    called: list[str] = []
+def test_filter_live_urls_short_circuits_when_no_probe(monkeypatch):
+    """``--no-probe`` returns the list unchanged and never calls the
+    probe helper."""
+    calls: list[str] = []
 
-    def _ok(url):
-        called.append(url)
-        return MagicMock()
+    def _probe(url, *, timeout):
+        calls.append(url)
+        return False
 
-    monkeypatch.setattr(cmdmod, "urlopen", _ok)
-    assert Command.check_url("http://example.com/") is True
-    assert called == ["http://example.com/repodata/repomd.xml"]
+    monkeypatch.setattr(cmdmod, "check_repo_url", _probe)
+    cmd, _ = _make(monkeypatch, args_overrides={"no_probe": True})
+
+    repos = [_StubRepo("http://a/"), _StubRepo("http://b/")]
+    assert cmd._filter_live_urls(repos) == repos
+    assert calls == []
+
+
+def test_filter_live_urls_forwards_probe_timeout(monkeypatch):
+    """Custom ``--probe-timeout`` reaches the probe helper kwarg."""
+    seen: list[float] = []
+
+    def _probe(url, *, timeout):
+        seen.append(timeout)
+        return True
+
+    monkeypatch.setattr(cmdmod, "check_repo_url", _probe)
+    cmd, _ = _make(monkeypatch, args_overrides={"probe_timeout": 0.25})
+
+    cmd._filter_live_urls([_StubRepo("http://a/"), _StubRepo("http://b/")])
+    assert seen == [0.25, 0.25]
+
+
+def test_filter_live_urls_default_timeout_is_5_seconds(monkeypatch):
+    """Without an explicit flag the default 5s budget is used."""
+    seen: list[float] = []
+
+    def _probe(url, *, timeout):
+        seen.append(timeout)
+        return True
+
+    monkeypatch.setattr(cmdmod, "check_repo_url", _probe)
+    cmd, _ = _make(monkeypatch)
+
+    cmd._filter_live_urls([_StubRepo("http://a/")])
+    assert seen == [5.0]
+
+
+def test_filter_live_urls_empty_input_is_noop(monkeypatch):
+    """Empty input never spawns a pool or calls the probe helper."""
+    calls: list[str] = []
+
+    def _probe(url, *, timeout):
+        calls.append(url)
+        return True
+
+    monkeypatch.setattr(cmdmod, "check_repo_url", _probe)
+    cmd, _ = _make(monkeypatch)
+
+    assert cmd._filter_live_urls([]) == []
+    assert calls == []
 
 
 # ---------------------------------------------------------------------------

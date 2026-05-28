@@ -91,6 +91,19 @@ def get_parser():
                 type=Repa,
                 help="REPA pattern specification for needed repository",
             )
+        if "probe" in arguments:
+            subparser.add_argument(
+                "--probe-timeout",
+                type=float,
+                default=5.0,
+                metavar="SECONDS",
+                help="seconds to wait per repository URL probe (default: 5)",
+            )
+            subparser.add_argument(
+                "--no-probe",
+                action="store_true",
+                help="skip repository URL liveness probes",
+            )
         # Late-bind via default arg to dodge the closure late-binding
         # trap, and resolve through the registry at call time so tests
         # can monkeypatch ``Command.registry`` entries.
@@ -100,7 +113,11 @@ def get_parser():
         return subparser
 
     # command ADD
-    add_subparser("add", "add specified repository to target", ["target", "repa"])
+    add_subparser(
+        "add",
+        "add specified repository to target",
+        ["target", "repa", "probe"],
+    )
 
     # command REMOVE
     add_subparser("remove", "remove repository from target", ["target", "repa"])
@@ -109,14 +126,14 @@ def get_parser():
     add_subparser(
         "reset",
         "reset target repositories to only installed products repositories",
-        ["target"],
+        ["target", "probe"],
     )
 
     # command INSTALL
     add_subparser(
         "install",
         "add specified repository to target and install product",
-        ["target", "repa"],
+        ["target", "repa", "probe"],
     )
 
     # command CLEAR
