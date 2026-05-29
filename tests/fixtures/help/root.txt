@@ -1,0 +1,39 @@
+Usage: repose [OPTIONS] COMMAND [ARGS]...
+
+  Repository manipulation tool for QAM
+
+Options:
+  -n, --print                     print commands for host and exit
+  -V, --version                   show program's version number and exit
+  -c, --config PATH               path to repose configuration  [default:
+                                  /etc/repose/products.yml]
+  -d, --debug                     enable debug logging
+  -q, --quiet                     suppress messages from repose
+  --no-color                      disable ANSI color in console output (honors
+                                  NO_COLOR)
+  --format [text|json]            console output format: 'text' (default) or
+                                  'json' (one event per line)  [default: text]
+  --strict-host-key-checking [yes|accept-new|no|off]
+                                  SSH host-key policy (OpenSSH semantics): 'yes'
+                                  refuses unknown hosts; 'accept-new' (default)
+                                  accepts unknown hosts on first contact but
+                                  rejects changed keys; 'no'/'off' accepts both
+                                  unknown and changed keys (pre-1.12 behaviour)
+                                  [default: accept-new]
+  --known-hosts PATH              path to a custom known_hosts file (overrides
+                                  ~/.ssh/known_hosts)
+  --install-completion            Install completion for the current shell.
+  --show-completion               Show completion for the current shell, to copy
+                                  it or customize the installation.
+  -h, --help                      Show this message and exit.
+
+Commands:
+  add             add specified repository to target
+  remove          remove repository from target
+  reset           reset target repositories to only installed products...
+  install         add specified repository to target and install product
+  clear           clear all repositories from target
+  uninstall       remove specified repository from target and uninstall...
+  list-products   list products on target
+  list-repos      list repositories on target
+  known-products  list known products by 'repose'

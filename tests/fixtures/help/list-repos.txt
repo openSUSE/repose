@@ -1,0 +1,7 @@
+Usage: repose list-repos [OPTIONS]
+
+  list repositories on target
+
+Options:
+  -t, --target HOST  target to operate on  [required]
+  -h, --help         Show this message and exit.

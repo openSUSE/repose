@@ -1,0 +1,10 @@
+Usage: repose remove [OPTIONS] REPA
+
+  remove repository from target
+
+Arguments:
+  REPA  REPA pattern specification for needed repository  [required]
+
+Options:
+  -t, --target HOST  target to operate on  [required]
+  -h, --help         Show this message and exit.
