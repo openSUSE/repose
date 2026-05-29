@@ -1,0 +1,13 @@
+Usage: repose add [OPTIONS] REPA
+
+  add specified repository to target
+
+Arguments:
+  REPA  REPA pattern specification for needed repository  [required]
+
+Options:
+  -t, --target HOST        target to operate on  [required]
+  --probe-timeout SECONDS  seconds to wait per repository URL probe (default: 5)
+                           [default: 5.0]
+  --no-probe               skip repository URL liveness probes
+  -h, --help               Show this message and exit.
