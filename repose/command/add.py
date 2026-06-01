@@ -1,7 +1,7 @@
 from itertools import chain
 import logging
 
-from . import Command
+from . import Command, UpdateFn
 from ..types import ExitCode
 
 logger = logging.getLogger("repose.command.add")
@@ -41,8 +41,11 @@ class Add(Command, name="add"):
         )
         return cmds, ok
 
-    def _run(self, target) -> bool:
+    def _run(self, target: str, update: UpdateFn) -> bool:
+        update(target, "resolving repos")
         cmds, ok = self._add(target)
+        if cmds:
+            update(target, f"adding {len(cmds)} repo(s)")
         for cmd in cmds:
             if self.dryrun:
                 self.console.dry(target, cmd)

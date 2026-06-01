@@ -1,6 +1,6 @@
 import logging
 
-from . import Command
+from . import Command, UpdateFn
 from ..types import ExitCode
 
 
@@ -11,7 +11,8 @@ class Clear(Command, name="clear"):
     def _clear(self, host):
         return set(r.alias for r in self.targets[host].raw_repos)
 
-    def _run(self, host) -> bool:
+    def _run(self, host: str, update: UpdateFn) -> bool:
+        update(host, "clearing repos")
         repoaliases = self._clear(host)
 
         if self.dryrun:

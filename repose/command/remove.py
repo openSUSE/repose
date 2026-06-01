@@ -1,7 +1,7 @@
 import logging
 from typing import Any, Iterable
 
-from . import Command
+from . import Command, UpdateFn
 from ..types import ExitCode
 from ..types.repa import Repa
 
@@ -43,13 +43,14 @@ class Remove(Command, name="remove"):
                     repolist.add(repo)
         return repolist
 
-    def _run(self, host: str, *args: Any) -> bool:
+    def _run(self, host: str, update: UpdateFn, *args: Any) -> bool:
         """Compute and (optionally) issue the ``zypper rr`` command.
 
         Returns ``True`` when no work was found (an INFO-level no-op,
         not an error) and ``True``/``False`` from ``_report_target``
         when the command actually ran.
         """
+        update(host, "computing patterns")
         patterns = self._calculate_pattern(self.repa, host)
 
         if not patterns:
@@ -66,6 +67,7 @@ class Remove(Command, name="remove"):
             self.console.dry(host, cmd)
             return True
 
+        update(host, f"removing {len(repolist)} repo(s)")
         self.targets[host].run(cmd)
         return self._report_target(host)
 

@@ -15,6 +15,7 @@ classifiers = [
 scripts = { repose = "repose.cli:app" }
 dependencies = [
   "paramiko",
+  "rich>=13",
   "ruamel.yaml",
   "typer>=0.16",
 ]

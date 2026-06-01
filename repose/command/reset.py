@@ -1,6 +1,7 @@
 from itertools import chain
 import logging
 
+from . import UpdateFn
 from ..messages import UnsuportedProductMessage
 from ..types import ExitCode
 from .clear import Clear
@@ -26,10 +27,12 @@ class Reset(Clear, name="reset"):
         )
         return cmds
 
-    def _run(self, host) -> bool:
+    def _run(self, host: str, update: UpdateFn) -> bool:
+        update(host, "clearing repos")
         repoaliases = self._clear(host)
         ok = True
         try:
+            update(host, "resolving new repos")
             cmds = self._add(host)
 
             if self.dryrun:
@@ -38,6 +41,8 @@ class Reset(Clear, name="reset"):
                     self.console.dry(host, cmd)
                 return True
 
+            if cmds:
+                update(host, f"re-adding {len(cmds)} repo(s)")
             self.targets[host].run(self.rrcmd.format(repos=" ".join(repoaliases)))
             for cmd in cmds:
                 self.targets[host].run(cmd)

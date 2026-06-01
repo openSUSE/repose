@@ -3,6 +3,7 @@ import logging
 from itertools import chain
 from typing import Any
 
+from . import UpdateFn
 from .remove import Remove
 from ..types import ExitCode
 
@@ -24,9 +25,10 @@ class Uninstall(Remove, name="uninstall"):
                         rdict[repo[1].name] = [repo[0]]
         return rdict
 
-    def _run(self, host: str, *args: Any) -> bool:
+    def _run(self, host: str, update: UpdateFn, *args: Any) -> bool:
         # First positional ``args`` element is the orepa list (see ``run``).
         orepa = args[0]
+        update(host, "computing patterns")
         patterns = self._calculate_pattern(orepa, host)
         if not patterns:
             logger.info("For %s no products for remove found", host)
@@ -58,9 +60,11 @@ class Uninstall(Remove, name="uninstall"):
 
         ok = True
         if rrcmd:
+            update(host, "removing repos")
             self.targets[host].run(rrcmd)
             if not self._report_target(host):
                 ok = False
+        update(host, "removing products")
         self.targets[host].run(pdcmd)
         if not self._report_target(host):
             ok = False

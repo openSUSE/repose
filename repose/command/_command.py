@@ -10,6 +10,7 @@ from typing import Any, Callable, ClassVar, Iterable
 
 from ..console import Console
 from ..display import CommandDisplay, JsonCommandDisplay
+from ..progress import Progress
 from ..target.hostgroup import HostGroup
 from ..template import load_template
 from ..template.resolver import Repoq
@@ -18,6 +19,13 @@ from ..types.repa import Repa
 from ..utils import check_repo_url
 
 logger = logging.getLogger("repose.command")
+
+# Per-host progress updater signature. ``_run_parallel`` binds
+# ``Progress.update`` and passes it as the second positional argument
+# to every worker ``_run(host, update, *extra)``. Defined here so the
+# six concrete commands share one canonical alias instead of redefining
+# it locally.
+UpdateFn = Callable[[str, str], None]
 
 
 class Command(ABC):
@@ -88,6 +96,12 @@ class Command(ABC):
         # the flag is absent for probing commands.
         self.probe_timeout: float = getattr(args, "probe_timeout", 5.0)
         self.no_probe: bool = getattr(args, "no_probe", False)
+        # ``quiet`` is read by ``_make_progress`` to suppress the live
+        # progress overlay even on a TTY. The same flag also drives the
+        # logger-level cap in ``repose.cli``; the two effects are
+        # intentionally independent (a quiet user still wants warnings,
+        # just not the live table).
+        self.quiet: bool = getattr(args, "quiet", False)
 
     @functools.cached_property
     def repoq(self) -> Repoq:
@@ -129,21 +143,66 @@ class Command(ABC):
             self.console.report(target, line, ok=False, level="error")
         return False
 
+    def _make_progress(self) -> Progress:
+        """Construct the live-progress overlay for this command run.
+
+        Auto-disables on non-TTY stdout, ``--format=json`` (the
+        machine-readable consumer is the only thing on stdout) and
+        ``--quiet``. When disabled the returned ``Progress`` is a
+        no-op context manager — state still mutates internally but
+        nothing renders and logging is left untouched.
+        """
+        enabled = (
+            sys.stdout.isatty() and self.console.format != "json" and not self.quiet
+        )
+        return Progress(list(self.targets.keys()), enabled=enabled)
+
+    def _worker(
+        self,
+        fn: Callable[..., bool],
+        host: str,
+        prog: Progress,
+        extra: tuple[Any, ...],
+    ) -> bool:
+        """Wrap ``fn(host, update, *extra)`` with progress bookkeeping.
+
+        Posts ``"running"`` before invoking ``fn``, ``"[green]done"`` /
+        ``"[red]failed"`` after, and ``"[red]failed"`` if ``fn`` raises
+        (then re-raises so ``_aggregate`` sees the exception via the
+        future).
+        """
+        prog.update(host, "running")
+        try:
+            ok = fn(host, prog.update, *extra)
+        except Exception:
+            prog.update(host, "[red]failed")
+            raise
+        prog.update(host, "[green]done" if ok else "[red]failed")
+        return ok
+
     def _run_parallel(
         self,
         fn: Callable[..., bool],
         *extra_args: Any,
     ) -> list[Future[bool]]:
-        """Fan ``fn(host, *extra_args)`` across all live targets.
+        """Fan ``fn(host, update, *extra_args)`` across all live targets.
+
+        ``fn`` receives a per-host ``update(host, status)`` callable
+        as its second positional argument; commands call it at
+        meaningful milestones to keep the live overlay informative.
 
         Returns the futures so callers can inspect ``.exception()``
         and ``.result()`` (consumed by ``_aggregate`` for exit-code
         propagation).
         """
-        with concurrent.futures.ThreadPoolExecutor() as ex:
-            futures = [ex.submit(fn, host, *extra_args) for host in self.targets.keys()]
-            concurrent.futures.wait(futures)
-            return futures
+        with self._make_progress() as prog:
+            with concurrent.futures.ThreadPoolExecutor() as ex:
+                futures = [
+                    ex.submit(self._worker, fn, host, prog, extra_args)
+                    for host in self.targets.keys()
+                ]
+                concurrent.futures.wait(futures)
+                return futures
 
     def _aggregate(self, futures: list[Future[bool]]) -> ExitCode:
         """Collapse per-target futures into a process exit code.

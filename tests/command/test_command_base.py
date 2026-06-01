@@ -1,7 +1,7 @@
 """Tests for ``repose.command._command.Command`` base class."""
 
 from concurrent.futures import Future
-from unittest.mock import MagicMock, call
+from unittest.mock import ANY, MagicMock, call
 
 import pytest
 
@@ -214,45 +214,183 @@ def test_repoq_loads_template(monkeypatch, tmp_path):
 
 
 def test_run_parallel_invokes_fn_per_host(monkeypatch):
-    """Helper fans ``fn(host)`` across every live target and returns
-    one completed ``Future`` per host."""
+    """Helper fans ``fn(host, update)`` across every live target and
+    returns one completed ``Future`` per host. The second positional
+    arg is the per-host progress updater (a bound ``Progress.update``).
+    """
     hg = MagicMock()
     hg.keys.return_value = ["h1", "h2", "h3"]
     hg.__getitem__.side_effect = lambda k: MagicMock()
 
     cmd, _ = _make(monkeypatch, host_group=hg)
 
-    fn = MagicMock(return_value=None)
+    fn = MagicMock(return_value=True)
     futures = cmd._run_parallel(fn)
 
-    # Worker threads may interleave, so compare unordered.
-    assert sorted(fn.call_args_list) == sorted([call("h1"), call("h2"), call("h3")])
+    # Worker threads may interleave, so compare unordered. Use ANY
+    # for the bound-method ``update`` arg — equality on bound methods
+    # is identity, which breaks call-equality across threads.
+    assert sorted(fn.call_args_list) == sorted(
+        [call("h1", ANY), call("h2", ANY), call("h3", ANY)]
+    )
     assert len(futures) == 3
     assert all(isinstance(f, Future) for f in futures)
     assert all(f.done() for f in futures)
 
 
 def test_run_parallel_passes_extra_args_after_host(monkeypatch):
-    """Extra positional args are forwarded after ``host`` so callers
-    like ``Uninstall`` keep ``_run(host, *args)`` ergonomics."""
+    """Extra positional args are forwarded after ``host, update`` so
+    callers like ``Uninstall`` keep ``_run(host, update, *args)``
+    ergonomics.
+    """
     hg = MagicMock()
     hg.keys.return_value = ["h1", "h2"]
     hg.__getitem__.side_effect = lambda k: MagicMock()
 
     cmd, _ = _make(monkeypatch, host_group=hg)
 
-    fn = MagicMock(return_value=None)
+    fn = MagicMock(return_value=True)
     sentinel = object()
     futures = cmd._run_parallel(fn, sentinel, "extra")
 
     # Worker threads may interleave, so compare unordered.
     assert sorted(fn.call_args_list) == sorted(
         [
-            call("h1", sentinel, "extra"),
-            call("h2", sentinel, "extra"),
+            call("h1", ANY, sentinel, "extra"),
+            call("h2", ANY, sentinel, "extra"),
         ]
     )
-    assert [f.result() for f in futures] == [None, None]
+    assert [f.result() for f in futures] == [True, True]
+
+
+def test_run_parallel_marks_progress_running_then_done(monkeypatch):
+    """Worker wrapper posts ``running`` → ``[green]done`` on success."""
+    hg = MagicMock()
+    hg.keys.return_value = ["h1"]
+    hg.__getitem__.side_effect = lambda k: MagicMock()
+
+    cmd, _ = _make(monkeypatch, host_group=hg)
+
+    seen: list[tuple[str, str]] = []
+
+    class _StubProgress:
+        enabled = False
+
+        def update(self, host, status):
+            seen.append((host, status))
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return None
+
+    monkeypatch.setattr(cmd, "_make_progress", lambda: _StubProgress())
+
+    fn = MagicMock(return_value=True)
+    futures = cmd._run_parallel(fn)
+
+    assert [f.result() for f in futures] == [True]
+    assert seen == [("h1", "running"), ("h1", "[green]done")]
+
+
+def test_run_parallel_marks_progress_failed_on_false_result(monkeypatch):
+    """Worker wrapper posts ``[red]failed`` when ``fn`` returns False."""
+    hg = MagicMock()
+    hg.keys.return_value = ["h1"]
+    hg.__getitem__.side_effect = lambda k: MagicMock()
+
+    cmd, _ = _make(monkeypatch, host_group=hg)
+
+    seen: list[tuple[str, str]] = []
+
+    class _StubProgress:
+        enabled = False
+
+        def update(self, host, status):
+            seen.append((host, status))
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return None
+
+    monkeypatch.setattr(cmd, "_make_progress", lambda: _StubProgress())
+
+    futures = cmd._run_parallel(MagicMock(return_value=False))
+
+    assert [f.result() for f in futures] == [False]
+    assert seen == [("h1", "running"), ("h1", "[red]failed")]
+
+
+def test_run_parallel_marks_progress_failed_on_exception(monkeypatch):
+    """Worker wrapper posts ``[red]failed`` and re-raises when ``fn``
+    raises, so ``_aggregate`` can see the exception via the future."""
+    hg = MagicMock()
+    hg.keys.return_value = ["h1"]
+    hg.__getitem__.side_effect = lambda k: MagicMock()
+
+    cmd, _ = _make(monkeypatch, host_group=hg)
+
+    seen: list[tuple[str, str]] = []
+
+    class _StubProgress:
+        enabled = False
+
+        def update(self, host, status):
+            seen.append((host, status))
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return None
+
+    monkeypatch.setattr(cmd, "_make_progress", lambda: _StubProgress())
+
+    def _boom(host, update):
+        raise RuntimeError("nope")
+
+    futures = cmd._run_parallel(_boom)
+
+    assert futures[0].exception() is not None
+    assert isinstance(futures[0].exception(), RuntimeError)
+    assert seen == [("h1", "running"), ("h1", "[red]failed")]
+
+
+# ---------------------------------------------------------------------------
+# _make_progress
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "isatty,fmt,quiet,expected",
+    [
+        (True, "text", False, True),  # interactive default
+        (False, "text", False, False),  # pipe
+        (True, "json", False, False),  # --format=json
+        (True, "text", True, False),  # --quiet
+        (False, "json", True, False),  # all off
+    ],
+)
+def test_make_progress_enabled_gating(monkeypatch, isatty, fmt, quiet, expected):
+    cmd, _ = _make(monkeypatch)
+    monkeypatch.setattr("sys.stdout", MagicMock(isatty=MagicMock(return_value=isatty)))
+    cmd.console.format = fmt
+    cmd.quiet = quiet
+    prog = cmd._make_progress()
+    assert prog.enabled is expected
+
+
+def test_quiet_defaults_to_false(monkeypatch):
+    cmd, _ = _make(monkeypatch)
+    assert cmd.quiet is False
+
+
+def test_quiet_pulled_from_args(monkeypatch):
+    cmd, _ = _make(monkeypatch, args_overrides={"quiet": True})
+    assert cmd.quiet is True
 
 
 # ---------------------------------------------------------------------------
