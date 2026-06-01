@@ -74,9 +74,6 @@ def test_uninstall_command_run(monkeypatch, mock_args_and_repa, mock_ssh_client)
     mock_host_group_instance.read_repos.assert_called_once()
     mock_host_group_instance.parse_repos.assert_called_once()
 
-    # Check that repa.repo was set to None
-    assert repa_instance.repo is None
-
     rm_cmd = uninstall_command.rrpcmd.format(products="SLES")
 
     run_calls = mock_target.run.call_args_list

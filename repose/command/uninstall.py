@@ -1,3 +1,4 @@
+import dataclasses
 import logging
 from itertools import chain
 from typing import Any
@@ -70,11 +71,7 @@ class Uninstall(Remove, name="uninstall"):
     def run(self) -> ExitCode:
         self.targets.read_repos()
         self.targets.parse_repos()
-        orepa = []
-
-        for r in self.repa:
-            r.repo = None
-            orepa.append(r)
+        orepa = [dataclasses.replace(r, repo=None) for r in self.repa]
 
         futures = self._run_parallel(self._run, orepa)
         self.targets.close()

@@ -1,13 +1,15 @@
-from typing import NamedTuple
+from dataclasses import dataclass
 
 
-class Product(NamedTuple):
+@dataclass(frozen=True, slots=True)
+class Product:
     name: str
     version: str
     arch: str
 
 
-class Repository(NamedTuple):
+@dataclass(frozen=True, slots=True)
+class Repository:
     alias: str
     name: str
     url: str

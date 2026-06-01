@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, NamedTuple
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING, Any
 
 from .refhost.transformations import (
     transform_version_partialy,
@@ -14,24 +15,28 @@ class UnknownSystemError(ValueError):
     pass
 
 
-class SystemData(NamedTuple):
+@dataclass(frozen=True, slots=True)
+class SystemData:
     """Typed internal storage for System — always exactly two fields."""
 
     base: Product
     addons: set[Product]
 
 
+@dataclass(eq=False)
 class System:
     """Store product information from refhost.
 
     Used by prettyprint for user and for correct update handling.
     """
 
+    _data: SystemData = field(init=False)
+
     def __init__(self, base: Product, addons: set[Product] | None = None) -> None:
         """Create a System with a base product and optional addon set.
 
         Args:
-            base: The base product (a ``Product`` named tuple).
+            base: The base product (a ``Product`` dataclass).
             addons: Optional set of addon ``Product`` instances.
         """
         self._data = SystemData(base=base, addons=addons if addons else set())
