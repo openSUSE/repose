@@ -1,39 +1,59 @@
+from dataclasses import dataclass, field
+
+
+@dataclass
 class Repa:
-    """Object holding REPA data"""
+    """Object holding REPA data.
 
-    def __init__(self, repa) -> None:
-        self.__version = None
-        self.__parse(repa)
+    Supports two construction shapes for backward compatibility:
 
-    def __parse(self, repa) -> None:
-        data = repa.split(":")
-        lenght = len(data)
-        if lenght > 4:
-            raise ValueError("REPA can't have more than 4 components")
-        elif lenght < 4:
-            for _ in range(4 - lenght):
-                data.append(None)
-        self.product = data[0] if data[0] else None
-        self.version = data[1] if data[1] else None
-        self.arch = data[2] if data[2] else None
-        self.repo = data[3] if data[3] else None
+    * ``Repa("SLES:15-SP3:x86_64:update")`` — colon-separated string
+      (legacy form used by the CLI parser and existing tests).
+    * ``Repa(product="SLES", version="15-SP3", arch="x86_64",
+      repo="update")`` — explicit dataclass kwargs.
 
-    @property
-    def version(self):
-        return self.__version
+    Derived fields ``baseversion`` and ``smallver`` are populated by
+    ``__post_init__`` from ``version``.
+    """
 
-    @version.setter
-    def version(self, value):
-        self.__version = value
-        if self.__version and "-SP" in self.__version:
-            self.smallver = "-{}".format(self.__version.split("-")[-1])
-            self.baseversion = self.__version.split("-")[0]
-        elif self.__version and "-SP" not in self.__version:
+    product: str | None = None
+    version: str | None = None
+    arch: str | None = None
+    repo: str | None = None
+    baseversion: str | None = field(init=False, default=None)
+    smallver: str | None = field(init=False, default=None)
+
+    def __init__(
+        self,
+        repa: str | None = None,
+        *,
+        product: str | None = None,
+        version: str | None = None,
+        arch: str | None = None,
+        repo: str | None = None,
+    ) -> None:
+        if isinstance(repa, str):
+            parts: list[str | None] = list(repa.split(":"))
+            if len(parts) > 4:
+                raise ValueError("REPA can't have more than 4 components")
+            parts += [None] * (4 - len(parts))
+            product = parts[0] or None
+            version = parts[1] or None
+            arch = parts[2] or None
+            repo = parts[3] or None
+        self.product = product
+        self.version = version
+        self.arch = arch
+        self.repo = repo
+        self.__post_init__()
+
+    def __post_init__(self) -> None:
+        if self.version and "-SP" in self.version:
+            self.smallver = "-{}".format(self.version.split("-")[-1])
+            self.baseversion = self.version.split("-")[0]
+        elif self.version:
             self.smallver = None
-            self.baseversion = self.__version
+            self.baseversion = self.version
         else:
             self.smallver = None
             self.baseversion = None
-
-    def __repr__(self) -> str:
-        return f"<object REPA: {self.product}_{self.version}_{self.arch}_{self.repo}>"
