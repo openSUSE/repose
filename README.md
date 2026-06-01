@@ -59,6 +59,15 @@ For example:
 SLES 12 SP2: SLES:12-SP2
 You can find more at /etc/repose/products.yml
 
+### Live progress
+
+When stdout is a terminal, repose draws a per-host status table that
+updates as each refhost moves through its work (e.g. *resolving repos*,
+*adding 3 repo(s)*, *done*). The overlay drops back to plain log lines
+automatically when output is piped, `--format=json` is used, or
+`--quiet` is set, so scripts and structured-output consumers see a
+clean stream.
+
 ## Most Common Usage Examples
 Setup of repositories on refhost:
 

@@ -1,14 +1,15 @@
 from itertools import chain
 import logging
 
-from . import Command
+from . import Command, UpdateFn
 from ..types import ExitCode
 
 logger = logging.getLogger("repose.command.install")
 
 
 class Install(Command, name="install"):
-    def _run(self, target) -> bool:
+    def _run(self, target: str, update: UpdateFn) -> bool:
+        update(target, "resolving repos")
         repositories = {}
         ok = True
         for repa in self.repa:
@@ -29,6 +30,8 @@ class Install(Command, name="install"):
         # from whatever sources zypper already knows about.
         all_repos = list(chain.from_iterable(repositories.values()))
         live_repos = self._filter_live_urls(all_repos)
+        if live_repos:
+            update(target, f"adding {len(live_repos)} repo(s)")
         for repo in live_repos:
             addcmd = self.addcmd.format(
                 name=repo.name, url=repo.url, params="-cfkn" if repo.refresh else "-ckn"
@@ -48,6 +51,7 @@ class Install(Command, name="install"):
                 inscmd = self.ipdtcmd.format(products=" ".join(repositories.keys()))
             else:
                 inscmd = self.ipdcmd.format(products=" ".join(repositories.keys()))
+            update(target, "installing products")
             if self.dryrun:
                 self.console.dry(str(target), inscmd)
             else:

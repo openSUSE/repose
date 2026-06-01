@@ -1,4 +1,5 @@
 from ._command import Command as Command
+from ._command import UpdateFn as UpdateFn
 
 # Importing for the side effect of populating ``Command.registry`` via
 # ``__init_subclass__``. Order matters: ``remove`` must import before
