@@ -2,6 +2,7 @@ from itertools import chain
 import logging
 
 from . import Command, UpdateFn
+from ..target.async_hostgroup import AsyncHostGroup
 from ..types import ExitCode
 
 logger = logging.getLogger("repose.command.add")
@@ -127,6 +128,8 @@ class Add(Command, name="add"):
         # Same orchestration as ``_srun``, but every fan-out is an
         # ``await`` on the AsyncHostGroup. Repoq is still materialised
         # up-front so workers all observe the same instance.
+        if not isinstance(self.targets, AsyncHostGroup):
+            raise TypeError("_arun requires the asyncssh backend")
         _ = self.repoq
         await self.targets.read_products()
         tasks = await self._arun_parallel(self._arun_one)

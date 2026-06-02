@@ -54,6 +54,13 @@ class Command(ABC):
     rrpdtcmd: str = "transactional-update pkg rm -t product -l -f {products}"
     reboot: str = "rebootmgrctl reboot now"
 
+    # Runtime backend selection produces one of two concrete dict-like
+    # host groups. Commands' ``_srun``/``_arun`` bodies pick the
+    # appropriate branch (see :meth:`run`); the union is declared here
+    # so callers narrow it with ``isinstance`` instead of leaning on
+    # blanket type-checker suppressions.
+    targets: AsyncHostGroup | HostGroup
+
     def __init__(self, args: Namespace) -> None:
         __dtargets: dict = {}
 
@@ -74,7 +81,7 @@ class Command(ABC):
             for target in list(targets_a.keys()):
                 if not targets_a[target]:
                     del targets_a[target]
-            self.targets = targets_a  # type: ignore[assignment]
+            self.targets = targets_a
         else:
             targets_s: HostGroup = HostGroup(__dtargets)
             targets_s.connect()
@@ -82,7 +89,7 @@ class Command(ABC):
             for target in list(targets_s.keys()):
                 if not targets_s[target]:
                     del targets_s[target]
-            self.targets = targets_s  # type: ignore[assignment]
+            self.targets = targets_s
 
         self.dryrun: bool = args.dry
         # ``args.config`` is already a ``Path`` (argparse ``type=Path``);
@@ -275,7 +282,7 @@ class Command(ABC):
         self,
         fn: Callable[..., Awaitable[bool]],
         *extra_args: Any,
-    ) -> list[asyncio.Task[bool]]:
+    ) -> list[asyncio.Task[bool | BaseException]]:
         """Async fan-out via :class:`asyncio.TaskGroup`.
 
         Mirror of :meth:`_run_parallel` but every worker is a
@@ -308,7 +315,7 @@ class Command(ABC):
                     )
                     for host in self.targets.keys()
                 ]
-        return tasks  # type: ignore[return-value]
+        return tasks
 
     def _aggregate_tasks(self, tasks: list[asyncio.Task[Any]]) -> ExitCode:
         """Collapse async task results into a process exit code.
