@@ -6,6 +6,7 @@ import pytest
 
 from repose.host import HostParseError, ParseHosts, PortNotIntError
 from repose.target import Target
+from repose.target.async_target import AsyncTarget
 from repose.types.connection_config import ConnectionConfig
 
 
@@ -14,10 +15,21 @@ def test_default_user_and_port():
     assert "example.com" in hosts
 
     target = hosts["example.com"]
-    assert isinstance(target, Target)
+    # Default backend is now ``asyncssh`` (PR 14), so the default
+    # ``ParseHosts`` factory yields ``AsyncTarget``s. Legacy
+    # ``Target`` is still reachable via the explicit
+    # ``ConnectionConfig(ssh_backend="paramiko")`` factory mode.
+    assert isinstance(target, AsyncTarget)
     assert target.hostname == "example.com"
     assert target.username == "root"
     assert target.port == 22
+
+
+def test_paramiko_backend_yields_legacy_target():
+    cfg = ConnectionConfig(ssh_backend="paramiko")
+    hosts = ParseHosts(cfg)("example.com")
+    target = hosts["example.com"]
+    assert isinstance(target, Target)
 
 
 def test_explicit_user_and_port():

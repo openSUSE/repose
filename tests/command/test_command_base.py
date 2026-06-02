@@ -12,7 +12,7 @@ from repose.command._command import Command
 class _Concrete(Command):
     command = True
 
-    def run(self):
+    def _srun(self):
         return 0
 
 
@@ -462,3 +462,72 @@ def test_aggregate_treats_none_result_as_success(monkeypatch):
     cmd, _ = _make(monkeypatch)
     futures = [_ok_future(None), _ok_future(True)]  # type: ignore[arg-type]
     assert cmd._aggregate(futures) == 0
+
+
+# ---------------------------------------------------------------------------
+# _afilter_live_urls  (PR 14: httpx-based async URL probing)
+# ---------------------------------------------------------------------------
+
+
+async def test_afilter_live_urls_returns_only_live(monkeypatch):
+    """Async sibling of ``_filter_live_urls`` — same input/output."""
+    calls: list[str] = []
+
+    async def _probe(url, *, timeout):
+        calls.append(url)
+        return url.endswith("/live/")
+
+    monkeypatch.setattr(cmdmod, "check_repo_url_async", _probe)
+    cmd, _ = _make(monkeypatch)
+
+    repos = [
+        _StubRepo("http://a/dead/"),
+        _StubRepo("http://b/live/"),
+        _StubRepo("http://c/live/"),
+    ]
+    live = await cmd._afilter_live_urls(repos)
+
+    assert sorted(calls) == sorted(r.url for r in repos)
+    assert [r.url for r in live] == ["http://b/live/", "http://c/live/"]
+
+
+async def test_afilter_live_urls_short_circuits_when_no_probe(monkeypatch):
+    calls: list[str] = []
+
+    async def _probe(url, *, timeout):
+        calls.append(url)
+        return False
+
+    monkeypatch.setattr(cmdmod, "check_repo_url_async", _probe)
+    cmd, _ = _make(monkeypatch, args_overrides={"no_probe": True})
+
+    repos = [_StubRepo("http://a/"), _StubRepo("http://b/")]
+    assert await cmd._afilter_live_urls(repos) == repos
+    assert calls == []
+
+
+async def test_afilter_live_urls_forwards_probe_timeout(monkeypatch):
+    seen: list[float] = []
+
+    async def _probe(url, *, timeout):
+        seen.append(timeout)
+        return True
+
+    monkeypatch.setattr(cmdmod, "check_repo_url_async", _probe)
+    cmd, _ = _make(monkeypatch, args_overrides={"probe_timeout": 0.25})
+
+    await cmd._afilter_live_urls([_StubRepo("http://a/"), _StubRepo("http://b/")])
+    assert seen == [0.25, 0.25]
+
+
+async def test_afilter_live_urls_empty_input_is_noop(monkeypatch):
+    calls: list[str] = []
+
+    async def _probe(url, *, timeout):
+        calls.append(url)
+        return True
+
+    monkeypatch.setattr(cmdmod, "check_repo_url_async", _probe)
+    cmd, _ = _make(monkeypatch)
+    assert await cmd._afilter_live_urls([]) == []
+    assert calls == []

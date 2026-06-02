@@ -441,6 +441,48 @@ def test_host_key_policy_default_threads_into_target_config(mock_registry):
 
 
 # ---------------------------------------------------------------------------
+# --ssh-backend  (PR 14: asyncssh rewrite)
+# ---------------------------------------------------------------------------
+
+
+def test_ssh_backend_default_is_asyncssh(mock_registry):
+    result = runner.invoke(app, ["add", "-t", "h", "x"])
+    assert result.exit_code == 0, result.stderr
+    ns = _ns(mock_registry, "add")
+    assert ns.ssh_backend == "asyncssh"
+
+
+@pytest.mark.parametrize("backend", ["asyncssh", "paramiko"])
+def test_ssh_backend_accepts_both_modes(mock_registry, backend):
+    result = runner.invoke(app, [f"--ssh-backend={backend}", "add", "-t", "h", "x"])
+    assert result.exit_code == 0, result.stderr
+    assert _ns(mock_registry, "add").ssh_backend == backend
+
+
+def test_ssh_backend_rejects_unknown_mode(mock_registry):
+    result = runner.invoke(app, ["--ssh-backend=netconf", "add", "-t", "h", "x"])
+    assert result.exit_code != 0
+
+
+def test_ssh_backend_threads_into_target_config(mock_registry):
+    """``--ssh-backend=paramiko`` must reach each ``Target``'s ConnectionConfig."""
+    result = runner.invoke(
+        app,
+        [
+            "--ssh-backend=paramiko",
+            "add",
+            "-t",
+            "h",
+            "SLES:15-SP3:x86_64:",
+        ],
+    )
+    assert result.exit_code == 0, result.stderr
+    ns = _ns(mock_registry, "add")
+    target = next(iter(ns.target[0].values()))
+    assert target.config.ssh_backend == "paramiko"
+
+
+# ---------------------------------------------------------------------------
 # Friendly error handling (moved from old test_main.py — these exercise
 # the ``_dispatch`` exception-translation block in ``repose.cli``)
 # ---------------------------------------------------------------------------

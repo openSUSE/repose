@@ -52,6 +52,11 @@ class HostKeyPolicyChoice(str, Enum):
     off = "off"
 
 
+class SSHBackendChoice(str, Enum):
+    asyncssh = "asyncssh"
+    paramiko = "paramiko"
+
+
 # ---------------------------------------------------------------------------
 # Global state carrier
 # ---------------------------------------------------------------------------
@@ -73,9 +78,11 @@ class CliGlobals:
     format: str = "text"
     strict_host_key_checking: str = "accept-new"
     known_hosts: Optional[Path] = None
+    ssh_backend: str = "asyncssh"
     # The ``ConnectionConfig`` derived from ``strict_host_key_checking``
-    # + ``known_hosts``; threaded into ``ParseHosts`` so ``-t`` parsing
-    # builds ``Target``s with the correct transport policy.
+    # + ``known_hosts`` + ``ssh_backend``; threaded into ``ParseHosts``
+    # so ``-t`` parsing builds ``Target``/``AsyncTarget``s with the
+    # correct transport policy.
     conn_config: ConnectionConfig = ConnectionConfig()
 
 
@@ -155,6 +162,7 @@ def _build_ns(ctx: typer.Context, **subcmd_kwargs: object) -> argparse.Namespace
         format=g.format,
         strict_host_key_checking=g.strict_host_key_checking,
         known_hosts=g.known_hosts,
+        ssh_backend=g.ssh_backend,
         **subcmd_kwargs,
     )
     return ns
@@ -311,6 +319,19 @@ def main_callback(
             help="path to a custom known_hosts file (overrides ~/.ssh/known_hosts)",
         ),
     ] = None,
+    ssh_backend: Annotated[
+        SSHBackendChoice,
+        typer.Option(
+            "--ssh-backend",
+            case_sensitive=False,
+            help=(
+                "SSH backend implementation: "
+                "'asyncssh' (default, structured concurrency, no thread "
+                "pool) or 'paramiko' (legacy, available for one release "
+                "as a safety net while asyncssh settles)"
+            ),
+        ),
+    ] = SSHBackendChoice.asyncssh,
 ) -> None:
     """Repository manipulation tool for QAM."""
     # Mutual exclusion: argparse used a ``mutually_exclusive_group``;
@@ -327,9 +348,11 @@ def main_callback(
     # keeps comparing against ``"json"`` / ``"yes"`` and friends.
     fmt_str = format_.value
     hkp_str = strict_host_key_checking.value
+    backend_str = ssh_backend.value
     cfg = ConnectionConfig(
         host_key_policy=hkp_str,  # type: ignore[arg-type]
         known_hosts=known_hosts,
+        ssh_backend=backend_str,  # type: ignore[arg-type]
     )
     ctx.obj = CliGlobals(
         dry=dry,
@@ -340,6 +363,7 @@ def main_callback(
         format=fmt_str,
         strict_host_key_checking=hkp_str,
         known_hosts=known_hosts,
+        ssh_backend=backend_str,
         conn_config=cfg,
     )
 

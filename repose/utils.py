@@ -32,6 +32,44 @@ def check_repo_url(url: str, *, timeout: float = 5.0) -> bool:
     return False
 
 
+async def check_repo_url_async(url: str, *, timeout: float = 5.0) -> bool:
+    """Async equivalent of :func:`check_repo_url` using ``httpx``.
+
+    Same two-suffix probe order as the sync variant
+    (``repodata/repomd.xml`` then ``suse/repodata/repomd.xml``) so a
+    repository considered live by one backend is also considered live
+    by the other — important for the backend-parity tests. A 2xx-or-3xx
+    response counts as live; anything else (4xx/5xx, timeout, network
+    error) counts as dead, mirroring the sync ``urlopen``-throws
+    semantic.
+
+    HEAD is used in preference to GET to avoid pulling the full
+    ``repomd.xml`` payload, with a GET fallback because some mirrors
+    return 405 on HEAD even though the resource exists.
+
+    A short-lived ``httpx.AsyncClient`` is created per call; the
+    cohort-level batching is the caller's job
+    (:meth:`Command._afilter_live_urls`).
+    """
+    import httpx
+
+    async with httpx.AsyncClient(timeout=timeout) as client:
+        for suffix in ("repodata/repomd.xml", "suse/repodata/repomd.xml"):
+            target = url + suffix
+            try:
+                resp = await client.head(target, follow_redirects=True)
+                if resp.status_code < 400:
+                    return True
+                if resp.status_code == 405:
+                    # Some mirrors disallow HEAD; retry with GET.
+                    resp = await client.get(target, follow_redirects=True)
+                    if resp.status_code < 400:
+                        return True
+            except (httpx.HTTPError, OSError):
+                continue
+    return False
+
+
 def _color_enabled() -> bool:
     """Decide whether ANSI color sequences should be emitted.
 

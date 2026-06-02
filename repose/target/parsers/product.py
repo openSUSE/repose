@@ -9,6 +9,13 @@ from ..parsers import Product
 logger = logging.getLogger("repose.tartget.parsers.product")
 
 
+# Local alias to keep the async-backend type-hint accurate without
+# importing :mod:`repose.aiossh` at module-load time (avoids pulling
+# asyncssh into the sync paramiko path's import graph).
+if False:  # TYPE_CHECKING — but cheaper for ty/ruff
+    from ...aiossh import AsyncConnection  # noqa: F401
+
+
 def __parse_product(prod: Any) -> tuple[str, str, str]:
     root = ET.fromstringlist(prod)
     name = root.find("./name").text  # ty: ignore[unresolved-attribute]  # FOLLOWUP-ty-residuals
@@ -74,6 +81,62 @@ def parse_system(connection: Connection) -> System:
 
     for x in files:
         with connection.open(f"/etc/products.d/{x}") as f:
+            logger.debug("parsing - %s", x)
+            name, version, arch = __parse_product(f)
+            if name.rpartition("-")[-1] != "migration":
+                addons.add(Product(name, version, arch))
+    return System(base, addons)
+
+
+async def parse_system_async(connection: Any) -> System:
+    """Async equivalent of :func:`parse_system` for ``AsyncConnection``.
+
+    Structure mirrors the sync version line-for-line — only the I/O
+    calls (``listdir``, ``readlink``, ``open``) are ``await``ed. The
+    ``_AsyncSFTPFileCtx`` returned by ``AsyncConnection.open`` exposes
+    a sync iterator over its cached contents so the ``__parse_product``
+    /``__parse_os_release`` bodies stay unchanged.
+
+    ``connection`` is typed as ``Any`` because importing ``AsyncConnection``
+    at module load would force asyncssh into the sync paramiko path's
+    import graph for zero runtime benefit.
+    """
+    files: list[str] = []
+    try:
+        files = [
+            x
+            for x in await connection.listdir("/etc/products.d")
+            if x.endswith(".prod")
+        ]
+    except OSError:
+        logger.debug("Not SUSE's system")
+        suse = False
+    else:
+        suse = True
+
+    if not suse:
+        try:
+            async with connection.open("/etc/os-release") as f:
+                name, version, arch = __parse_os_release(f)
+        except FileNotFoundError:
+            return System(Product("rhel", "6", "x86_64"))
+
+        return System(Product(name, version, arch))
+
+    basefile = await connection.readlink("/etc/products.d/baseproduct")
+    if "/" in basefile:  # ty: ignore[unsupported-operator]  # FOLLOWUP-ty-residuals
+        basefile = basefile.split("/")[-1]  # ty: ignore[unresolved-attribute]  # FOLLOWUP-ty-residuals
+    files.remove(basefile)  # ty: ignore[invalid-argument-type]  # FOLLOWUP-ty-residuals
+
+    async with connection.open(f"/etc/products.d/{basefile}") as f:
+        logger.debug("Parsing basefile")
+        name, version, arch = __parse_product(f)
+        base = Product(name, version, arch)
+
+    addons = set()
+
+    for x in files:
+        async with connection.open(f"/etc/products.d/{x}") as f:
             logger.debug("parsing - %s", x)
             name, version, arch = __parse_product(f)
             if name.rpartition("-")[-1] != "migration":

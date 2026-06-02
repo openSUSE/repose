@@ -1,22 +1,24 @@
 from abc import ABC, abstractmethod
 from argparse import Namespace
+import asyncio
 import concurrent.futures
 from concurrent.futures import Future
 import functools
 import logging
 import sys
 from pathlib import Path
-from typing import Any, Callable, ClassVar, Iterable
+from typing import Any, Awaitable, Callable, ClassVar, Iterable
 
 from ..console import Console
 from ..display import CommandDisplay, JsonCommandDisplay
 from ..progress import Progress
+from ..target.async_hostgroup import AsyncHostGroup
 from ..target.hostgroup import HostGroup
 from ..template import load_template
 from ..template.resolver import Repoq
 from ..types import ExitCode
 from ..types.repa import Repa
-from ..utils import check_repo_url
+from ..utils import check_repo_url, check_repo_url_async
 
 logger = logging.getLogger("repose.command")
 
@@ -59,14 +61,28 @@ class Command(ABC):
             for x in args.target:
                 __dtargets.update(x)
 
-        targets = HostGroup(__dtargets)
-        targets.connect()
+        # Backend selection. ``ssh_backend`` is set unconditionally by
+        # the typer CLI; tests that build a Namespace directly may
+        # omit it — default to "paramiko" there so the sync path
+        # remains the unchanged baseline for legacy fixtures.
+        self.ssh_backend: str = getattr(args, "ssh_backend", "paramiko")
+        self._is_async: bool = self.ssh_backend == "asyncssh"
 
-        # cann't  use dict comprehension - custom dict for hostgroup:(
-        for target in list(targets.keys()):
-            if not targets[target]:
-                del targets[target]
-        self.targets = targets
+        if self._is_async:
+            targets_a: AsyncHostGroup = AsyncHostGroup(__dtargets)
+            asyncio.run(targets_a.connect())
+            for target in list(targets_a.keys()):
+                if not targets_a[target]:
+                    del targets_a[target]
+            self.targets = targets_a  # type: ignore[assignment]
+        else:
+            targets_s: HostGroup = HostGroup(__dtargets)
+            targets_s.connect()
+            # cann't  use dict comprehension - custom dict for hostgroup:(
+            for target in list(targets_s.keys()):
+                if not targets_s[target]:
+                    del targets_s[target]
+            self.targets = targets_s  # type: ignore[assignment]
 
         self.dryrun: bool = args.dry
         # ``args.config`` is already a ``Path`` (argparse ``type=Path``);
@@ -233,6 +249,98 @@ class Command(ABC):
             return 2
         return 1
 
+    async def _aworker(
+        self,
+        fn: Callable[..., Awaitable[bool]],
+        host: str,
+        prog: Progress,
+        extra: tuple[Any, ...],
+    ) -> bool:
+        """Async sibling of :meth:`_worker`.
+
+        Same progress-bookkeeping contract; awaits the coroutine
+        produced by ``fn`` instead of calling a sync function. Used
+        by :meth:`_arun_parallel` on the asyncssh backend.
+        """
+        prog.update(host, "running")
+        try:
+            ok = await fn(host, prog.update, *extra)
+        except Exception:
+            prog.update(host, "[red]failed")
+            raise
+        prog.update(host, "[green]done" if ok else "[red]failed")
+        return ok
+
+    async def _arun_parallel(
+        self,
+        fn: Callable[..., Awaitable[bool]],
+        *extra_args: Any,
+    ) -> list[asyncio.Task[bool]]:
+        """Async fan-out via :class:`asyncio.TaskGroup`.
+
+        Mirror of :meth:`_run_parallel` but every worker is a
+        coroutine. Per-host exceptions are *not* swallowed here — they
+        surface on the returned tasks and feed :meth:`_aggregate_tasks`
+        for exit-code propagation, exactly like the sync path's
+        ``Future.exception()`` flow.
+
+        The progress overlay (rich ``Live``) is started on the main
+        thread before any coroutine runs; this is the same invariant
+        the sync path relies on and keeps the asyncssh path free of
+        thread-vs-event-loop renderer interactions.
+        """
+
+        # Trap exceptions inside the per-task wrapper so the TaskGroup
+        # default cancel-siblings semantic doesn't tear down hosts
+        # that are still making forward progress when one fails.
+        async def _trap(coro: Awaitable[bool]) -> bool | BaseException:
+            try:
+                return await coro
+            except BaseException as exc:  # noqa: BLE001
+                return exc
+
+        with self._make_progress() as prog:
+            async with asyncio.TaskGroup() as tg:
+                tasks = [
+                    tg.create_task(
+                        _trap(self._aworker(fn, host, prog, extra_args)),
+                        name=f"arun:{host}",
+                    )
+                    for host in self.targets.keys()
+                ]
+        return tasks  # type: ignore[return-value]
+
+    def _aggregate_tasks(self, tasks: list[asyncio.Task[Any]]) -> ExitCode:
+        """Collapse async task results into a process exit code.
+
+        Mirror of :meth:`_aggregate` but consumes ``asyncio.Task`` —
+        plus the ``_trap`` wrapper in :meth:`_arun_parallel` may have
+        returned a ``BaseException`` instance instead of raising;
+        treat such returns as failures.
+
+        Returns the same 0/1/2 triplet as the sync aggregator.
+        """
+        total = len(tasks)
+        if total == 0:
+            return 0
+        failed = 0
+        for t in tasks:
+            # Tasks always finished by the time TaskGroup exited.
+            if t.exception() is not None:
+                failed += 1
+                continue
+            result = t.result()
+            if isinstance(result, BaseException):
+                failed += 1
+                continue
+            if result is False:
+                failed += 1
+        if failed == 0:
+            return 0
+        if failed == total:
+            return 2
+        return 1
+
     def _filter_live_urls(self, repos: Iterable[Any]) -> list[Any]:
         """Return only the repos whose URL passes ``check_repo_url``.
 
@@ -259,6 +367,57 @@ class Command(ABC):
             )
         return [r for r, ok in zip(repos, alive) if ok]
 
-    @abstractmethod
+    async def _afilter_live_urls(self, repos: Iterable[Any]) -> list[Any]:
+        """Async equivalent of :meth:`_filter_live_urls` using ``httpx``.
+
+        Same contract — ``no_probe`` short-circuits, ``probe_timeout``
+        bounds each probe, the returned list preserves input order —
+        and the same effective concurrency cap of 16 (via a
+        ``asyncio.Semaphore``) so a single mirror doesn't see a
+        thundering herd of connections from one cohort.
+        """
+        repos = list(repos)
+        if self.no_probe or not repos:
+            return repos
+        sem = asyncio.Semaphore(min(16, len(repos)))
+
+        async def _gated(repo: Any) -> bool:
+            async with sem:
+                return await check_repo_url_async(repo.url, timeout=self.probe_timeout)
+
+        alive = await asyncio.gather(*(_gated(r) for r in repos))
+        return [r for r, ok in zip(repos, alive) if ok]
+
+    # ------------------------------------------------------------------
+    # Public entry point
+    # ------------------------------------------------------------------
+
     def run(self) -> ExitCode:
+        """Dispatch to the sync or async command body.
+
+        Concrete subclasses implement :meth:`_srun` (sync, paramiko
+        backend) and optionally :meth:`_arun` (async, asyncssh
+        backend). When a subclass omits ``_arun`` we fall through to
+        ``_srun`` even on the async backend — this is the safety net
+        for read-only commands whose work is in-memory only (list,
+        known-products) and don't benefit from an async rewrite.
+        """
+        if self._is_async and type(self)._arun is not Command._arun:
+            return asyncio.run(self._arun())
+        return self._srun()
+
+    @abstractmethod
+    def _srun(self) -> ExitCode:
+        """Sync command body — runs on the paramiko backend."""
         return 0
+
+    async def _arun(self) -> ExitCode:
+        """Async command body — overridden by subclasses that need it.
+
+        The default raises ``NotImplementedError``; commands that don't
+        override it must still work because :meth:`run` only routes
+        here when ``_arun`` is overridden (the ``Command._arun`` identity
+        check above). The body remains so subclasses have a canonical
+        signature to override against.
+        """
+        raise NotImplementedError(f"{type(self).__name__}._arun() is not implemented")
