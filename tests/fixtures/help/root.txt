@@ -22,6 +22,12 @@ Options:
                                   [default: accept-new]
   --known-hosts PATH              path to a custom known_hosts file (overrides
                                   ~/.ssh/known_hosts)
+  --ssh-backend [asyncssh|paramiko]
+                                  SSH backend implementation: 'asyncssh'
+                                  (default, structured concurrency, no thread
+                                  pool) or 'paramiko' (legacy, available for one
+                                  release as a safety net while asyncssh
+                                  settles)  [default: asyncssh]
   --install-completion            Install completion for the current shell.
   --show-completion               Show completion for the current shell, to copy
                                   it or customize the installation.

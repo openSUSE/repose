@@ -72,7 +72,51 @@ class Uninstall(Remove, name="uninstall"):
             logger.info("Reboot %s to switch into updated snapshot", host)
         return ok
 
-    def run(self) -> ExitCode:
+    async def _arun_one(self, host: str, update: UpdateFn, *args: Any) -> bool:
+        orepa = args[0]
+        update(host, "computing patterns")
+        patterns = self._calculate_pattern(orepa, host)
+        if not patterns:
+            logger.info("For %s no products for remove found", host)
+            return True
+
+        rdict = self._calculate_repodict(host, patterns)
+        if not rdict:
+            logger.info("For %s no repos for remove found", host)
+            rrcmd = False
+        else:
+            rrcmd = self.rrcmd.format(
+                repos=" ".join(chain.from_iterable(rdict.values()))
+            )
+
+        transactional = any(p.split(":", 1)[0] == "SL-Micro" for p in patterns)
+        products_arg = " ".join(x.split(":")[0] for x in patterns)
+        if transactional:
+            pdcmd = self.rrpdtcmd.format(products=products_arg)
+        else:
+            pdcmd = self.rrpcmd.format(products=products_arg)
+
+        if self.dryrun:
+            if rrcmd:
+                self.console.dry(host, rrcmd)
+            self.console.dry(host, pdcmd)
+            return True
+
+        ok = True
+        if rrcmd:
+            update(host, "removing repos")
+            await self.targets[host].run(rrcmd)
+            if not self._report_target(host):
+                ok = False
+        update(host, "removing products")
+        await self.targets[host].run(pdcmd)
+        if not self._report_target(host):
+            ok = False
+        if transactional:
+            logger.info("Reboot %s to switch into updated snapshot", host)
+        return ok
+
+    def _srun(self) -> ExitCode:
         self.targets.read_repos()
         self.targets.parse_repos()
         orepa = [dataclasses.replace(r, repo=None) for r in self.repa]
@@ -80,3 +124,12 @@ class Uninstall(Remove, name="uninstall"):
         futures = self._run_parallel(self._run, orepa)
         self.targets.close()
         return self._aggregate(futures)
+
+    async def _arun(self) -> ExitCode:
+        await self.targets.read_repos()
+        await self.targets.parse_repos()
+        orepa = [dataclasses.replace(r, repo=None) for r in self.repa]
+
+        tasks = await self._arun_parallel(self._arun_one, orepa)
+        await self.targets.close()
+        return self._aggregate_tasks(tasks)

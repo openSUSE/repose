@@ -196,6 +196,29 @@ repose --strict-host-key-checking=yes \
        add -t fubar.suse.cz sle-sdk
 ```
 
+## SSH Backend
+
+Repose ships two SSH implementations selectable with `--ssh-backend`:
+
+- `asyncssh` (default) — structured concurrency on top of `asyncio`. No
+  threadpool, so it scales to hundreds of refhosts without thread
+  pressure. Ctrl-C cancels every in-flight host coroutine cleanly.
+- `paramiko` — the legacy threaded backend. Available for one release
+  as a safety net while `asyncssh` settles in real-world deployments;
+  scheduled for removal in the following release.
+
+Both backends honour the same `--strict-host-key-checking`,
+`--known-hosts`, and `~/.ssh/config` directives, so the only
+user-visible difference should be runtime characteristics. If you hit
+a behaviour regression after upgrading, switch back temporarily:
+
+```
+repose --ssh-backend=paramiko reset -t fubar.suse.cz
+```
+
+…and please file a bug so the parity gap can be closed before the
+paramiko backend is removed.
+
 ## License
 
 This project is licensed under the GPLv3 license, see LICENSE file for

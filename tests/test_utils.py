@@ -158,3 +158,95 @@ def test_check_repo_url_custom_timeout_is_forwarded(monkeypatch):
     repose.utils.check_repo_url("http://example.com/", timeout=0.5)
     # Both probes attempted, both saw the custom timeout.
     assert seen == [0.5, 0.5]
+
+
+# ---------------------------------------------------------------------------
+# check_repo_url_async  (PR 14: httpx-based parallel probing)
+# ---------------------------------------------------------------------------
+
+
+import httpx  # noqa: E402
+
+from unittest.mock import AsyncMock  # noqa: E402
+
+
+def _async_client_returning(responses: list[object]):
+    """Patch ``httpx.AsyncClient`` to yield a context manager whose
+    ``.head`` / ``.get`` consume the given response queue."""
+    client = MagicMock()
+    queue = list(responses)
+
+    async def _next(target, **kw):
+        return queue.pop(0)
+
+    client.head = _next
+    client.get = _next
+    cm = MagicMock()
+    cm.__aenter__ = AsyncMock(return_value=client)
+    cm.__aexit__ = AsyncMock(return_value=None)
+    factory = MagicMock(return_value=cm)
+    return factory
+
+
+async def test_check_repo_url_async_returns_true_on_2xx(monkeypatch):
+    ok = MagicMock(status_code=200)
+    monkeypatch.setattr(httpx, "AsyncClient", _async_client_returning([ok]))
+    assert (await repose.utils.check_repo_url_async("http://example.com/")) is True
+
+
+async def test_check_repo_url_async_falls_back_to_suse_layout(monkeypatch):
+    """First probe (repodata/) → 404; second (suse/repodata/) → 200."""
+    bad = MagicMock(status_code=404)
+    good = MagicMock(status_code=200)
+    monkeypatch.setattr(httpx, "AsyncClient", _async_client_returning([bad, good]))
+    assert (await repose.utils.check_repo_url_async("http://example.com/")) is True
+
+
+async def test_check_repo_url_async_returns_false_when_both_4xx(monkeypatch):
+    bad = MagicMock(status_code=404)
+    monkeypatch.setattr(httpx, "AsyncClient", _async_client_returning([bad, bad]))
+    assert (await repose.utils.check_repo_url_async("http://example.com/")) is False
+
+
+async def test_check_repo_url_async_swallows_httpx_errors(monkeypatch):
+    """A ``httpx.HTTPError`` (e.g. ConnectError) is treated as dead."""
+
+    async def _raise(target, **kw):
+        raise httpx.ConnectError("refused")
+
+    client = MagicMock()
+    client.head = _raise
+    client.get = _raise
+    cm = MagicMock()
+    cm.__aenter__ = AsyncMock(return_value=client)
+    cm.__aexit__ = AsyncMock(return_value=None)
+    monkeypatch.setattr(httpx, "AsyncClient", MagicMock(return_value=cm))
+
+    assert (await repose.utils.check_repo_url_async("http://example.com/")) is False
+
+
+async def test_check_repo_url_async_retries_get_on_405(monkeypatch):
+    """A 405 on HEAD must trigger a GET retry; a 200 on GET wins."""
+    head_405 = MagicMock(status_code=405)
+    get_200 = MagicMock(status_code=200)
+
+    calls: list[str] = []
+
+    async def _head(target, **kw):
+        calls.append("head")
+        return head_405
+
+    async def _get(target, **kw):
+        calls.append("get")
+        return get_200
+
+    client = MagicMock()
+    client.head = _head
+    client.get = _get
+    cm = MagicMock()
+    cm.__aenter__ = AsyncMock(return_value=client)
+    cm.__aexit__ = AsyncMock(return_value=None)
+    monkeypatch.setattr(httpx, "AsyncClient", MagicMock(return_value=cm))
+
+    assert (await repose.utils.check_repo_url_async("http://example.com/")) is True
+    assert calls == ["head", "get"]

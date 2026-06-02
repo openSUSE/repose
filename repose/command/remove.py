@@ -71,9 +71,38 @@ class Remove(Command, name="remove"):
         self.targets[host].run(cmd)
         return self._report_target(host)
 
-    def run(self) -> ExitCode:
+    async def _arun_one(self, host: str, update: UpdateFn, *args: Any) -> bool:
+        update(host, "computing patterns")
+        patterns = self._calculate_pattern(self.repa, host)
+
+        if not patterns:
+            logger.info("For %s no repos for remove found", host)
+            return True
+        repolist = self._calculate_repolist(host, patterns)
+
+        if not repolist:
+            logger.info("For %s no repos for remove found", host)
+            return True
+        cmd = self.rrcmd.format(repos=" ".join(repolist))
+
+        if self.dryrun:
+            self.console.dry(host, cmd)
+            return True
+
+        update(host, f"removing {len(repolist)} repo(s)")
+        await self.targets[host].run(cmd)
+        return self._report_target(host)
+
+    def _srun(self) -> ExitCode:
         self.targets.read_repos()
         self.targets.parse_repos()
         futures = self._run_parallel(self._run)
         self.targets.close()
         return self._aggregate(futures)
+
+    async def _arun(self) -> ExitCode:
+        await self.targets.read_repos()
+        await self.targets.parse_repos()
+        tasks = await self._arun_parallel(self._arun_one)
+        await self.targets.close()
+        return self._aggregate_tasks(tasks)

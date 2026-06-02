@@ -1,7 +1,9 @@
 from argparse import ArgumentTypeError
+from typing import Any
 from urllib.parse import urlparse
 
 from .target import Target
+from .target.async_target import AsyncTarget
 from .types.connection_config import ConnectionConfig
 
 
@@ -19,8 +21,15 @@ class PortNotIntError(HostParseError):
         super().__init__(f"Wrong port specification on Host: {hostname}")
 
 
-def _parse_host_string(arg: str, config: ConnectionConfig) -> dict[str, Target]:
-    """Parse a ``[user@]host[:port]`` string into a ``{key: Target}`` dict."""
+def _parse_host_string(arg: str, config: ConnectionConfig) -> dict[str, Any]:
+    """Parse a ``[user@]host[:port]`` string into a ``{key: Target}`` dict.
+
+    The concrete target type — ``Target`` (paramiko) or ``AsyncTarget``
+    (asyncssh) — is selected by ``config.ssh_backend``. The dict's
+    value type is widened to ``Any`` because callers handle both
+    synchronously: ``HostGroup``/``AsyncHostGroup`` only ever wrap one
+    flavour of target at a time, picked the same way upstream.
+    """
     x = urlparse(f"//{arg}")
     hostname = x.hostname or ""
     try:
@@ -33,7 +42,8 @@ def _parse_host_string(arg: str, config: ConnectionConfig) -> dict[str, Target]:
 
         username = x.username if x.username else "root"
 
-        return {keyname: Target(hostname, port, username, config=config)}
+        target_cls: type = AsyncTarget if config.ssh_backend == "asyncssh" else Target
+        return {keyname: target_cls(hostname, port, username, config=config)}
     except ValueError:
         raise PortNotIntError(hostname)
 
