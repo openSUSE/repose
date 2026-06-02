@@ -7,7 +7,7 @@ import functools
 import logging
 import sys
 from pathlib import Path
-from typing import Any, Awaitable, Callable, ClassVar, Iterable
+from typing import Any, Awaitable, Callable, ClassVar, Iterable, cast
 
 from ..console import Console
 from ..display import CommandDisplay, JsonCommandDisplay
@@ -76,12 +76,16 @@ class Command(ABC):
         self._is_async: bool = self.ssh_backend == "asyncssh"
 
         if self._is_async:
-            targets_a: AsyncHostGroup = AsyncHostGroup(__dtargets)
-            asyncio.run(targets_a.connect())
-            for target in list(targets_a.keys()):
-                if not targets_a[target]:
-                    del targets_a[target]
-            self.targets = targets_a
+            # Do NOT call ``asyncio.run(targets_a.connect())`` here.
+            # That would bind the underlying asyncssh ``SSHClientConnection``
+            # objects (and their internal Futures) to a loop that is torn
+            # down the moment ``asyncio.run`` returns. The later
+            # ``asyncio.run(self._arun())`` in :meth:`run` would then touch
+            # those Futures from a *different* loop, raising
+            # ``got Future <...> attached to a different loop``. Defer
+            # the connect-and-prune step into :meth:`run` so it shares the
+            # one loop that also drives ``_arun``.
+            self.targets = AsyncHostGroup(__dtargets)
         else:
             targets_s: HostGroup = HostGroup(__dtargets)
             targets_s.connect()
@@ -408,10 +412,55 @@ class Command(ABC):
         ``_srun`` even on the async backend — this is the safety net
         for read-only commands whose work is in-memory only (list,
         known-products) and don't benefit from an async rewrite.
+
+        On the async backend we drive ``connect`` *and* ``_arun``
+        inside a single ``asyncio.run`` so the asyncssh connections
+        (and their internal Futures) stay bound to one loop for the
+        entire command lifetime — see the matching note in
+        :meth:`__init__`.
         """
         if self._is_async and type(self)._arun is not Command._arun:
-            return asyncio.run(self._arun())
+            return asyncio.run(self._aentry())
+        if self._is_async:
+            # Async backend but no ``_arun``: still need to bring the
+            # connections up (and prune dead hosts) before falling
+            # back to the sync body, which only inspects in-memory
+            # state populated by the sync HostGroup. The sync body
+            # here is a read-only helper (list, known-products) that
+            # doesn't touch ``self.targets`` for I/O, so no further
+            # bridging is required.
+            asyncio.run(self._aconnect_and_prune())
+            return self._srun()
         return self._srun()
+
+    async def _aconnect_and_prune(self) -> None:
+        """Open every host and drop the ones that failed to connect.
+
+        Mirrors the per-host pruning the sync branch does in
+        ``__init__``: ``connect()`` populates ``is_connected`` and the
+        falsy targets get removed so subsequent fan-outs only iterate
+        the live set. Reached only via :meth:`run` after the
+        ``_is_async`` gate, so ``self.targets`` is always an
+        ``AsyncHostGroup`` here — the ``cast`` keeps the type-checker
+        happy without a runtime ``isinstance`` (which would also reject
+        the ``MagicMock`` replacement used in unit tests).
+        """
+        targets = cast(AsyncHostGroup, self.targets)
+        await targets.connect()
+        for target in list(targets.keys()):
+            if not targets[target]:
+                del targets[target]
+
+    async def _aentry(self) -> ExitCode:
+        """Connect, prune, then run the subclass ``_arun`` body.
+
+        Single coroutine so :meth:`run` only invokes ``asyncio.run``
+        once per command. Keeping the connect step here (and not in
+        ``__init__``) is what keeps asyncssh's per-connection Futures
+        bound to the loop that ``_arun`` later awaits on.
+        """
+        await self._aconnect_and_prune()
+        return await self._arun()
 
     @abstractmethod
     def _srun(self) -> ExitCode:
