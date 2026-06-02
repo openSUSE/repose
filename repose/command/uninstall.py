@@ -5,6 +5,7 @@ from typing import Any
 
 from . import UpdateFn
 from .remove import Remove
+from ..target.async_hostgroup import AsyncHostGroup
 from ..types import ExitCode
 
 
@@ -126,6 +127,8 @@ class Uninstall(Remove, name="uninstall"):
         return self._aggregate(futures)
 
     async def _arun(self) -> ExitCode:
+        if not isinstance(self.targets, AsyncHostGroup):
+            raise TypeError("_arun requires the asyncssh backend")
         await self.targets.read_repos()
         await self.targets.parse_repos()
         orepa = [dataclasses.replace(r, repo=None) for r in self.repa]

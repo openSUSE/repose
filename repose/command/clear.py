@@ -1,6 +1,7 @@
 import logging
 
 from . import Command, UpdateFn
+from ..target.async_hostgroup import AsyncHostGroup
 from ..types import ExitCode
 
 
@@ -42,6 +43,8 @@ class Clear(Command, name="clear"):
         return self._aggregate(futures)
 
     async def _arun(self) -> ExitCode:
+        if not isinstance(self.targets, AsyncHostGroup):
+            raise TypeError("_arun requires the asyncssh backend")
         await self.targets.read_repos()
         tasks = await self._arun_parallel(self._arun_one)
         await self.targets.close()

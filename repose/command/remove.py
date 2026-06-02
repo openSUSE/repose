@@ -2,6 +2,7 @@ import logging
 from typing import Any, Iterable
 
 from . import Command, UpdateFn
+from ..target.async_hostgroup import AsyncHostGroup
 from ..types import ExitCode
 from ..types.repa import Repa
 
@@ -101,6 +102,8 @@ class Remove(Command, name="remove"):
         return self._aggregate(futures)
 
     async def _arun(self) -> ExitCode:
+        if not isinstance(self.targets, AsyncHostGroup):
+            raise TypeError("_arun requires the asyncssh backend")
         await self.targets.read_repos()
         await self.targets.parse_repos()
         tasks = await self._arun_parallel(self._arun_one)

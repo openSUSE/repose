@@ -124,9 +124,9 @@ async def parse_system_async(connection: Any) -> System:
         return System(Product(name, version, arch))
 
     basefile = await connection.readlink("/etc/products.d/baseproduct")
-    if "/" in basefile:  # ty: ignore[unsupported-operator]  # FOLLOWUP-ty-residuals
-        basefile = basefile.split("/")[-1]  # ty: ignore[unresolved-attribute]  # FOLLOWUP-ty-residuals
-    files.remove(basefile)  # ty: ignore[invalid-argument-type]  # FOLLOWUP-ty-residuals
+    if "/" in basefile:  # FOLLOWUP-ty-residuals
+        basefile = basefile.split("/")[-1]  # FOLLOWUP-ty-residuals
+    files.remove(basefile)  # FOLLOWUP-ty-residuals
 
     async with connection.open(f"/etc/products.d/{basefile}") as f:
         logger.debug("Parsing basefile")

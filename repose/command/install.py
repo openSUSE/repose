@@ -2,6 +2,7 @@ from itertools import chain
 import logging
 
 from . import Command, UpdateFn
+from ..target.async_hostgroup import AsyncHostGroup
 from ..types import ExitCode
 
 logger = logging.getLogger("repose.command.install")
@@ -140,6 +141,8 @@ class Install(Command, name="install"):
         return self._aggregate(futures)
 
     async def _arun(self) -> ExitCode:
+        if not isinstance(self.targets, AsyncHostGroup):
+            raise TypeError("_arun requires the asyncssh backend")
         _ = self.repoq
         await self.targets.read_products()
         await self.targets.read_repos()

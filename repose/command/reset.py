@@ -3,6 +3,7 @@ import logging
 
 from . import UpdateFn
 from ..messages import UnsuportedProductMessage
+from ..target.async_hostgroup import AsyncHostGroup
 from ..types import ExitCode
 from .clear import Clear
 
@@ -107,6 +108,8 @@ class Reset(Clear, name="reset"):
         return self._aggregate(futures)
 
     async def _arun(self) -> ExitCode:
+        if not isinstance(self.targets, AsyncHostGroup):
+            raise TypeError("_arun requires the asyncssh backend")
         _ = self.repoq
         await self.targets.read_products()
         await self.targets.read_repos()
