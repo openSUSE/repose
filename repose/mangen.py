@@ -52,8 +52,12 @@ def _pinned_source_date() -> Iterator[None]:
         yield
     finally:
         if had_value:
-            # mypy: ``prior`` is ``str`` because ``had_value`` is True.
-            os.environ["SOURCE_DATE_EPOCH"] = prior  # type: ignore[assignment]
+            # ``had_value`` is True iff the key was present at entry,
+            # which means ``prior`` was bound to ``os.environ[...]``
+            # and is therefore ``str`` (never ``None``). The assert
+            # narrows the type for the static checker.
+            assert prior is not None
+            os.environ["SOURCE_DATE_EPOCH"] = prior
         else:
             os.environ.pop("SOURCE_DATE_EPOCH", None)
 
