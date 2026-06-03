@@ -1,0 +1,5 @@
+# Generated man pages — produced by `uv run repose-mangen`. Marking
+# them as generated keeps GitHub from counting them in language stats
+# and auto-collapses them in pull-request diffs. CI's `man-drift` job
+# regenerates and ensures they stay in sync with repose/cli.py.
+docs/man/*.1 linguist-generated=true

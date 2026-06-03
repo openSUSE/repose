@@ -1,1 +1,2 @@
 include docs/*
+recursive-include docs/man *.1
