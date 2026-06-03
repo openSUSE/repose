@@ -15,6 +15,35 @@ zypper ar -f http://download.suse.de/ibs/QA:/Maintenance/$DISTRO/ qam-infra
 zypper -n in repose
 ```
 
+After install, `man repose` shows the full command reference.
+
+## Shell completion
+
+Repose ships shell-completion support for bash, zsh, and fish via Typer's
+built-in machinery. Install once into your shell's rc file:
+
+```
+repose --install-completion bash   # or: zsh, fish
+```
+
+Then in a new shell, tab-complete subcommands, flags, and REPA product
+prefixes:
+
+```
+repose <TAB>           # add remove reset install clear uninstall ...
+repose add -t host <TAB>  # SLES sle-sdk sle-module-... (from products.yml)
+```
+
+To preview the completion script without installing it:
+
+```
+repose --show-completion zsh
+```
+
+REPA-prefix completion reads `/etc/repose/products.yml` (or the path passed
+to `-c/--config`). If the file is unreadable, completion silently returns no
+suggestions rather than erroring in your shell.
+
 ## Internal Functionality
 
 Repose reports or modifies the package repositories in one or more refhosts

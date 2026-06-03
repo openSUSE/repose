@@ -27,6 +27,7 @@ from repose import __version__
 from repose.colorlog import create_logger
 from repose.command import Command
 from repose.host import ParseHosts
+from repose.template import load_template
 from repose.types.connection_config import ConnectionConfig
 from repose.types.repa import Repa
 
@@ -136,6 +137,39 @@ def _target_parser(value: str) -> ParseHosts:
 def _repa_parser(value: str) -> Repa:
     """Parser shim for each ``REPA`` positional token."""
     return Repa(value)
+
+
+def _complete_repa(ctx: typer.Context, incomplete: str) -> list[str]:
+    """Shell-completion callback for ``REPA`` positional arguments.
+
+    Reads the products YAML pointed at by ``-c/--config`` (or the
+    default ``/etc/repose/products.yml``) and returns product-name
+    prefixes that match ``incomplete``. Completes only the first
+    colon-separated segment (the product); subsequent segments
+    (``:VERSION:ARCH:REPO``) are left to free-form user input.
+
+    Any failure to read or parse the YAML — missing file, permission
+    error, malformed YAML — collapses to an empty completion list so
+    the user's shell never raises mid-keystroke.
+    """
+    # The root callback populates ``ctx.obj``; during completion it
+    # has typically already run. Fall back gracefully if not.
+    config_path: Path | None = None
+    obj = getattr(ctx, "obj", None)
+    if isinstance(obj, CliGlobals):
+        config_path = obj.config
+    if config_path is None:
+        config_path = Path("/etc/repose/products.yml")
+    try:
+        template = load_template(config_path)
+    except (OSError, YAMLError):
+        return []
+    # Only complete the first ``:``-separated segment (product name).
+    # If the user has already typed past a colon, return nothing so we
+    # don't clobber the version/arch/repo they're filling in by hand.
+    if ":" in incomplete:
+        return []
+    return sorted(name for name in template.keys() if name.startswith(incomplete))
 
 
 # ---------------------------------------------------------------------------
@@ -407,6 +441,7 @@ RepaArg = Annotated[
         metavar="REPA",
         parser=_repa_parser,
         help="REPA pattern specification for needed repository",
+        autocompletion=_complete_repa,
     ),
 ]
 ProbeTimeoutOpt = Annotated[

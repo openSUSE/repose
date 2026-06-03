@@ -39,3 +39,20 @@ jobs:
         run: uv sync
       - name: Test with pytest
         run: uv run pytest --cov=repose --cov-fail-under=80
+  man-drift:
+    # Regenerates docs/man/*.1 from the Typer CLI and fails if the
+    # committed pages drift from what `uv run repose-mangen` produces.
+    # Catches the case where a contributor edits a subcommand's help
+    # text or flags but forgets to refresh the man pages.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v7
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: uv sync
+      - name: Regenerate man pages
+        run: uv run repose-mangen
+      - name: Check for drift
+        run: git diff --exit-code -- docs/man/
