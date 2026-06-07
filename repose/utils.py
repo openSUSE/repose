@@ -91,21 +91,45 @@ def _color_enabled() -> bool:
     return bool(isatty and isatty())
 
 
-def green(xs) -> str:
-    s = str(xs)
-    return "\033[1;32m{}\033[1;m".format(s) if _color_enabled() else s
+def green(xs: str) -> str:
+    """Wraps a string in ANSI escape codes to make it green.
+
+    Honours the runtime colour mode (see :mod:`mtui.colorctl`); returns
+    the input unchanged when colour is disabled.
+    """
+    if not _color_enabled():
+        return str(xs)
+    return f"\033[1;32m{xs!s}\033[1;m\033[0m"
 
 
-def red(xs) -> str:
-    s = str(xs)
-    return "\033[1;31m{}\033[1;m".format(s) if _color_enabled() else s
+def red(xs: str) -> str:
+    """Wraps a string in ANSI escape codes to make it red.
+
+    Honours the runtime colour mode (see :mod:`mtui.colorctl`); returns
+    the input unchanged when colour is disabled.
+    """
+    if not _color_enabled():
+        return str(xs)
+    return f"\033[1;31m{xs!s}\033[1;m\033[0m"
 
 
-def yellow(xs) -> str:
-    s = str(xs)
-    return "\033[1;33m{}\033[1;m".format(s) if _color_enabled() else s
+def yellow(xs: str) -> str:
+    """Wraps a string in ANSI escape codes to make it yellow.
+
+    Honours the runtime colour mode (see :mod:`mtui.colorctl`); returns
+    the input unchanged when colour is disabled.
+    """
+    if not _color_enabled():
+        return str(xs)
+    return f"\033[1;33m{xs!s}\033[1;m\033[0m"
 
 
-def blue(xs) -> str:
-    s = str(xs)
-    return "\033[1;34m{}\033[1;m".format(s) if _color_enabled() else s
+def blue(xs: str) -> str:
+    """Wraps a string in ANSI escape codes to make it blue.
+
+    Honours the runtime colour mode (see :mod:`mtui.colorctl`); returns
+    the input unchanged when colour is disabled.
+    """
+    if not _color_enabled():
+        return str(xs)
+    return f"\033[1;34m{xs!s}\033[1;m\033[0m"
