@@ -1,10 +1,10 @@
 """Tests for ``repose.target.parsers.product.parse_system``."""
 
-from contextlib import contextmanager
-from unittest.mock import MagicMock
+from contextlib import asynccontextmanager, contextmanager
+from unittest.mock import AsyncMock, MagicMock
 
 from repose.target.parsers import Product
-from repose.target.parsers.product import parse_system
+from repose.target.parsers.product import parse_system, parse_system_async
 from repose.types.system import System
 
 
@@ -166,4 +166,81 @@ def test_non_suse_without_osrelease_returns_rhel6_default():
     conn.open.side_effect = FileNotFoundError("/etc/os-release")
 
     system = parse_system(conn)
+    assert system.get_base() == Product("rhel", "6", "x86_64")
+
+
+# ---------------------------------------------------------------------------
+# parse_system_async — mirrors the sync cases for the async backend.
+# These guard the backend-parity contract: the async parser keys off the
+# same OSError/FileNotFoundError surface, which only holds because
+# AsyncConnection translates asyncssh's SFTP errors (see test_aiossh.py).
+# ---------------------------------------------------------------------------
+
+
+def _async_open_returning(content: bytes):
+    @asynccontextmanager
+    async def _cm(*args, **kwargs):
+        mock_file = MagicMock()
+        mock_file.__iter__.return_value = iter([content])
+        yield mock_file
+
+    return _cm()
+
+
+def _make_async_connection(files, basefile, file_contents, listdir_error=None):
+    conn = MagicMock()
+    if listdir_error is not None:
+        conn.listdir = AsyncMock(side_effect=listdir_error)
+    else:
+        conn.listdir = AsyncMock(return_value=files)
+    conn.readlink = AsyncMock(return_value=basefile)
+
+    def _open(path, *args, **kwargs):
+        if path in file_contents:
+            return _async_open_returning(file_contents[path])
+        raise FileNotFoundError(path)
+
+    conn.open.side_effect = _open
+    return conn
+
+
+async def test_async_suse_baseproduct_with_patchlevel():
+    base = _prod_xml("SLES", baseversion="15", patchlevel="3", arch="x86_64")
+    conn = _make_async_connection(
+        files=["SLES.prod"],
+        basefile="SLES.prod",
+        file_contents={"/etc/products.d/SLES.prod": base},
+    )
+
+    system = await parse_system_async(conn)
+    assert system.get_base() == Product("SLES", "15-SP3", "x86_64")
+
+
+async def test_async_non_suse_falls_back_to_os_release():
+    """A missing /etc/products.d (FileNotFoundError) must not crash.
+
+    Before the SFTP-error translation, asyncssh raised ``SFTPNoSuchFile``
+    (not an ``OSError``) here, so the ``except OSError`` never fired and
+    every non-SUSE host blew up on the default backend.
+    """
+    conn = MagicMock()
+    conn.listdir = AsyncMock(side_effect=FileNotFoundError("No such directory"))
+
+    def _open(path, *args, **kwargs):
+        if path == "/etc/os-release":
+            return _async_open_returning(b"")
+        raise FileNotFoundError(path)
+
+    conn.open.side_effect = _open
+
+    system = await parse_system_async(conn)
+    assert system.get_base() == Product("rhel", "7", "x86_64")
+
+
+async def test_async_non_suse_without_osrelease_returns_rhel6_default():
+    conn = MagicMock()
+    conn.listdir = AsyncMock(side_effect=FileNotFoundError("No such directory"))
+    conn.open.side_effect = FileNotFoundError("/etc/os-release")
+
+    system = await parse_system_async(conn)
     assert system.get_base() == Product("rhel", "6", "x86_64")

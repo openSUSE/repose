@@ -415,6 +415,50 @@ async def test_open_yields_iterable_with_content(fake_conn):
     assert lines == ["line1\n", "line2\n"]
 
 
+async def test_listdir_translates_missing_dir_to_filenotfound(fake_conn):
+    """A missing remote directory surfaces as ``FileNotFoundError``.
+
+    asyncssh's ``SFTPNoSuchFile`` does not derive from ``OSError``;
+    backend-neutral callers (``parse_system_async``) ``except OSError``,
+    so the translation is what lets non-SUSE hosts be detected.
+    """
+    sftp = MagicMock()
+    sftp.listdir = AsyncMock(side_effect=asyncssh.SFTPNoSuchFile("no dir"))
+    fake_conn.start_sftp_client = AsyncMock(return_value=sftp)
+
+    c = AsyncConnection("h", "u", 22)
+    c._conn = fake_conn
+
+    with pytest.raises(FileNotFoundError):
+        await c.listdir("/etc/products.d")
+
+
+async def test_open_translates_missing_file_to_filenotfound(fake_conn):
+    """A missing remote file surfaces as ``FileNotFoundError`` on open."""
+    sftp = MagicMock()
+    sftp.open = MagicMock(side_effect=asyncssh.SFTPNoSuchFile("no file"))
+    fake_conn.start_sftp_client = AsyncMock(return_value=sftp)
+
+    c = AsyncConnection("h", "u", 22)
+    c._conn = fake_conn
+
+    with pytest.raises(FileNotFoundError):
+        async with c.open("/etc/os-release"):
+            pass
+
+
+async def test_sftp_permission_denied_translates_to_permissionerror(fake_conn):
+    sftp = MagicMock()
+    sftp.listdir = AsyncMock(side_effect=asyncssh.SFTPPermissionDenied("nope"))
+    fake_conn.start_sftp_client = AsyncMock(return_value=sftp)
+
+    c = AsyncConnection("h", "u", 22)
+    c._conn = fake_conn
+
+    with pytest.raises(PermissionError):
+        await c.listdir("/etc/products.d")
+
+
 # ---------------------------------------------------------------------------
 # close
 # ---------------------------------------------------------------------------

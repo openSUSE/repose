@@ -38,6 +38,25 @@ __all__ = ["AsyncConnection", "CommandTimeout"]
 logger = logging.getLogger("repose.aiossh")
 
 
+def _translate_sftp_error(exc: asyncssh.SFTPError) -> OSError:
+    """Map an asyncssh ``SFTPError`` onto the matching ``OSError`` subclass.
+
+    asyncssh's SFTP exceptions derive from ``asyncssh.Error`` — *not*
+    from ``OSError`` — so backend-neutral callers that ``except
+    OSError``/``except FileNotFoundError`` (e.g. the shared
+    :func:`repose.target.parsers.product.parse_system_async`) would
+    otherwise never catch a missing ``/etc/products.d`` or
+    ``/etc/os-release``. paramiko's SFTP client raises ``OSError``
+    subclasses for the same conditions, so translating here keeps the
+    two backends behaviourally identical.
+    """
+    if isinstance(exc, asyncssh.SFTPNoSuchFile):
+        return FileNotFoundError(str(exc))
+    if isinstance(exc, asyncssh.SFTPPermissionDenied):
+        return PermissionError(str(exc))
+    return OSError(str(exc))
+
+
 def _parse_openssh_config(hostname: str) -> dict[str, Any]:
     """Look up ``hostname`` in the user's ``~/.ssh/config``.
 
@@ -403,13 +422,19 @@ class AsyncConnection:
         # input encoding; we always pass str, so we always get str.
         # Filter out ``.`` and ``..`` for paramiko parity (paramiko's
         # SFTPClient.listdir does so by default).
-        entries = await sftp.listdir(path)
+        try:
+            entries = await sftp.listdir(path)
+        except asyncssh.SFTPError as exc:
+            raise _translate_sftp_error(exc) from exc
         return [e for e in entries if e not in (".", "..")]
 
     async def readlink(self, path: str) -> str | None:
         logger.debug("read link %s:%s:%s", self.hostname, self.port, path)
         sftp = await self._sftp_open()
-        link = await sftp.readlink(path)
+        try:
+            link = await sftp.readlink(path)
+        except asyncssh.SFTPError as exc:
+            raise _translate_sftp_error(exc) from exc
         return link if isinstance(link, str) or link is None else link.decode()
 
     def open(self, filename: str, mode: str = "r") -> "_AsyncSFTPFileCtx":
@@ -470,8 +495,11 @@ class _AsyncSFTPFileCtx:
 
     async def __aenter__(self) -> "_AsyncSFTPFileCtx":
         sftp = await self._conn._sftp_open()
-        async with sftp.open(self._filename, self._mode) as f:
-            data = await f.read()
+        try:
+            async with sftp.open(self._filename, self._mode) as f:
+                data = await f.read()
+        except asyncssh.SFTPError as exc:
+            raise _translate_sftp_error(exc) from exc
         self._content = data
         return self
 
