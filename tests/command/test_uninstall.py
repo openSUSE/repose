@@ -177,6 +177,54 @@ def test_uninstall_no_matching_repos_runs_only_pdcmd(monkeypatch, mock_ssh_clien
     assert "rm -t product" in target.run.call_args[0][0]
 
 
+def test_uninstall_skips_repo_with_unparseable_name(monkeypatch, mock_ssh_client):
+    """A repo whose name isn't a 4-part product must not crash uninstall.
+
+    ``Repositories`` stores a ``(None, None)`` sentinel for such repos.
+    When its alias still matches a removal pattern, ``_calculate_repodict``
+    used to dereference ``.name`` on the sentinel and raise
+    ``AttributeError``. It must instead skip the unmappable repo and
+    remove only the genuine product repos.
+    """
+    from collections import namedtuple
+
+    from repose.types.repositories import Repositories
+
+    RawRepo = namedtuple("RawRepo", "alias name")
+    repos = Repositories(
+        [
+            # 4-part name -> parsed into a Product
+            RawRepo("SLES:15-SP4::repo1", "SLES:15-SP4:x86_64:pool"),
+            # alias matches the pattern, but the name isn't a product
+            # -> stored as the (None, None) sentinel
+            RawRepo("SLES:15-SP4::weird", "SLES-15-SP4-weird"),
+        ],
+        "x86_64",
+    )
+
+    args = Namespace(
+        dry=False,
+        target=[{"user@host1": MagicMock()}],
+        repa=[Repa("SLES:15-SP4")],
+        config="dummy",
+        yaml=False,
+    )
+    target, _ = _setup_uninstall(
+        monkeypatch,
+        args,
+        [MockProduct("SLES", "15-SP4")],
+        repos,
+    )
+
+    assert Uninstall(args).run() == 0
+
+    issued = [c.args[0] for c in target.run.call_args_list]
+    rr = next(cmd for cmd in issued if cmd.startswith("zypper -n rr"))
+    # Only the product-mapped repo is removed; the sentinel one is skipped.
+    assert "SLES:15-SP4::repo1" in rr
+    assert "SLES:15-SP4::weird" not in rr
+
+
 def test_uninstall_sl_micro_uses_transactional(monkeypatch, caplog, mock_ssh_client):
     """SL-Micro uninstalls must dispatch via ``transactional-update``.
 
