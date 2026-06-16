@@ -18,12 +18,17 @@ class Uninstall(Remove, name="uninstall"):
     ) -> dict[str, list[str]]:
         rdict: dict[str, list[str]] = {}
         for pattern in patterns:
-            for repo in self.targets[host].repos.items():
-                if pattern in repo[0]:
-                    if repo[1].name in rdict:
-                        rdict[repo[1].name].append(repo[0])
-                    else:
-                        rdict[repo[1].name] = [repo[0]]
+            for alias, product in self.targets[host].repos.items():
+                if pattern not in alias:
+                    continue
+                # ``Repositories`` stores a ``(None, None)`` sentinel for
+                # any repo whose name isn't a 4-part product string. Such
+                # a repo can't be mapped to a product to uninstall, so
+                # skip it instead of dereferencing ``.name`` and crashing.
+                name = getattr(product, "name", None)
+                if name is None:
+                    continue
+                rdict.setdefault(name, []).append(alias)
         return rdict
 
     def _run(self, host: str, update: UpdateFn, *args: Any) -> bool:
