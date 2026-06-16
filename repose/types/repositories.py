@@ -1,9 +1,19 @@
 from collections import UserDict
+from typing import TYPE_CHECKING
 
-from ..target.parsers import Product
+if TYPE_CHECKING:
+    from ..target.parsers import Product
 
 
-def _parse_product(name: str, arch) -> tuple[None, None] | Product:
+def _parse_product(name: str, arch) -> "tuple[None, None] | Product":
+    # Imported lazily: ``repose.target.parsers`` lives under the
+    # ``repose.target`` package, whose ``__init__`` imports this module.
+    # A module-level import here makes the two modules a hard import
+    # cycle that breaks whenever ``repose.types.repositories`` is the
+    # first of the pair to be imported. Deferring to call time keeps the
+    # cycle from forming at import time.
+    from ..target.parsers import Product
+
     parts = name.split(":")
     # TODO: more check for possible products
     if len(parts) != 4:
