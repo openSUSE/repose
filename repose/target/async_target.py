@@ -89,6 +89,27 @@ class AsyncTarget:
             await self.connect()
         self.products = await parse_system_async(self.connection)
 
+    async def reboot(
+        self, command: str, *, retry: int = 10, backoff: bool = True
+    ) -> bool:
+        """Async mirror of :meth:`repose.target.Target.reboot`."""
+        before = await self.connection.boot_id()
+        logger.info("Rebooting %s:%s", self.hostname, self.port)
+        await self.connection.fire_and_forget(command)
+        self.is_connected = False
+        if not await self.connection.wait_reconnect(retry=retry, backoff=backoff):
+            logger.error(
+                "%s:%s did not come back after reboot", self.hostname, self.port
+            )
+            return False
+        self.is_connected = True
+        after = await self.connection.boot_id()
+        if before and after and before == after:
+            logger.warning(
+                "%s:%s boot id unchanged after reboot", self.hostname, self.port
+            )
+        return True
+
     async def close(self) -> None:
         await self.connection.close()
         self.is_connected = False

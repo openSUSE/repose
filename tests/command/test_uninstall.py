@@ -48,6 +48,7 @@ def test_uninstall_command_run(monkeypatch, mock_args_and_repa, mock_ssh_client)
     # Mocks
     mock_target = MagicMock()
     mock_target.products.flatten.return_value = [MockProduct("SLES", "15-SP4")]
+    mock_target.products.is_transactional.return_value = False
     mock_target.repos = {
         "SLES:15-SP4::repo1": MockRepo(name="SLES"),
         "SLES:15-SP4::repo2": MockRepo(name="SLES"),
@@ -95,6 +96,7 @@ def _setup_uninstall(monkeypatch, args, products, repos, out=None, hosts=None):
         hosts = ["user@host1"]
     mock_target = MagicMock()
     mock_target.products.flatten.return_value = products
+    mock_target.products.is_transactional.return_value = False
     mock_target.repos = repos
     mock_target.out = out if out is not None else _ok_out()
     mock_hg = MagicMock()
@@ -225,38 +227,71 @@ def test_uninstall_skips_repo_with_unparseable_name(monkeypatch, mock_ssh_client
     assert "SLES:15-SP4::weird" not in rr
 
 
-def test_uninstall_sl_micro_uses_transactional(monkeypatch, caplog, mock_ssh_client):
-    """SL-Micro uninstalls must dispatch via ``transactional-update``.
-
-    Patterns are formatted ``<product>:<version>::<repo>`` so SL-Micro
-    detection has to match on the product component, not the whole pattern.
-    """
+def test_uninstall_on_transactional_host_uses_transactional_and_reboots(
+    monkeypatch, mock_ssh_client
+):
+    """Uninstall on a transactional host → transactional-update rm + reboot,
+    then verify the product is gone. Decided by the host, not the product."""
     args = Namespace(
         dry=False,
         target=[{"user@host1": MagicMock()}],
-        repa=[Repa("SL-Micro:6.0")],
+        repa=[Repa("qa:6.0")],
         config="dummy",
         yaml=False,
     )
     target, _ = _setup_uninstall(
         monkeypatch,
         args,
-        [MockProduct("SL-Micro", "6.0")],
-        {"SL-Micro:6.0::repo1": MockRepo("SL-Micro")},
+        [MockProduct("qa", "6.0")],
+        {"qa:6.0::repo1": MockRepo("qa")},
     )
+    target.products.is_transactional.return_value = True
+    target.reboot.return_value = True
+    # First flatten() drives pattern calc (product present); the second,
+    # after the reboot, is the verify and must show the product gone.
+    target.products.flatten.side_effect = [
+        [MockProduct("qa", "6.0")],
+        [],
+    ]
 
-    with caplog.at_level("INFO", logger="repose.command.uninstall"):
-        assert Uninstall(args).run() == 0
+    assert Uninstall(args).run() == 0
 
     issued = [c.args[0] for c in target.run.call_args_list]
-    # Both rr (for the matched repo) and the transactional rm should fire.
     assert any(cmd.startswith("zypper -n rr") for cmd in issued)
     assert any(
-        "transactional-update pkg rm -t product" in cmd and "SL-Micro" in cmd
+        "transactional-update pkg rm -t product" in cmd and "qa" in cmd
         for cmd in issued
     )
-    # And the reboot reminder must be emitted.
-    assert any("Reboot" in r.message for r in caplog.records)
+    target.reboot.assert_called_once()
+
+
+def test_uninstall_transactional_verify_fails_when_still_present(
+    monkeypatch, mock_ssh_client
+):
+    """If the product is still present after the reboot, the host fails."""
+    args = Namespace(
+        dry=False,
+        target=[{"user@host1": MagicMock()}],
+        repa=[Repa("qa:6.0")],
+        config="dummy",
+        yaml=False,
+    )
+    target, _ = _setup_uninstall(
+        monkeypatch,
+        args,
+        [MockProduct("qa", "6.0")],
+        {"qa:6.0::repo1": MockRepo("qa")},
+    )
+    target.products.is_transactional.return_value = True
+    target.reboot.return_value = True
+    # Still present after reboot → verify fails.
+    target.products.flatten.side_effect = [
+        [MockProduct("qa", "6.0")],
+        [MockProduct("qa", "6.0")],
+    ]
+
+    assert Uninstall(args).run() == 2
+    target.reboot.assert_called_once()
 
 
 # ---------------------------------------------------------------------------
@@ -269,6 +304,7 @@ def _setup_uninstall_multi(monkeypatch, hosts):
     for host, out in hosts.items():
         t = MagicMock()
         t.products.flatten.return_value = [MockProduct("SLES", "15-SP4")]
+        t.products.is_transactional.return_value = False
         t.repos = {"SLES:15-SP4::repo1": MockRepo("SLES")}
         t.out = out
         targets[host] = t

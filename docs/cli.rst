@@ -150,20 +150,40 @@ install
 -------
 
 ::
-  
-  install [-h] -t HOST REPA [REPA ...]
+
+  install [-h] -t HOST REPA [REPA ...] [--no-reboot]
 
 Add repositories and install products from  HOST corresponding to REPA
+
+On transactional hosts (SL Micro / SLE Micro / MicroOS) the products are
+installed via ``transactional-update`` and the host is rebooted,
+reconnected and verified by default. ``--no-reboot`` stages the change
+without rebooting (no-op on non-transactional hosts).
 
 
 uninstall
 ---------
 
 ::
-  
-  uninstall [-h] -t HOST REPA [REPA ...]
+
+  uninstall [-h] -t HOST REPA [REPA ...] [--no-reboot]
 
 Remove repositories and uninstall product from HOST corresponding to REPA
+
+On transactional hosts the products are removed via
+``transactional-update`` and the host is rebooted, reconnected and
+verified by default; ``--no-reboot`` stages the change.
+
+
+Transactional systems
+---------------------
+
+Repose auto-detects immutable / transactional hosts (presence of a
+``transactional-update.conf``). Repository operations stay plain
+``zypper`` (the repo config is on a writable overlay); only product
+``install``/``uninstall`` is routed through ``transactional-update`` and
+followed by a reboot + reconnect + verification, unless ``--no-reboot``
+is given.
 
 
 list-products

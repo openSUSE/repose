@@ -45,6 +45,38 @@ def __parse_os_release(f: Any) -> tuple[str, str, str]:
     return ("rhel", "7", "x86_64")
 
 
+# transactional-update ships its config here; its presence marks an
+# immutable / transactional host (SL Micro 6.x uses /usr/etc, older SLE
+# Micro 5.x / MicroOS use /etc). Probed over SFTP so detection stays
+# command-free and dry-run-safe; name-agnostic across all such products.
+_TRANSACTIONAL_CONF_PATHS = (
+    "/usr/etc/transactional-update.conf",
+    "/etc/transactional-update.conf",
+)
+
+
+def __detect_transactional(connection: Connection) -> bool:
+    """Return True if the host is transactional (sync connection)."""
+    for path in _TRANSACTIONAL_CONF_PATHS:
+        try:
+            with connection.open(path):
+                return True
+        except (FileNotFoundError, OSError):
+            continue
+    return False
+
+
+async def __detect_transactional_async(connection: Any) -> bool:
+    """Return True if the host is transactional (async connection)."""
+    for path in _TRANSACTIONAL_CONF_PATHS:
+        try:
+            async with connection.open(path):
+                return True
+        except (FileNotFoundError, OSError):
+            continue
+    return False
+
+
 def parse_system(connection: Connection) -> System:
     files = []
     try:
@@ -85,7 +117,7 @@ def parse_system(connection: Connection) -> System:
             name, version, arch = __parse_product(f)
             if name.rpartition("-")[-1] != "migration":
                 addons.add(Product(name, version, arch))
-    return System(base, addons)
+    return System(base, addons, transactional=__detect_transactional(connection))
 
 
 async def parse_system_async(connection: Any) -> System:
@@ -141,4 +173,5 @@ async def parse_system_async(connection: Any) -> System:
             name, version, arch = __parse_product(f)
             if name.rpartition("-")[-1] != "migration":
                 addons.add(Product(name, version, arch))
-    return System(base, addons)
+    transactional = await __detect_transactional_async(connection)
+    return System(base, addons, transactional=transactional)

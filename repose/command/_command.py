@@ -52,7 +52,7 @@ class Command(ABC):
     rrpcmd: str = "zypper -n rm -t product {products}"
     ipdtcmd: str = "transactional-update pkg in -t product -l -f {products}"
     rrpdtcmd: str = "transactional-update pkg rm -t product -l -f {products}"
-    reboot: str = "rebootmgrctl reboot now"
+    reboot: str = "systemctl reboot"
 
     # Runtime backend selection produces one of two concrete dict-like
     # host groups. Commands' ``_srun``/``_arun`` bodies pick the
@@ -129,6 +129,12 @@ class Command(ABC):
         # intentionally independent (a quiet user still wants warnings,
         # just not the live table).
         self.quiet: bool = getattr(args, "quiet", False)
+        # Transactional hosts must reboot for a staged package change to
+        # take effect; repose reboots + reconnects + verifies by default.
+        # ``--no-reboot`` stages the change and only prints a reminder.
+        # ``getattr`` keeps direct-``Namespace`` tests (and non-install/
+        # uninstall commands) constructing cleanly.
+        self.no_reboot: bool = getattr(args, "no_reboot", False)
 
     @functools.cached_property
     def repoq(self) -> Repoq:
@@ -169,6 +175,76 @@ class Command(ABC):
         for line in self.targets[target].out[-1][2].splitlines():
             self.console.report(target, line, ok=False, level="error")
         return False
+
+    def _check_products(self, host: str, products: list[str], present: bool) -> bool:
+        """Verify ``products`` are present/absent in the host's re-read state.
+
+        ``present=True`` (install) requires each product to now be
+        installed; ``present=False`` (uninstall) requires each to be
+        gone. Caller must have refreshed ``targets[host].products``.
+        """
+        system = self.targets[host].products
+        installed = {p.name for p in system.flatten()} if system else set()
+        ok = True
+        for product in products:
+            if present and product not in installed:
+                logger.error("%s: product %s not installed after reboot", host, product)
+                ok = False
+            elif not present and product in installed:
+                logger.error("%s: product %s still present after reboot", host, product)
+                ok = False
+        if ok:
+            logger.info(
+                "%s: verified product(s) %s after reboot",
+                host,
+                ", ".join(products),
+            )
+        return ok
+
+    def _reboot_and_verify(
+        self, host: str, products: list[str], present: bool = True
+    ) -> bool:
+        """Reboot a transactional host, then verify the change took (sync).
+
+        With ``--no-reboot`` the change is left staged and only a reminder
+        is logged (returns True). Otherwise the host is rebooted +
+        reconnected and its products are re-read and checked.
+        """
+        if self.no_reboot:
+            logger.info(
+                "Reboot %s to activate the staged snapshot (--no-reboot set)",
+                host,
+            )
+            return True
+        if not self.targets[host].reboot(self.reboot):
+            return False
+        try:
+            self.targets[host].read_products()
+        except Exception:
+            logger.error("%s: could not re-read products after reboot", host)
+            logger.debug("re-read failure", exc_info=True)
+            return False
+        return self._check_products(host, products, present)
+
+    async def _areboot_and_verify(
+        self, host: str, products: list[str], present: bool = True
+    ) -> bool:
+        """Async mirror of :meth:`_reboot_and_verify`."""
+        if self.no_reboot:
+            logger.info(
+                "Reboot %s to activate the staged snapshot (--no-reboot set)",
+                host,
+            )
+            return True
+        if not await self.targets[host].reboot(self.reboot):
+            return False
+        try:
+            await self.targets[host].read_products()
+        except Exception:
+            logger.error("%s: could not re-read products after reboot", host)
+            logger.debug("re-read failure", exc_info=True)
+            return False
+        return self._check_products(host, products, present)
 
     def _make_progress(self) -> Progress:
         """Construct the live-progress overlay for this command run.

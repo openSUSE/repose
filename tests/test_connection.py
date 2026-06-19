@@ -247,3 +247,59 @@ def test_accept_new_policy_persists_when_path_given(tmp_path):
     policy.missing_host_key(client, "h.example.com", key)
 
     client.save_host_keys.assert_called_once_with(str(kh))
+
+
+# ---------------------------------------------------------------------------
+# Transactional reboot support: fire_and_forget / boot_id / wait_reconnect
+# ---------------------------------------------------------------------------
+
+
+def test_fire_and_forget_dispatches_then_closes(mock_ssh_client):
+    """The command is exec'd on a fresh session and the link is closed."""
+    conn = Connection("h", "u", 22)
+    conn.connect()
+
+    conn.fire_and_forget("systemctl reboot")
+
+    session = mock_ssh_client.get_transport.return_value.open_session.return_value
+    session.exec_command.assert_called_once_with("systemctl reboot")
+    mock_ssh_client.close.assert_called()
+
+
+def test_boot_id_returns_stripped_output(mock_ssh_client, monkeypatch):
+    conn = Connection("h", "u", 22)
+    monkeypatch.setattr(conn, "run", lambda *a, **k: ("abc-123\n", "", 0))
+    assert conn.boot_id() == "abc-123"
+
+
+def test_boot_id_empty_on_error(mock_ssh_client, monkeypatch):
+    conn = Connection("h", "u", 22)
+
+    def _boom(*a, **k):
+        raise RuntimeError("down")
+
+    monkeypatch.setattr(conn, "run", _boom)
+    assert conn.boot_id() == ""
+
+
+def test_wait_reconnect_succeeds_after_retries(mock_ssh_client):
+    """Reconnect keeps retrying while the host is down, then succeeds."""
+    conn = Connection("h", "u", 22)
+    # is_active(): down, down, then up (with a spare for the final check).
+    mock_ssh_client._transport.is_active.side_effect = [False, False, True, True]
+
+    ok = conn.wait_reconnect(retry=5, timeout=0, backoff=False)
+
+    assert ok is True
+    assert mock_ssh_client.connect.call_count == 2
+
+
+def test_wait_reconnect_gives_up_after_retry_budget(mock_ssh_client):
+    conn = Connection("h", "u", 22)
+    mock_ssh_client._transport.is_active.return_value = False
+
+    ok = conn.wait_reconnect(retry=2, timeout=0, backoff=False)
+
+    assert ok is False
+    # count increments after entering, so retry=N yields N+1 attempts.
+    assert mock_ssh_client.connect.call_count == 3

@@ -64,6 +64,39 @@ class Target:
             self.connect()
         self.products = parse_system(self.connection)
 
+    def reboot(self, command: str, *, retry: int = 10, backoff: bool = True) -> bool:
+        """Reboot the host and wait for it to come back.
+
+        Dispatches ``command`` fire-and-forget (the SSH link drops), then
+        reconnects with retries/backoff and checks the boot id changed.
+        Used after a transactional package operation so the new snapshot
+        becomes active.
+
+        Args:
+            command: The reboot command to dispatch.
+            retry: Maximum reconnect attempts.
+            backoff: Grow the wait between attempts exponentially.
+
+        Returns:
+            True once the host is reachable again, else False.
+        """
+        before = self.connection.boot_id()
+        logger.info("Rebooting %s:%s", self.hostname, self.port)
+        self.connection.fire_and_forget(command)
+        self.is_connected = False
+        if not self.connection.wait_reconnect(retry=retry, backoff=backoff):
+            logger.error(
+                "%s:%s did not come back after reboot", self.hostname, self.port
+            )
+            return False
+        self.is_connected = True
+        after = self.connection.boot_id()
+        if before and after and before == after:
+            logger.warning(
+                "%s:%s boot id unchanged after reboot", self.hostname, self.port
+            )
+        return True
+
     def close(self) -> None:
         self.connection.close()
         self.is_connected = False

@@ -546,3 +546,58 @@ async def test_integration_real_server_run_and_exit(tmp_path, monkeypatch):
     finally:
         server.close()
         await server.wait_closed()
+
+
+# ---------------------------------------------------------------------------
+# Transactional reboot support (async mirror of the paramiko tests)
+# ---------------------------------------------------------------------------
+
+
+async def test_async_fire_and_forget_dispatches_then_closes(fake_conn):
+    fake_conn.create_process = AsyncMock()
+    c = AsyncConnection("h", "u", 22)
+    c._conn = fake_conn
+
+    await c.fire_and_forget("systemctl reboot")
+
+    fake_conn.create_process.assert_awaited_once_with("systemctl reboot")
+    fake_conn.close.assert_called()
+    assert c._conn is None  # closed
+
+
+async def test_async_boot_id_returns_stripped(monkeypatch):
+    c = AsyncConnection("h", "u", 22)
+    monkeypatch.setattr(c, "run", AsyncMock(return_value=("abc-123\n", "", 0)))
+    assert await c.boot_id() == "abc-123"
+
+
+async def test_async_wait_reconnect_succeeds_after_retries(monkeypatch, fake_conn):
+    c = AsyncConnection("h", "u", 22)
+    calls = {"n": 0}
+
+    async def fake_connect():
+        calls["n"] += 1
+        if calls["n"] >= 2:
+            c._conn = fake_conn  # host back up on the 2nd attempt
+
+    monkeypatch.setattr(c, "connect", fake_connect)
+
+    ok = await c.wait_reconnect(retry=5, timeout=0, backoff=False)
+
+    assert ok is True
+    assert calls["n"] == 2
+
+
+async def test_async_wait_reconnect_gives_up(monkeypatch):
+    c = AsyncConnection("h", "u", 22)
+    calls = {"n": 0}
+
+    async def fake_connect():
+        calls["n"] += 1  # never becomes active
+
+    monkeypatch.setattr(c, "connect", fake_connect)
+
+    ok = await c.wait_reconnect(retry=2, timeout=0, backoff=False)
+
+    assert ok is False
+    assert calls["n"] == 3  # retry=N → N+1 attempts

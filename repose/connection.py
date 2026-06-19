@@ -213,6 +213,72 @@ class Connection:
                     f"Reconnection to {self.hostname}:{self.port} failed"
                 )
 
+    def fire_and_forget(self, command: str) -> None:
+        """Dispatch a command without waiting for it to return.
+
+        Intended for a command that deliberately tears down the link
+        (e.g. a reboot): the command is exec'd on a fresh session and the
+        local connection is then closed. No output/exit status is
+        collected and a dropped link is expected — follow up with
+        :meth:`wait_reconnect`. Avoids :meth:`run`'s reconnect recovery,
+        which would otherwise fight the still-rebooting host.
+
+        Args:
+            command: The command to dispatch.
+        """
+        logger.debug("fire-and-forget %r on %s:%s", command, self.hostname, self.port)
+        self.__run_command(command)
+        self.close()
+
+    def boot_id(self) -> str:
+        """Return the host's current boot id, or "" if unreadable.
+
+        ``/proc/sys/kernel/random/boot_id`` changes on every boot; used to
+        confirm a reboot actually happened.
+        """
+        try:
+            stdout, _, _ = self.run("cat /proc/sys/kernel/random/boot_id")
+        except Exception:
+            return ""
+        return stdout.strip()
+
+    def wait_reconnect(
+        self, retry: int = 10, timeout: int = 10, backoff: bool = True
+    ) -> bool:
+        """Reconnect after a reboot, retrying while the host is down.
+
+        Args:
+            retry: Maximum number of reconnect attempts.
+            timeout: Base wait (seconds) between attempts.
+            backoff: Grow the wait exponentially between attempts.
+
+        Returns:
+            True once the connection is active again, else False after
+            exhausting ``retry``.
+        """
+        count = 0
+        rtimeout = timeout
+        while not self.is_active() and count <= retry:
+            count += 1
+            # Wait first: right after a reboot dispatch the host is still
+            # going down, so an immediate connect would only race the
+            # shutdown.
+            select.select([], [], [], rtimeout)
+            if backoff:
+                rtimeout = 2 * (timeout + 5 * count)
+            try:
+                self.connect()
+            except Exception:
+                logger.debug(
+                    "reconnect attempt %d/%d to %s:%s failed",
+                    count,
+                    retry,
+                    self.hostname,
+                    self.port,
+                    exc_info=True,
+                )
+        return self.is_active()
+
     def new_session(self) -> Channel | None:
         logger.debug("Creating new session at %s:%s", self.hostname, self.port)
         session: Channel | None = None
