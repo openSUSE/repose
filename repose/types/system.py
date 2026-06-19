@@ -17,10 +17,16 @@ class UnknownSystemError(ValueError):
 
 @dataclass(frozen=True, slots=True)
 class SystemData:
-    """Typed internal storage for System — always exactly two fields."""
+    """Typed internal storage for System.
+
+    ``transactional`` marks an immutable / transactional-update host (SL
+    Micro, SLE Micro, MicroOS): package operations must go through
+    ``transactional-update`` and a reboot, rather than direct ``zypper``.
+    """
 
     base: Product
     addons: set[Product]
+    transactional: bool = False
 
 
 @dataclass(eq=False)
@@ -32,14 +38,26 @@ class System:
 
     _data: SystemData = field(init=False)
 
-    def __init__(self, base: Product, addons: set[Product] | None = None) -> None:
+    def __init__(
+        self,
+        base: Product,
+        addons: set[Product] | None = None,
+        transactional: bool = False,
+    ) -> None:
         """Create a System with a base product and optional addon set.
 
         Args:
             base: The base product (a ``Product`` dataclass).
             addons: Optional set of addon ``Product`` instances.
+            transactional: True for an immutable / transactional-update
+                host (package ops go through ``transactional-update`` +
+                reboot instead of direct ``zypper``).
         """
-        self._data = SystemData(base=base, addons=addons if addons else set())
+        self._data = SystemData(
+            base=base,
+            addons=addons if addons else set(),
+            transactional=transactional,
+        )
 
     def __str__(self) -> str:
         suffix = "-modules" if self._data.addons else ""
@@ -75,6 +93,15 @@ class System:
 
     def arch(self) -> str:
         return self._data.base.arch
+
+    def is_transactional(self) -> bool:
+        """Return True for an immutable / transactional-update host.
+
+        On such hosts (SL Micro, SLE Micro, MicroOS) the root is a
+        read-only snapshot, so package install/remove must run through
+        ``transactional-update`` and take effect only after a reboot.
+        """
+        return self._data.transactional
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, System):

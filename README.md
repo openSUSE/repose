@@ -55,6 +55,35 @@ Three steps are conducted by repose:
 2. product info is provided back to repose
 3. repose executes zypper commands on refhost
 
+## Transactional systems (SL Micro)
+
+Repose auto-detects **transactional / immutable** hosts (SL Micro, SLE
+Micro, MicroOS), where the root filesystem is a read-only snapshot. On
+such hosts:
+
+- **Repository changes** (`add`, `remove`, `reset`, `clear`) use plain
+  `zypper` — `/etc/zypp/repos.d` is on a writable overlay, so nothing
+  special is needed.
+- **Product install/remove** (`install`, `uninstall`) is routed through
+  **`transactional-update`** instead of `zypper`, because it modifies the
+  read-only `/usr`. This is decided by the *host*, not the product — e.g.
+  `repose install -t slmicro qa` installs `qa` transactionally.
+- After a transactional package change, repose **reboots** the host into
+  the new snapshot, **reconnects** (with retries/backoff), and
+  **verifies** the product is actually installed (or gone, for
+  `uninstall`) before reporting success.
+
+Detection and routing are automatic — no flag is needed to enable them.
+Pass `--no-reboot` to `install`/`uninstall` to **stage** the change
+without rebooting (a reminder is logged); the snapshot only becomes
+active after the next reboot. `--no-reboot` is a no-op on
+non-transactional hosts.
+
+```
+repose install -t root@slmicro.example qa        # install + reboot + verify
+repose --no-reboot install -t root@slmicro.example qa   # stage only
+```
+
 ## Getting Help
 
 oFor repose itself as well as for its commands you can use:

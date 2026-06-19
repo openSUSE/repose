@@ -459,6 +459,16 @@ NoProbeOpt = Annotated[
         help="skip repository URL liveness probes",
     ),
 ]
+NoRebootOpt = Annotated[
+    bool,
+    typer.Option(
+        "--no-reboot",
+        help=(
+            "on transactional hosts (SL Micro), stage the package change "
+            "but do not reboot/reconnect/verify (default: reboot)"
+        ),
+    ),
+]
 
 
 @app.command("add", help="add specified repository to target")
@@ -515,6 +525,7 @@ def install_cmd(
     repa: RepaArg,
     probe_timeout: ProbeTimeoutOpt = 5.0,
     no_probe: NoProbeOpt = False,
+    no_reboot: NoRebootOpt = False,
 ) -> None:
     ns = _build_ns(
         ctx,
@@ -522,6 +533,7 @@ def install_cmd(
         repa=repa,
         probe_timeout=probe_timeout,
         no_probe=no_probe,
+        no_reboot=no_reboot,
     )
     raise typer.Exit(_dispatch("install", ns))
 
@@ -543,8 +555,9 @@ def uninstall_cmd(
     ctx: typer.Context,
     target: TargetOpt,
     repa: RepaArg,
+    no_reboot: NoRebootOpt = False,
 ) -> None:
-    ns = _build_ns(ctx, target=target, repa=repa)
+    ns = _build_ns(ctx, target=target, repa=repa, no_reboot=no_reboot)
     raise typer.Exit(_dispatch("uninstall", ns))
 
 

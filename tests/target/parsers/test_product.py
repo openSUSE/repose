@@ -143,6 +143,51 @@ def test_baseproduct_symlink_with_path_strips_dir():
     assert system.get_base().name == "SLES"
 
 
+def test_transactional_host_detected_via_conf():
+    """A transactional-update.conf marks the host transactional."""
+    base = _prod_xml("SL-Micro", version="6.1", arch="x86_64")
+    conn = _make_connection(
+        files=["SL-Micro.prod"],
+        basefile="SL-Micro.prod",
+        file_contents={
+            "/etc/products.d/SL-Micro.prod": base,
+            "/usr/etc/transactional-update.conf": b"",
+        },
+    )
+
+    system = parse_system(conn)
+    assert system.is_transactional() is True
+
+
+def test_transactional_conf_in_etc_also_detected():
+    """SLE Micro 5.x keeps the conf in /etc, not /usr/etc."""
+    base = _prod_xml("SLE-Micro", version="5.5", arch="x86_64")
+    conn = _make_connection(
+        files=["SLE-Micro.prod"],
+        basefile="SLE-Micro.prod",
+        file_contents={
+            "/etc/products.d/SLE-Micro.prod": base,
+            "/etc/transactional-update.conf": b"",
+        },
+    )
+
+    system = parse_system(conn)
+    assert system.is_transactional() is True
+
+
+def test_non_transactional_host_not_detected():
+    """A regular SLES host (no transactional-update.conf) is not flagged."""
+    base = _prod_xml("SLES", baseversion="16", patchlevel="0", arch="x86_64")
+    conn = _make_connection(
+        files=["SLES.prod"],
+        basefile="SLES.prod",
+        file_contents={"/etc/products.d/SLES.prod": base},
+    )
+
+    system = parse_system(conn)
+    assert system.is_transactional() is False
+
+
 def test_non_suse_falls_back_to_os_release():
     """When /etc/products.d is absent, parser opens /etc/os-release."""
     conn = MagicMock()
@@ -214,6 +259,33 @@ async def test_async_suse_baseproduct_with_patchlevel():
 
     system = await parse_system_async(conn)
     assert system.get_base() == Product("SLES", "15-SP3", "x86_64")
+
+
+async def test_async_transactional_host_detected_via_conf():
+    base = _prod_xml("SL-Micro", version="6.1", arch="x86_64")
+    conn = _make_async_connection(
+        files=["SL-Micro.prod"],
+        basefile="SL-Micro.prod",
+        file_contents={
+            "/etc/products.d/SL-Micro.prod": base,
+            "/usr/etc/transactional-update.conf": b"",
+        },
+    )
+
+    system = await parse_system_async(conn)
+    assert system.is_transactional() is True
+
+
+async def test_async_non_transactional_not_detected():
+    base = _prod_xml("SLES", baseversion="16", patchlevel="0", arch="x86_64")
+    conn = _make_async_connection(
+        files=["SLES.prod"],
+        basefile="SLES.prod",
+        file_contents={"/etc/products.d/SLES.prod": base},
+    )
+
+    system = await parse_system_async(conn)
+    assert system.is_transactional() is False
 
 
 async def test_async_non_suse_falls_back_to_os_release():

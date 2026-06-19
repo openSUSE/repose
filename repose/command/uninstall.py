@@ -49,10 +49,11 @@ class Uninstall(Remove, name="uninstall"):
                 repos=" ".join(chain.from_iterable(rdict.values()))
             )
 
-        # Patterns are formatted as "<product>:<version>::<repo>" — detect
-        # SL-Micro by matching the product component, not the whole pattern.
-        transactional = any(p.split(":", 1)[0] == "SL-Micro" for p in patterns)
-        products_arg = " ".join(x.split(":")[0] for x in patterns)
+        # Transactional is a property of the *host* (read-only /usr), not
+        # of the product being removed.
+        transactional = self.targets[host].products.is_transactional()
+        product_names = [x.split(":")[0] for x in patterns]
+        products_arg = " ".join(product_names)
         if transactional:
             pdcmd = self.rrpdtcmd.format(products=products_arg)
         else:
@@ -62,6 +63,8 @@ class Uninstall(Remove, name="uninstall"):
             if rrcmd:
                 self.console.dry(host, rrcmd)
             self.console.dry(host, pdcmd)
+            if transactional and not self.no_reboot:
+                self.console.dry(host, self.reboot)
             return True
 
         ok = True
@@ -74,8 +77,9 @@ class Uninstall(Remove, name="uninstall"):
         self.targets[host].run(pdcmd)
         if not self._report_target(host):
             ok = False
-        if transactional:
-            logger.info("Reboot %s to switch into updated snapshot", host)
+        elif transactional:
+            if not self._reboot_and_verify(host, product_names, present=False):
+                ok = False
         return ok
 
     async def _arun_one(self, host: str, update: UpdateFn, *args: Any) -> bool:
@@ -95,8 +99,9 @@ class Uninstall(Remove, name="uninstall"):
                 repos=" ".join(chain.from_iterable(rdict.values()))
             )
 
-        transactional = any(p.split(":", 1)[0] == "SL-Micro" for p in patterns)
-        products_arg = " ".join(x.split(":")[0] for x in patterns)
+        transactional = self.targets[host].products.is_transactional()
+        product_names = [x.split(":")[0] for x in patterns]
+        products_arg = " ".join(product_names)
         if transactional:
             pdcmd = self.rrpdtcmd.format(products=products_arg)
         else:
@@ -106,6 +111,8 @@ class Uninstall(Remove, name="uninstall"):
             if rrcmd:
                 self.console.dry(host, rrcmd)
             self.console.dry(host, pdcmd)
+            if transactional and not self.no_reboot:
+                self.console.dry(host, self.reboot)
             return True
 
         ok = True
@@ -118,8 +125,9 @@ class Uninstall(Remove, name="uninstall"):
         await self.targets[host].run(pdcmd)
         if not self._report_target(host):
             ok = False
-        if transactional:
-            logger.info("Reboot %s to switch into updated snapshot", host)
+        elif transactional:
+            if not await self._areboot_and_verify(host, product_names, present=False):
+                ok = False
         return ok
 
     def _srun(self) -> ExitCode:

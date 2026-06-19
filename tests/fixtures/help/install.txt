@@ -10,4 +10,7 @@ Options:
   --probe-timeout SECONDS  seconds to wait per repository URL probe (default: 5)
                            [default: 5.0]
   --no-probe               skip repository URL liveness probes
+  --no-reboot              on transactional hosts (SL Micro), stage the package
+                           change but do not reboot/reconnect/verify (default:
+                           reboot)
   -h, --help               Show this message and exit.

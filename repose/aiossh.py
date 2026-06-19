@@ -456,6 +456,61 @@ class AsyncConnection:
     def is_active(self) -> bool:
         return self._conn is not None and not self._conn.is_closed()
 
+    async def fire_and_forget(self, command: str) -> None:
+        """Dispatch a command without waiting (mirror of the sync backend).
+
+        Starts ``command`` on a new channel and closes the connection;
+        a dropped link (e.g. from a reboot) is expected. Follow up with
+        :meth:`wait_reconnect`.
+        """
+        logger.debug("fire-and-forget %r on %s:%s", command, self.hostname, self.port)
+        if self._conn is not None:
+            try:
+                # create_process sends the exec request without waiting
+                # for the command to finish — right for a reboot.
+                await self._conn.create_process(command)
+            except Exception:  # noqa: BLE001 - link teardown is expected
+                logger.debug("fire-and-forget dispatch raised", exc_info=True)
+        await self.close()
+
+    async def boot_id(self) -> str:
+        """Return the host's current boot id, or "" if unreadable."""
+        try:
+            stdout, _, _ = await self.run("cat /proc/sys/kernel/random/boot_id")
+        except Exception:  # noqa: BLE001
+            return ""
+        return stdout.strip()
+
+    async def wait_reconnect(
+        self, retry: int = 10, timeout: int = 10, backoff: bool = True
+    ) -> bool:
+        """Reconnect after a reboot, retrying while the host is down.
+
+        Returns True once the connection is active again, else False
+        after exhausting ``retry``.
+        """
+        self._conn = None
+        self._sftp = None
+        count = 0
+        rtimeout = timeout
+        while not self.is_active() and count <= retry:
+            count += 1
+            await asyncio.sleep(rtimeout)
+            if backoff:
+                rtimeout = 2 * (timeout + 5 * count)
+            try:
+                await self.connect()
+            except Exception:  # noqa: BLE001 - host still rebooting
+                logger.debug(
+                    "reconnect attempt %d/%d to %s:%s failed",
+                    count,
+                    retry,
+                    self.hostname,
+                    self.port,
+                    exc_info=True,
+                )
+        return self.is_active()
+
     async def close(self) -> None:
         """Close SFTP (if open) and the SSH session. Idempotent."""
         logger.debug("closing connection to %s:%s", self.hostname, self.port)

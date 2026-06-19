@@ -46,23 +46,25 @@ class Install(Command, name="install"):
                 self.targets[target].run(self.refcmd)
 
         if repositories.keys():
-            transactional = False
-            if "SL-Micro" in repositories.keys():
-                transactional = True
+            # Transactional is a property of the *host* (read-only /usr),
+            # not of the product being installed: any product on a
+            # transactional host must go through transactional-update.
+            transactional = self.targets[target].products.is_transactional()
+            if transactional:
                 inscmd = self.ipdtcmd.format(products=" ".join(repositories.keys()))
             else:
                 inscmd = self.ipdcmd.format(products=" ".join(repositories.keys()))
             update(target, "installing products")
             if self.dryrun:
                 self.console.dry(str(target), inscmd)
+                if transactional and not self.no_reboot:
+                    self.console.dry(str(target), self.reboot)
             else:
                 self.targets[target].run(inscmd)
                 if not self._report_target(target):
                     ok = False
-                if transactional:
-                    logger.info(
-                        "Reboot %s to switch into correct snapshot", str(target)
-                    )
+                elif transactional:
+                    ok = self._reboot_and_verify(target, list(repositories.keys()))
         else:
             logger.error("No products to install")
             ok = False
@@ -107,23 +109,24 @@ class Install(Command, name="install"):
                 await self.targets[target].run(self.refcmd)
 
         if repositories.keys():
-            transactional = False
-            if "SL-Micro" in repositories.keys():
-                transactional = True
+            # Host property, not product property (see sync ``_run``).
+            transactional = self.targets[target].products.is_transactional()
+            if transactional:
                 inscmd = self.ipdtcmd.format(products=" ".join(repositories.keys()))
             else:
                 inscmd = self.ipdcmd.format(products=" ".join(repositories.keys()))
             update(target, "installing products")
             if self.dryrun:
                 self.console.dry(str(target), inscmd)
+                if transactional and not self.no_reboot:
+                    self.console.dry(str(target), self.reboot)
             else:
                 await self.targets[target].run(inscmd)
                 if not self._report_target(target):
                     ok = False
-                if transactional:
-                    logger.info(
-                        "Reboot %s to switch into correct snapshot",
-                        str(target),
+                elif transactional:
+                    ok = await self._areboot_and_verify(
+                        target, list(repositories.keys())
                     )
         else:
             logger.error("No products to install")

@@ -49,6 +49,7 @@ def test_install_command_run(monkeypatch, mock_args_and_repa, mock_ssh_client):
 
     mock_target = MagicMock()
     mock_target.products.get_base.return_value = "dummy_base"
+    mock_target.products.is_transactional.return_value = False
     mock_target.out = _ok_out()
     mock_host_group_instance = MagicMock()
     mock_host_group_instance.keys.return_value = ["user@host1"]
@@ -97,6 +98,7 @@ def _setup_install(monkeypatch, args, repoq_solution, out=None, probe=True):
 
     mock_target = MagicMock()
     mock_target.products.get_base.return_value = "dummy_base"
+    mock_target.products.is_transactional.return_value = False
     mock_target.out = out if out is not None else _ok_out()
     mock_hg = MagicMock()
     mock_hg.keys.return_value = ["user@host1"]
@@ -137,24 +139,82 @@ def test_install_command_dryrun_skips_run(
     assert "user@host1" in out
 
 
-def test_install_command_sl_micro_uses_transactional(
-    monkeypatch, mock_args_and_repa, caplog, mock_ssh_client
+def _make_transactional(target, *, installed_after):
+    """Configure a mock target as a transactional host.
+
+    ``installed_after`` is the set of product names the post-reboot
+    product re-read should report (so the verify step can pass/fail).
+    """
+    target.products.is_transactional.return_value = True
+    target.reboot.return_value = True
+    after = set()
+    for name in installed_after:
+        p = MagicMock()
+        p.name = name
+        after.add(p)
+    target.products.flatten.return_value = after
+
+
+def test_install_on_transactional_host_uses_transactional_and_reboots(
+    monkeypatch, mock_args_and_repa, mock_ssh_client
 ):
+    """Any product on a transactional host → transactional-update + reboot,
+    regardless of the product name (the host, not the product, decides)."""
     args, _ = mock_args_and_repa
 
     target, _, _ = _setup_install(
         monkeypatch,
         args,
-        {"SL-Micro": [MockRepo("repo1", "http://repo1.url", refresh=True)]},
+        {"qa": [MockRepo("repo1", "http://repo1.url", refresh=True)]},
     )
+    # A non-"SL-Micro" product on a transactional host must still go
+    # through transactional-update — this is the core fix.
+    _make_transactional(target, installed_after={"qa"})
 
-    with caplog.at_level("INFO", logger="repose.command.install"):
-        assert Install(args).run() == 0
+    assert Install(args).run() == 0
 
-    # Find the install command issued
     issued = [c.args[0] for c in target.run.call_args_list]
-    assert any("transactional-update" in cmd for cmd in issued)
-    assert any("Reboot" in r.message for r in caplog.records)
+    assert any("transactional-update pkg in" in cmd for cmd in issued)
+    assert not any(cmd.startswith("zypper -n in") for cmd in issued)
+    target.reboot.assert_called_once()
+
+
+def test_install_transactional_verify_fails_when_product_absent(
+    monkeypatch, mock_args_and_repa, mock_ssh_client
+):
+    """If the product is not present after the reboot, the host fails."""
+    args, _ = mock_args_and_repa
+
+    target, _, _ = _setup_install(
+        monkeypatch,
+        args,
+        {"qa": [MockRepo("repo1", "http://repo1.url", refresh=True)]},
+    )
+    _make_transactional(target, installed_after=set())  # qa missing after reboot
+
+    # Single host, verify fails → all hosts failed → exit 2.
+    assert Install(args).run() == 2
+    target.reboot.assert_called_once()
+
+
+def test_install_transactional_no_reboot_stages_only(
+    monkeypatch, mock_args_and_repa, mock_ssh_client
+):
+    """--no-reboot on a transactional host installs but skips reboot/verify."""
+    args, _ = mock_args_and_repa
+    args.no_reboot = True
+
+    target, _, _ = _setup_install(
+        monkeypatch,
+        args,
+        {"qa": [MockRepo("repo1", "http://repo1.url", refresh=True)]},
+    )
+    _make_transactional(target, installed_after=set())
+
+    assert Install(args).run() == 0
+    issued = [c.args[0] for c in target.run.call_args_list]
+    assert any("transactional-update pkg in" in cmd for cmd in issued)
+    target.reboot.assert_not_called()
 
 
 def test_install_command_no_products_logs_error(
@@ -253,6 +313,7 @@ def _setup_install_multi(monkeypatch, hosts):
     for host, out in hosts.items():
         t = MagicMock()
         t.products.get_base.return_value = "dummy_base"
+        t.products.is_transactional.return_value = False
         t.out = out
         targets[host] = t
 

@@ -7,4 +7,6 @@ Arguments:
 
 Options:
   -t, --target HOST  target to operate on  [required]
+  --no-reboot        on transactional hosts (SL Micro), stage the package change
+                     but do not reboot/reconnect/verify (default: reboot)
   -h, --help         Show this message and exit.
