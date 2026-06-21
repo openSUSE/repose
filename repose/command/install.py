@@ -56,10 +56,17 @@ class Install(Command, name="install"):
                 inscmd = self.ipdcmd.format(products=" ".join(repositories.keys()))
             update(target, "installing products")
             if self.dryrun:
+                if transactional:
+                    self.console.dry(str(target), self.reftcmd)
                 self.console.dry(str(target), inscmd)
                 if transactional and not self.no_reboot:
                     self.console.dry(str(target), self.reboot)
             else:
+                # Import repo keys into the snapshot keyring first, else the
+                # inner zypper of the transactional install rejects the repo
+                # signature (see reftcmd).
+                if transactional:
+                    self.targets[target].run(self.reftcmd)
                 self.targets[target].run(inscmd)
                 if not self._report_target(target):
                     ok = False
@@ -117,10 +124,15 @@ class Install(Command, name="install"):
                 inscmd = self.ipdcmd.format(products=" ".join(repositories.keys()))
             update(target, "installing products")
             if self.dryrun:
+                if transactional:
+                    self.console.dry(str(target), self.reftcmd)
                 self.console.dry(str(target), inscmd)
                 if transactional and not self.no_reboot:
                     self.console.dry(str(target), self.reboot)
             else:
+                # Import repo keys into the snapshot keyring first (see reftcmd).
+                if transactional:
+                    await self.targets[target].run(self.reftcmd)
                 await self.targets[target].run(inscmd)
                 if not self._report_target(target):
                     ok = False
