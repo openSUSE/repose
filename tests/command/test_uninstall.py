@@ -259,8 +259,12 @@ def test_uninstall_on_transactional_host_uses_transactional_and_reboots(
     issued = [c.args[0] for c in target.run.call_args_list]
     assert any(cmd.startswith("zypper -n rr") for cmd in issued)
     assert any(
-        "transactional-update pkg rm -t product" in cmd and "qa" in cmd
+        "transactional-update -n pkg rm -t product" in cmd and "qa" in cmd
         for cmd in issued
+    )
+    # -n is mandatory (non-interactive inner zypper); see the install tests.
+    assert not any("transactional-update pkg rm" in cmd for cmd in issued), (
+        "transactional-update must be invoked with -n (non-interactive)"
     )
     target.reboot.assert_called_once()
 

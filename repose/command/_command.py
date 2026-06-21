@@ -50,8 +50,14 @@ class Command(ABC):
     refcmd: str = "zypper -n --gpg-auto-import-keys ref -f"
     ipdcmd: str = "zypper -n in -t product -l -f {products}"
     rrpcmd: str = "zypper -n rm -t product {products}"
-    ipdtcmd: str = "transactional-update pkg in -t product -l -f {products}"
-    rrpdtcmd: str = "transactional-update pkg rm -t product -l -f {products}"
+    # ``-n`` makes transactional-update non-interactive, which in turn runs
+    # the inner ``zypper`` with ``--non-interactive``. Without it the inner
+    # zypper prompts ``Continue? [y/n]`` and, having no terminal under an SSH
+    # exec, dies with ``Cannot read input: bad stream or EOF`` (exit 4) — the
+    # snapshot is then discarded and the product never installs. The
+    # non-transactional twins above already use ``zypper -n``.
+    ipdtcmd: str = "transactional-update -n pkg in -t product -l -f {products}"
+    rrpdtcmd: str = "transactional-update -n pkg rm -t product -l -f {products}"
     reboot: str = "systemctl reboot"
 
     # Runtime backend selection produces one of two concrete dict-like
