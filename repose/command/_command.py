@@ -48,6 +48,16 @@ class Command(ABC):
     addcmd: str = "zypper -n ar {params} {name} {url} {name}"
     rrcmd: str = "zypper -n rr {repos}"
     refcmd: str = "zypper -n --gpg-auto-import-keys ref -f"
+    # Transactional refresh: import repo signing keys into the *snapshot*
+    # keyring before a transactional product install. On a transactional
+    # host the plain ``refcmd`` runs on the live system, where the rpmdb is
+    # read-only, so a freshly added repo's GPG key never lands where the
+    # ``transactional-update`` inner ``zypper -R <snapshot>`` looks for it —
+    # the inner zypper then rejects the repo's ``repomd.xml`` signature and
+    # the install aborts (exit 4). Running the auto-importing refresh through
+    # ``transactional-update run`` writes the key into a snapshot the
+    # subsequent ``pkg in`` builds upon.
+    reftcmd: str = "transactional-update -n run zypper -n --gpg-auto-import-keys ref -f"
     ipdcmd: str = "zypper -n in -t product -l -f {products}"
     rrpcmd: str = "zypper -n rm -t product {products}"
     # ``-n`` makes transactional-update non-interactive, which in turn runs

@@ -184,6 +184,53 @@ def test_install_on_transactional_host_uses_transactional_and_reboots(
     target.reboot.assert_called_once()
 
 
+def test_install_transactional_imports_keys_before_install(
+    monkeypatch, mock_args_and_repa, mock_ssh_client
+):
+    """On a transactional host the repo signing keys must be imported into
+    the snapshot keyring (reftcmd) *before* the product install, otherwise
+    the inner zypper rejects the repo signature (exit 4)."""
+    args, _ = mock_args_and_repa
+
+    target, _, _ = _setup_install(
+        monkeypatch,
+        args,
+        {"qa": [MockRepo("repo1", "http://repo1.url", refresh=True)]},
+    )
+    _make_transactional(target, installed_after={"qa"})
+
+    assert Install(args).run() == 0
+
+    issued = [c.args[0] for c in target.run.call_args_list]
+    reftcmd = "transactional-update -n run zypper -n --gpg-auto-import-keys ref -f"
+    assert reftcmd in issued, "transactional key-import refresh must be issued"
+    install_idx = next(
+        i for i, c in enumerate(issued) if "transactional-update pkg in" in c
+    )
+    assert issued.index(reftcmd) < install_idx, (
+        "key-import refresh must run before the transactional install"
+    )
+
+
+def test_install_non_transactional_skips_key_import_refresh(
+    monkeypatch, mock_args_and_repa, mock_ssh_client
+):
+    """The transactional key-import refresh is only for transactional hosts."""
+    args, _ = mock_args_and_repa
+
+    target, _, _ = _setup_install(
+        monkeypatch,
+        args,
+        {"qa": [MockRepo("repo1", "http://repo1.url", refresh=True)]},
+    )
+    # default _setup_install leaves is_transactional() -> False
+
+    assert Install(args).run() == 0
+
+    issued = [c.args[0] for c in target.run.call_args_list]
+    assert not any("transactional-update run" in cmd for cmd in issued)
+
+
 def test_install_transactional_verify_fails_when_product_absent(
     monkeypatch, mock_args_and_repa, mock_ssh_client
 ):
