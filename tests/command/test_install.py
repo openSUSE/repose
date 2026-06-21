@@ -174,7 +174,12 @@ def test_install_on_transactional_host_uses_transactional_and_reboots(
     assert Install(args).run() == 0
 
     issued = [c.args[0] for c in target.run.call_args_list]
-    assert any("transactional-update pkg in" in cmd for cmd in issued)
+    assert any("transactional-update -n pkg in" in cmd for cmd in issued)
+    # -n is mandatory: it makes the inner zypper non-interactive, otherwise
+    # it hits "Continue? [y/n]" -> EOF -> exit 4 under a non-tty SSH exec.
+    assert not any("transactional-update pkg in" in cmd for cmd in issued), (
+        "transactional-update must be invoked with -n (non-interactive)"
+    )
     assert not any(cmd.startswith("zypper -n in") for cmd in issued)
     target.reboot.assert_called_once()
 
@@ -213,7 +218,7 @@ def test_install_transactional_no_reboot_stages_only(
 
     assert Install(args).run() == 0
     issued = [c.args[0] for c in target.run.call_args_list]
-    assert any("transactional-update pkg in" in cmd for cmd in issued)
+    assert any("transactional-update -n pkg in" in cmd for cmd in issued)
     target.reboot.assert_not_called()
 
 
