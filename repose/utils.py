@@ -1,6 +1,8 @@
 import os
+import ssl
 import sys
 import time
+from functools import lru_cache
 from urllib.error import HTTPError, URLError
 from urllib.request import urlopen
 
@@ -8,6 +10,24 @@ from urllib.request import urlopen
 def timestamp() -> str:
     # remove fractional part
     return str(int(time.time()))
+
+
+@lru_cache(maxsize=1)
+def _system_ssl_context() -> ssl.SSLContext:
+    """Return an SSL context that trusts the OS certificate store.
+
+    ``httpx`` defaults to the bundled ``certifi`` CA list, which does
+    not include internal/enterprise CAs (e.g. the SUSE trust root that
+    ``download.suse.de`` presents). ``urllib`` — and therefore the sync
+    probe :func:`check_repo_url` — validates against the system trust
+    store instead, so an internal repository reachable by the sync
+    backend was silently rejected by the async backend. Building the
+    context from the system defaults restores backend parity.
+
+    The context is cached: it is read-only after construction and
+    rebuilding it per probe would re-read the CA bundle from disk.
+    """
+    return ssl.create_default_context()
 
 
 def check_repo_url(url: str, *, timeout: float = 5.0) -> bool:
@@ -47,13 +67,20 @@ async def check_repo_url_async(url: str, *, timeout: float = 5.0) -> bool:
     ``repomd.xml`` payload, with a GET fallback because some mirrors
     return 405 on HEAD even though the resource exists.
 
+    TLS is verified against the system trust store (see
+    :func:`_system_ssl_context`) rather than ``httpx``'s bundled
+    ``certifi`` list, so internal CAs trusted by the sync probe are
+    trusted here too.
+
     A short-lived ``httpx.AsyncClient`` is created per call; the
     cohort-level batching is the caller's job
     (:meth:`Command._afilter_live_urls`).
     """
     import httpx
 
-    async with httpx.AsyncClient(timeout=timeout) as client:
+    async with httpx.AsyncClient(
+        timeout=timeout, verify=_system_ssl_context()
+    ) as client:
         for suffix in ("repodata/repomd.xml", "suse/repodata/repomd.xml"):
             target = url + suffix
             try:

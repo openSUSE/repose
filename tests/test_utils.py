@@ -1,6 +1,7 @@
 """Tests for ``repose.utils``."""
 
 import io
+import ssl
 from unittest.mock import MagicMock
 from urllib.error import HTTPError, URLError
 
@@ -250,3 +251,35 @@ async def test_check_repo_url_async_retries_get_on_405(monkeypatch):
 
     assert (await repose.utils.check_repo_url_async("http://example.com/")) is True
     assert calls == ["head", "get"]
+
+
+async def test_check_repo_url_async_verifies_against_system_trust_store(
+    monkeypatch,
+):
+    """Regression: the async probe must verify TLS against the system
+    trust store (parity with the urllib sync probe), not httpx's bundled
+    ``certifi`` list. Otherwise a repository behind an internal CA is
+    reachable on the sync backend but silently rejected on the asyncssh
+    backend."""
+    ok = MagicMock(status_code=200)
+    captured: dict = {}
+
+    async def _next(target, **kw):
+        return ok
+
+    client = MagicMock()
+    client.head = _next
+    client.get = _next
+    cm = MagicMock()
+    cm.__aenter__ = AsyncMock(return_value=client)
+    cm.__aexit__ = AsyncMock(return_value=None)
+
+    def _factory(*args, **kwargs):
+        captured.update(kwargs)
+        return cm
+
+    monkeypatch.setattr(httpx, "AsyncClient", _factory)
+
+    assert (await repose.utils.check_repo_url_async("http://example.com/")) is True
+    assert captured["verify"] is repose.utils._system_ssl_context()
+    assert isinstance(captured["verify"], ssl.SSLContext)
