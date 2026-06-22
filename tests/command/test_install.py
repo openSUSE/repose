@@ -205,7 +205,7 @@ def test_install_transactional_imports_keys_before_install(
     reftcmd = "transactional-update -n run zypper -n --gpg-auto-import-keys ref -f"
     assert reftcmd in issued, "transactional key-import refresh must be issued"
     install_idx = next(
-        i for i, c in enumerate(issued) if "transactional-update pkg in" in c
+        i for i, c in enumerate(issued) if "transactional-update -n pkg in" in c
     )
     assert issued.index(reftcmd) < install_idx, (
         "key-import refresh must run before the transactional install"
