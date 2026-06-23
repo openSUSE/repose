@@ -440,6 +440,31 @@ def test_host_key_policy_default_threads_into_target_config(mock_registry):
     assert target.config.known_hosts is None
 
 
+def test_target_parser_resolves_context_config(mock_registry, tmp_path):
+    """``_target_parser`` must read the live ``ConnectionConfig`` off the
+    active Typer context.
+
+    Regression guard for the Typer ``get_current_context`` import path
+    (cli.py): Typer >=0.26 vendors click under ``typer._click.globals``
+    while Typer 0.16 (Leap 16) uses real click. If the resolver imports
+    the wrong namespace — or fails outright — no live context is found
+    and each ``Target`` silently falls back to a default
+    ``ConnectionConfig`` with ``known_hosts is None``. Asserting that a
+    context-supplied ``--known-hosts`` path reaches the parsed ``Target``
+    proves the context lookup actually resolved.
+    """
+    kh = tmp_path / "kh"
+    result = runner.invoke(
+        app,
+        ["--known-hosts", str(kh), "add", "-t", "h", "SLES:15-SP3:x86_64:"],
+    )
+    assert result.exit_code == 0, result.stderr
+    ns = _ns(mock_registry, "add")
+    target = next(iter(ns.target[0].values()))
+    # Only reachable if _target_parser found the live context's conn_config.
+    assert target.config.known_hosts == Path(str(kh))
+
+
 # ---------------------------------------------------------------------------
 # --ssh-backend  (PR 14: asyncssh rewrite)
 # ---------------------------------------------------------------------------
