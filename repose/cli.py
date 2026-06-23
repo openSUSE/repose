@@ -118,10 +118,19 @@ def _target_parser(value: str) -> ParseHosts:
     Falls back to a default ``ConnectionConfig`` if no context (e.g.
     during introspection or when invoked outside the CLI).
 
-    Typer 0.26 doesn't re-export ``get_current_context`` at the public
-    surface; we go through the vendored click namespace directly.
+    The ``get_current_context`` import path differs across Typer
+    releases: Typer >=0.26 vendors click and pushes its context onto a
+    private stack reachable only via ``typer._click.globals`` (plain
+    ``click.get_current_context`` returns ``None`` there), while Typer
+    0.16 uses real click and exposes the context through
+    ``click.get_current_context``. Prefer the vendored namespace and
+    fall back to plain click when it's absent (e.g. Leap 16's Typer
+    0.16.0).
     """
-    from typer._click.globals import get_current_context
+    try:
+        from typer._click.globals import get_current_context
+    except ModuleNotFoundError:
+        from click import get_current_context
 
     try:
         ctx = get_current_context(silent=True)
