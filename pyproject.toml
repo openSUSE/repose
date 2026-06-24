@@ -29,7 +29,10 @@ Repository = "https://github.com/openSUSE/repose"
 
 [dependency-groups]
 dev = [
-  "click-man>=0.5",
+  # ``repose-mangen`` (man-page generator) drives the Typer app through
+  # a click ``Context``; Typer vendors its own click for runtime, so we
+  # depend on the real package explicitly for the generator + its tests.
+  "click>=8.0",
   "hypothesis",
   "pytest",
   "pytest-asyncio>=0.23",
