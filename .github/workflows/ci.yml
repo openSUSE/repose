@@ -7,7 +7,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - uses: astral-sh/ruff-action@v3
+      - uses: astral-sh/ruff-action@v4.0.0
         with:
           args: "--version"
       - name: Check style
@@ -21,6 +21,7 @@ jobs:
       - uses: astral-sh/setup-uv@v7
         with:
           python-version: '3.11'
+          cache-suffix: typecheck
       - name: Install dependencies
         run: uv sync
       - name: Type check - ty
@@ -35,6 +36,7 @@ jobs:
       - uses: astral-sh/setup-uv@v7
         with:
           python-version: ${{ matrix.python-version }}
+          cache-suffix: test-${{ matrix.python-version }}
       - name: Install dependencies
         run: uv sync
       - name: Test with pytest
@@ -50,6 +52,7 @@ jobs:
       - uses: astral-sh/setup-uv@v7
         with:
           python-version: '3.11'
+          cache-suffix: man-drift
       - name: Install dependencies
         run: uv sync
       - name: Regenerate man pages
