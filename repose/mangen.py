@@ -40,7 +40,7 @@ import time
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Iterator
+from typing import Iterator, cast
 
 import click
 import typer
@@ -591,7 +591,7 @@ def main() -> None:
     """Regenerate ``docs/man/repose*.1`` from the Typer app."""
     out = Path(__file__).resolve().parent.parent / "docs" / "man"
     out.mkdir(parents=True, exist_ok=True)
-    cli = typer.main.get_command(app)
+    cli = cast(click.Command, typer.main.get_command(app))
 
     with _pinned_source_date():
         # Root page.
