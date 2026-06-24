@@ -126,6 +126,24 @@ automatically when output is piped, `--format=json` is used, or
 `--quiet` is set, so scripts and structured-output consumers see a
 clean stream.
 
+## Repository URL Probing
+
+Before `add`, `reset`, and `install` apply repository changes, repose
+probes each candidate repository URL in parallel to verify it is
+reachable, dropping repositories whose URLs fail to respond. Probes run
+against the system trust store, so internal CAs are honored. Two flags
+on these commands tune the behaviour:
+
+- `--probe-timeout SECONDS`: seconds to wait per repository URL probe
+  (default: `5`).
+- `--no-probe`: skip the liveness probes entirely and request every
+  candidate repository unchanged.
+
+```
+repose add --probe-timeout 10 -t fubar.suse.cz sle-sdk
+repose reset --no-probe -t fubar.suse.cz
+```
+
 ## Most Common Usage Examples
 Setup of repositories on refhost:
 
