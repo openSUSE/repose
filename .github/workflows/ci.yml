@@ -1,13 +1,26 @@
 ---
 name: ci
-# yamllint disable-line rule:truthy
-on: [push, pull_request]
+on:
+  push:
+    branches: [master]
+    tags: ['**']
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  # Cancel superseded PR runs, but let master/tag runs finish.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   lint:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v6
-      - uses: astral-sh/ruff-action@v4.0.0
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6
+      - uses: astral-sh/ruff-action@0ce1b0bf8b818ef400413f810f8a11cdbda0034b  # v4.0.0
         with:
           args: "--version"
       - name: Check style
@@ -16,45 +29,64 @@ jobs:
         run: ruff check .
   typecheck:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v6
-      - uses: astral-sh/setup-uv@v7
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6
+      - uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39  # v8.2.0
         with:
           python-version: '3.11'
           cache-suffix: typecheck
       - name: Install dependencies
-        run: uv sync
+        run: uv sync --locked
       - name: Type check - ty
         run: uv run ty check repose
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     strategy:
       matrix:
         python-version: ['3.11', '3.13']
     steps:
-      - uses: actions/checkout@v6
-      - uses: astral-sh/setup-uv@v7
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6
+      - uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39  # v8.2.0
         with:
           python-version: ${{ matrix.python-version }}
           cache-suffix: test-${{ matrix.python-version }}
       - name: Install dependencies
-        run: uv sync
+        run: uv sync --locked
       - name: Test with pytest
         run: uv run pytest --cov=repose --cov-fail-under=80
+  docs:
+    # Builds the Sphinx HTML docs with warnings-as-errors so a broken
+    # .rst reference or config warning fails the PR instead of merging
+    # silently. Previously only man-page drift was checked.
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6
+      - uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39  # v8.2.0
+        with:
+          python-version: '3.11'
+          cache-suffix: docs
+      - name: Build docs
+        run: >-
+          uv run --locked --group doc
+          sphinx-build -b html -W --keep-going docs docs/_build/html
   man-drift:
     # Regenerates docs/man/*.1 from the Typer CLI and fails if the
     # committed pages drift from what `uv run repose-mangen` produces.
     # Catches the case where a contributor edits a subcommand's help
     # text or flags but forgets to refresh the man pages.
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v6
-      - uses: astral-sh/setup-uv@v7
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6
+      - uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39  # v8.2.0
         with:
           python-version: '3.11'
           cache-suffix: man-drift
       - name: Install dependencies
-        run: uv sync
+        run: uv sync --locked
       - name: Regenerate man pages
         run: uv run repose-mangen
       - name: Check for drift
