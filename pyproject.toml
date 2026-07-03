@@ -2,15 +2,15 @@
 name = "repose"
 description = "Manipulate repositories in QAM refhosts"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.13"
 license = "GPL-3.0-or-later"
 authors = [{ name = "Ondřej Súkup", email = "osukup@suse.cz" }]
 classifiers = [
   "Development Status :: 4 - Beta",
   "Intended Audience :: Developers",
   "Programming Language :: Python :: 3",
-  "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
 ]
 scripts = { repose = "repose.cli:app", repose-mangen = "repose.mangen:main" }
 dependencies = [
@@ -87,4 +87,4 @@ exclude_lines = [
 include = ["repose"]
 
 [tool.ty.environment]
-python-version = "3.11"
+python-version = "3.13"
