@@ -62,9 +62,7 @@ addopts = [
   "--cov-report=term-missing",
 ]
 markers = [
-  "unit: pure-logic unit tests (default, fast)",
   "integration: tests exercising multiple modules together",
-  "slow: tests that take noticeable time",
 ]
 
 [tool.coverage.run]
