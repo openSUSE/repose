@@ -166,15 +166,19 @@ def test_function_name(monkeypatch, fixture1, fixture2):
 - **Linting**: Run linters before committing (`ruff check .`)
 
 ## Continuous Integration
-The project uses GitHub Actions for CI:
-- **Linting**: Runs on all pushes/pull requests
-  - Checks formatting with `ruff format`
-  - Lints code with `ruff check`
-- **Testing**: Runs on all pushes/pull requests
-  - Tests with Python 3.11 and 3.13
-  - Reports coverage statistics
-- **CodeQL**: Runs on master branch and pull requests
-  - Performs static analysis for security vulnerabilities
+The project uses GitHub Actions (`.github/workflows/ci.yml`), which runs
+on pushes to `master`/tags and on pull requests:
+- **lint**: `ruff format --diff` and `ruff check`
+- **typecheck**: `ty check repose`
+- **test**: pytest on Python 3.11 and 3.13, coverage gated at 80%
+  (`--cov-fail-under=80`)
+- **docs**: `sphinx-build -W` (warnings are errors) so a broken `.rst`
+  fails the PR
+- **man-drift**: regenerates `docs/man/*.1` via `repose-mangen` and fails
+  if the committed pages drift
+
+A separate **CodeQL** workflow (`codeql-analysis.yml`) runs static
+security analysis on `master` and pull requests plus a weekly schedule.
 
 ## Architecture Overview
 - **Commands**: In `repose/command/` (add, remove, install, etc.)
