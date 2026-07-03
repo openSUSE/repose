@@ -42,9 +42,19 @@ class Reset(Clear, name="reset"):
                     self.console.dry(host, cmd)
                 return True
 
-            if cmds:
-                update(host, f"re-adding {len(cmds)} repo(s)")
+            if not cmds:
+                logger.error(
+                    "Refhost %s - no live replacement repositories "
+                    "resolved; aborting reset to avoid leaving the host "
+                    "without any repositories",
+                    host,
+                )
+                return False
+
+            update(host, f"re-adding {len(cmds)} repo(s)")
             self.targets[host].run(self.rrcmd.format(repos=" ".join(repoaliases)))
+            if not self._report_target(host):
+                ok = False
             for cmd in cmds:
                 self.targets[host].run(cmd)
                 if not self._report_target(host):
@@ -85,9 +95,19 @@ class Reset(Clear, name="reset"):
                     self.console.dry(host, cmd)
                 return True
 
-            if cmds:
-                update(host, f"re-adding {len(cmds)} repo(s)")
+            if not cmds:
+                logger.error(
+                    "Refhost %s - no live replacement repositories "
+                    "resolved; aborting reset to avoid leaving the host "
+                    "without any repositories",
+                    host,
+                )
+                return False
+
+            update(host, f"re-adding {len(cmds)} repo(s)")
             await self.targets[host].run(self.rrcmd.format(repos=" ".join(repoaliases)))
+            if not self._report_target(host):
+                ok = False
             for cmd in cmds:
                 await self.targets[host].run(cmd)
                 if not self._report_target(host):

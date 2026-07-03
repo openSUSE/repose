@@ -1,6 +1,6 @@
 import concurrent.futures
 from argparse import Namespace
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from conftest import ImmediateExecutor
@@ -181,7 +181,15 @@ def test_reset_unsupported_product_logs_error(
     target.run.assert_not_called()
 
 
-def test_reset_dead_probe_skips_add(monkeypatch, mock_args, mock_ssh_client):
+def test_reset_dead_probe_aborts_without_removal(
+    monkeypatch, mock_args, caplog, mock_ssh_client
+):
+    """A transient probe failure must not wipe the host's repos.
+
+    When every replacement URL fails the live probe the resolved
+    command set is empty; ``rr`` must NOT run (otherwise the host is
+    left with zero repositories) and the host is reported failed.
+    """
     target, _, _ = _setup_reset(
         monkeypatch,
         mock_args,
@@ -189,13 +197,13 @@ def test_reset_dead_probe_skips_add(monkeypatch, mock_args, mock_ssh_client):
         probe=False,
     )
 
-    # rr fires (and succeeds via _ok_out), no ar attempted → exit 0.
-    assert Reset(mock_args).run() == 0
+    with caplog.at_level("ERROR", logger="repose.command.reset"):
+        # Single host, aborted before removal → all-fail → exit 2.
+        assert Reset(mock_args).run() == 2
 
-    issued = [c.args[0] for c in target.run.call_args_list]
-    # rr executed but no ar (filtered out by failing probe).
-    assert any(c.startswith("zypper -n rr") for c in issued)
-    assert not any(c.startswith("zypper -n ar") for c in issued)
+    # Nothing was executed: neither the destructive rr nor any ar.
+    target.run.assert_not_called()
+    assert any("Refhost" in r.message for r in caplog.records)
 
 
 # ---------------------------------------------------------------------------
@@ -271,3 +279,34 @@ def test_reset_run_returns_2_when_all_fail(monkeypatch, mock_ssh_client):
     _setup_reset_multi(monkeypatch, {"h1": _fail_out(), "h2": _fail_out()})
 
     assert Reset(args).run() == 2
+
+
+# ---------------------------------------------------------------------------
+# Async path: abort-on-empty-replacement regression
+# ---------------------------------------------------------------------------
+
+
+async def test_arun_one_aborts_when_no_live_replacement(mock_args, caplog):
+    """Async ``_arun_one`` must mirror the sync abort-on-empty guard.
+
+    With no live replacement repos it must not run the destructive
+    ``rr`` and must report the host as failed.
+    """
+    mock_args.ssh_backend = "asyncssh"
+    reset = Reset(mock_args)
+
+    target = MagicMock()
+    target.raw_repos = [MockRawRepo("existing-repo1")]
+    target.out = _ok_out()
+    target.run = AsyncMock()
+
+    reset.targets = {"user@host1": target}
+    # Empty replacement set == every probe failed.
+    reset._aadd = AsyncMock(return_value=set())
+
+    with caplog.at_level("ERROR", logger="repose.command.reset"):
+        ok = await reset._arun_one("user@host1", lambda host, msg: None)
+
+    assert ok is False
+    target.run.assert_not_awaited()
+    assert any("Refhost" in r.message for r in caplog.records)
