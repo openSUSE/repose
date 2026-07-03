@@ -1,0 +1,47 @@
+---
+name: release
+# yamllint disable-line rule:truthy
+on:
+  push:
+    tags:
+      # Version tags: 2.0.2, 2.1.0, optionally with a pre-release suffix
+      # (2.1.0rc1). The project tags without a "v" prefix.
+      - '[0-9]+.[0-9]+.[0-9]+'
+      - '[0-9]+.[0-9]+.[0-9]+*'
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      # required for `gh release create`
+      contents: write
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6
+      - uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39  # v8.2.0
+        with:
+          python-version: '3.11'
+          cache-suffix: release
+
+      - name: Verify tag matches package version
+        run: |
+          pkg="$(sed -n 's/^__version__ = "\(.*\)"/\1/p' repose/__init__.py)"
+          if [ "$pkg" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::tag '$GITHUB_REF_NAME' != repose.__version__ '$pkg'"
+            exit 1
+          fi
+
+      - name: Build sdist and wheel
+        run: uv build
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          gh release create "$GITHUB_REF_NAME"
+          --title "$GITHUB_REF_NAME"
+          --generate-notes
+          dist/*
