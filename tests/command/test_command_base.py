@@ -172,19 +172,28 @@ def test_unconnected_targets_are_dropped(monkeypatch):
 
 
 @pytest.mark.parametrize(
-    "exitcode,expected_stream,expected_ok",
+    "exitcode,expected_ok",
     [
-        (0, "stdout", True),  # logger.info on stdout, success
-        (4, "stdout", True),  # logger.warning on stdout, benign success
-        (1, "stderr", False),  # logger.warning on stderr, failure
-        (-1, "stderr", False),
+        (0, True),  # ZYPPER_EXIT_OK
+        (100, True),  # patches available
+        (101, True),  # security patches available
+        (102, True),  # reboot needed after a successful install
+        (103, True),  # package-manager restart needed
+        (106, True),  # some repos skipped on refresh
+        (107, True),  # %post failed but transaction committed
+        (1, False),  # ERR_BUG
+        (4, False),  # ERR_ZYPP
+        (5, False),  # ERR_PRIVILEGES
+        (6, False),  # NO_REPOS
+        (8, False),  # ERR_COMMIT
+        (104, False),  # capability not found
+        (105, False),  # interrupted by signal
+        (-1, False),  # Target.run timeout/exception sentinel
     ],
 )
-def test_report_target_routes_by_exitcode(
-    monkeypatch, exitcode, expected_stream, expected_ok
-):
-    """_report_target picks the right output stream depending on exitcode
-    and returns ``True`` for success/benign exits, ``False`` for failures."""
+def test_report_target_routes_by_exitcode(monkeypatch, exitcode, expected_ok):
+    """_report_target returns ``True`` for exit 0 and the informational
+    success codes, ``False`` for every error code."""
     target = MagicMock()
     # out is list of [cmd, stdout, stderr, exitcode, runtime]
     target.out = [["cmd", "out-line", "err-line", exitcode, 0]]
