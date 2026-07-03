@@ -22,6 +22,18 @@ from ..utils import check_repo_url, check_repo_url_async
 
 logger = logging.getLogger("repose.command")
 
+# zypper exit codes that still mean the operation completed. Beyond 0,
+# these are the informational codes where zypper did the work and only
+# reports a follow-up condition: patches available (100/101), a reboot
+# (102) or package-manager restart (103) required after a *successful*
+# install, some repositories skipped on refresh (106), or a post-install
+# %post script that failed after the transaction already committed (107).
+# See zypper(8) EXIT CODES. Every other non-zero code -- the 1-8 error
+# range (incl. 4 ERR_ZYPP and 6 NO_REPOS), plus 104 (capability not
+# found) and 105 (interrupted) -- is a genuine failure.
+ZYPPER_EXIT_OK = 0
+ZYPPER_SUCCESS_EXIT_CODES = frozenset({0, 100, 101, 102, 103, 106, 107})
+
 # Per-host progress updater signature. ``_run_parallel`` binds
 # ``Progress.update`` and passes it as the second positional argument
 # to every worker ``_run(host, update, *extra)``. Defined here so the
@@ -172,24 +184,37 @@ class Command(ABC):
     def _report_target(self, target: str) -> bool:
         """Report the last command's output for ``target`` via Console.
 
-        Returns ``True`` for zypper exit 0 (success) and exit 4
-        (no repositories — benign, surfaced at ``level="warning"`` for
-        parity with prior behaviour). Any other exit code is treated as
-        failure and the call returns ``False`` so the caller can
-        propagate the per-host status into ``_aggregate``.
+        Returns ``True`` for zypper exit 0 and the informational success
+        codes in :data:`ZYPPER_SUCCESS_EXIT_CODES` -- e.g. 102 ("reboot
+        needed") / 103 ("restart needed") after a *successful* install,
+        which repose otherwise handles out of band. Every other non-zero
+        exit -- the 1-8 error range (including 4 ``ERR_ZYPP`` and 6
+        ``NO_REPOS``), plus 104 (capability not found) and 105
+        (interrupted) -- is a failure: the call returns ``False`` so the
+        caller propagates the per-host failure into ``_aggregate`` rather
+        than masking it as success.
         """
-        exitcode = self.targets[target].out[-1][3]
-        if exitcode == 0:
-            for line in self.targets[target].out[-1][1].splitlines():
+        out = self.targets[target].out[-1]
+        exitcode = out[3]
+        if exitcode == ZYPPER_EXIT_OK:
+            for line in out[1].splitlines():
                 self.console.report(target, line, ok=True, level="info")
             return True
-        if exitcode == 4:
-            # zypper: "no repositories defined" — benign in our flow.
-            for line in self.targets[target].out[-1][1].splitlines():
-                self.console.report(target, line, ok=True, level="warning")
+        if exitcode in ZYPPER_SUCCESS_EXIT_CODES:
+            # The work completed but a non-zero code carries a follow-up
+            # note (e.g. 106 "repository skipped", 107 "%post failed")
+            # that zypper may write to *either* stream, so surface both
+            # at warning level rather than dropping the explanation.
+            for stream in (out[1], out[2]):
+                for line in stream.splitlines():
+                    self.console.report(target, line, ok=True, level="warning")
             return True
-        for line in self.targets[target].out[-1][2].splitlines():
-            self.console.report(target, line, ok=False, level="error")
+        # Surface whatever zypper emitted, on either stream: some
+        # diagnostics (e.g. "repository already exists") go to stdout, so
+        # reporting stderr alone would leave a non-zero exit unexplained.
+        for stream in (out[1], out[2]):
+            for line in stream.splitlines():
+                self.console.report(target, line, ok=False, level="error")
         return False
 
     def _check_products(self, host: str, products: list[str], present: bool) -> bool:
