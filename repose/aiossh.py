@@ -98,25 +98,56 @@ def _default_known_hosts_path() -> Path:
 
 
 def _build_known_hosts_arg(policy: str, known_hosts: Path | None) -> Any:
-    """Translate ConnectionConfig host-key knobs into asyncssh ``known_hosts``.
+    """Translate ConnectionConfig host-key knobs to asyncssh's
+    ``known_hosts`` argument.
 
-    - ``yes``        → use the configured file (or default
+    - ``yes``        → the configured file (or asyncssh's default
       ``~/.ssh/known_hosts``); asyncssh refuses unknown hosts and
       mismatches natively.
-    - ``accept-new`` → return ``None`` so asyncssh's native checker
-      stays out of the way; validation runs in a custom ``SSHClient``
-      subclass installed via ``client_factory=`` (see
-      :func:`_make_accept_new_client`). Same end behaviour as OpenSSH's
-      ``StrictHostKeyChecking=accept-new``: unknown hosts are accepted
-      and persisted; changed keys are rejected.
+    - ``accept-new`` → the configured file (or ``~/.ssh/known_hosts``)
+      when it exists, so asyncssh does the native matching, host-key
+      algorithm negotiation, revocation and certificate validation; the
+      custom ``_AcceptNewClient`` (see :func:`_make_accept_new_client`)
+      only decides first-contact vs changed-key. An unparseable line
+      makes asyncssh reject the whole file -- unlike OpenSSH we do not
+      skip bad lines. When the file does not exist an empty *but truthy*
+      trust set keeps the validator engaged with every host as first
+      contact.
     - ``no``/``off`` → ``None``: asyncssh disables host-key validation
-      entirely. Matches the historical pre-PR-12 behaviour.
+      entirely (no ``client_factory`` is installed for these policies).
+      Matches the historical pre-PR-12 behaviour.
     """
-    if policy in ("no", "off", "accept-new"):
+    if policy == "accept-new":
+        resolved = known_hosts or _default_known_hosts_path()
+        return str(resolved) if resolved.exists() else ([], [], [])
+    if policy in ("no", "off"):
         return None
     if known_hosts is None:
         return ()  # asyncssh default: ``~/.ssh/known_hosts``
     return str(known_hosts)
+
+
+_DEFAULT_SSH_PORT = 22
+
+
+def _append_known_host(path: Path, host: str, port: int, key: bytes) -> None:
+    """Append a first-contact host key, keeping ``path`` newline-safe.
+
+    An existing known_hosts file whose final line lacks a trailing
+    newline would otherwise have its last entry merged with the new one,
+    corrupting both. Non-default ports are written in OpenSSH's
+    ``[host]:port`` form so the entry matches on the next connect.
+    """
+    entry_host = host if port == _DEFAULT_SSH_PORT else f"[{host}]:{port}"
+    needs_newline = False
+    if path.exists() and path.stat().st_size > 0:
+        with open(path, "rb") as fh:
+            fh.seek(-1, os.SEEK_END)
+            needs_newline = fh.read(1) != b"\n"
+    with open(path, "a", encoding="utf-8") as fh:
+        if needs_newline:
+            fh.write("\n")
+        fh.write(f"{entry_host} {key.decode().strip()}\n")
 
 
 def _make_accept_new_client(
@@ -124,41 +155,57 @@ def _make_accept_new_client(
 ) -> type[asyncssh.SSHClient]:
     """Return an ``SSHClient`` subclass enforcing ``accept-new`` semantics.
 
-    The returned class is what gets passed to
-    ``asyncssh.connect(client_factory=...)``; asyncssh instantiates it
-    for the new connection and consults
-    :meth:`SSHClient.validate_host_public_key` for every offered host
-    key.
+    asyncssh does the native known_hosts matching (see
+    :func:`_build_known_hosts_arg`) and only calls
+    :meth:`validate_host_public_key` for a key it does not already
+    trust. This client then implements the accept-new decision:
 
-    Read the known_hosts file once at factory time. Subsequent
-    validation:
+    - if the key is revoked for this host, refuse it;
+    - if the host has pins (under its resolved name or the configured
+      alias) but the offered key matches none, refuse it as a changed
+      key;
+    - if the offered key matches a pin stored under the alias -- which
+      asyncssh, matching only the resolved name, would have missed --
+      accept it;
+    - otherwise this is first contact: accept and persist the key.
 
-    - accepts a key whose bytes match a pinned entry for this host,
-    - rejects a key when entries exist for this host but none match
-      (the canonical changed-key scenario),
-    - accepts and persists when no entry exists for this host (first
-      contact).
+    The known_hosts file is read once at factory time (via asyncssh's
+    own parser) for that first-contact-vs-changed decision; asyncssh
+    reads the same file for its native matching.
 
-    The match is done via asyncssh's public ``SSHKnownHosts.match``
-    API, which already handles host-pattern matching, hashed entries,
-    and revoked-key flags correctly.
+    Host *certificates* are accepted on first contact under the same
+    trust-on-first-use rule (see :meth:`validate_host_ca_key`), but
+    asyncssh still enforces the certificate's own validity (principals,
+    expiry): an expired or wrong-principal host cert is refused. Pinning
+    a certificate against a specific CA is out of scope.
     """
-    trusted_pubkeys: list[bytes] = []
-    if known_hosts_path.exists():
-        try:
-            khosts = asyncssh.read_known_hosts(str(known_hosts_path))
-            # ``match(host, addr, port)`` returns a 7-tuple; the first
-            # element is the trusted-keys list for this host. Address
-            # and port are not significant for accept-new (we trust by
-            # host pattern), so feed dummies — asyncssh accepts them.
-            trusted, _ca, _revoked, *_ = khosts.match(expected_host, "0.0.0.0", 22)
-            trusted_pubkeys = [k.export_public_key() for k in trusted]
-        except Exception as exc:  # noqa: BLE001
-            logger.warning(
-                "accept-new: could not read %s: %s",
-                known_hosts_path,
-                exc,
-            )
+    known_hosts = (
+        asyncssh.read_known_hosts(str(known_hosts_path))
+        if known_hosts_path.exists()
+        else None
+    )
+    persisted: set[bytes] = set()
+
+    def _pins(host: str, addr: str, port: int) -> tuple[set[bytes], set[bytes]]:
+        """Trusted and revoked key blobs for ``host`` and the alias.
+
+        Known limitation: asyncssh's ``SSHKnownHosts.match`` drops the
+        revoked list when a port-qualified lookup finds no trusted key,
+        so a key revoked via a ``@revoked [host]:port`` entry is not
+        detected (this also defeats asyncssh's own native ``yes``
+        validation, not just accept-new). Plain ``@revoked host``
+        entries are honoured.
+        """
+        trusted: set[bytes] = set()
+        revoked: set[bytes] = set()
+        if known_hosts is not None:
+            # A pin may be stored under the resolved name or the
+            # configured alias; consult both so an alias pin is honoured.
+            for name in {host, expected_host}:
+                matched = known_hosts.match(name, addr, port)
+                trusted |= {k.public_data for k in matched[0]}
+                revoked |= {k.public_data for k in matched[2]}
+        return trusted, revoked
 
     class _AcceptNewClient(asyncssh.SSHClient):
         def validate_host_public_key(
@@ -168,34 +215,69 @@ def _make_accept_new_client(
             port: int,
             key: asyncssh.SSHKey,
         ) -> bool:
-            offered = key.export_public_key()
-            if trusted_pubkeys:
-                # Some key already pinned for this host. accept-new
-                # only accepts a *matching* one; a mismatch is the
-                # canonical changed-key scenario.
-                if offered in trusted_pubkeys:
-                    return True
+            offered = key.public_data
+            trusted, revoked = _pins(host, addr, port)
+            if offered in revoked:
+                # A key explicitly revoked for this host is never
+                # accepted, even when no positive pin remains.
+                logger.error(
+                    "accept-new: host key for %s is revoked; refusing",
+                    expected_host,
+                )
+                return False
+            if offered in trusted:
+                # Matches a pin -- possibly one stored under the
+                # configured alias that asyncssh did not match on.
+                return True
+            if trusted:
+                # Host is known but the offered key is not one of its
+                # pins: the canonical changed-key scenario.
                 logger.error(
                     "accept-new: host key for %s changed; refusing",
                     expected_host,
                 )
                 return False
-            # First contact for this host: accept and persist.
-            try:
-                with open(known_hosts_path, "a") as fh:
-                    fh.write(f"{expected_host} {offered.decode().strip()}\n")
-                logger.info(
-                    "accept-new: persisted host key for %s to %s",
-                    expected_host,
-                    known_hosts_path,
-                )
-            except OSError as werr:
-                logger.warning(
-                    "accept-new: could not persist host key for %s to %s: %s",
-                    expected_host,
-                    known_hosts_path,
-                    werr,
-                )
+            # First contact: accept and persist once. The password-auth
+            # fallback re-runs this validator with the same factory, so
+            # guard against writing a duplicate entry.
+            blob = key.export_public_key()
+            if blob not in persisted:
+                try:
+                    _append_known_host(known_hosts_path, host, port, blob)
+                    persisted.add(blob)
+                    logger.info(
+                        "accept-new: persisted host key for %s to %s",
+                        expected_host,
+                        known_hosts_path,
+                    )
+                except OSError as werr:
+                    logger.warning(
+                        "accept-new: could not persist host key for %s to %s: %s",
+                        expected_host,
+                        known_hosts_path,
+                        werr,
+                    )
+            return True
+
+        def validate_host_ca_key(
+            self,
+            host: str,
+            addr: str,
+            port: int,
+            key: asyncssh.SSHKey,
+        ) -> bool:
+            # accept-new is trust-on-first-use: accept a host certificate
+            # the same way an unknown host key is accepted on first
+            # contact. Passing a non-None (empty) known_hosts engages
+            # asyncssh's CA check, whose default would reject every cert
+            # host outright -- a connectivity regression versus leaving
+            # host-key validation off. Certificate *pinning* / change
+            # detection is out of scope (repose targets plain host-key
+            # refhosts); this only restores reachability.
+            logger.info(
+                "accept-new: trusting host certificate for %s (first-contact)",
+                expected_host,
+            )
             return True
 
     return _AcceptNewClient
@@ -321,11 +403,14 @@ class AsyncConnection:
             )
             return
         except asyncssh.HostKeyNotVerifiable:
-            # accept-new and no/off never reach here (they disable the
-            # native checker). Only ``yes`` produces this; bubble up
-            # like paramiko's ``BadHostKeyException``/``RejectPolicy``.
+            # ``yes`` reaches here for an unknown or mismatched key;
+            # ``accept-new`` reaches here when its validator rejects a
+            # *changed* key (``validate_host_public_key`` returned
+            # False). ``no``/``off`` disable the native checker and never
+            # reach here. Bubble up like paramiko's
+            # ``BadHostKeyException``/``RejectPolicy``.
             logger.error(
-                "host key for %s not in known_hosts (policy=%s)",
+                "host key verification failed for %s (policy=%s)",
                 self.hostname,
                 policy,
             )

@@ -91,10 +91,9 @@ def test_explicit_positional_timeout_wins_over_config():
         ("no", None),
         ("off", None),
         ("yes", ()),  # asyncssh default = ~/.ssh/known_hosts
-        # ``accept-new`` disables asyncssh's native checker — the
-        # _AcceptNewClient subclass is the sole arbiter. See
-        # _build_known_hosts_arg for why ``None`` is passed here.
-        ("accept-new", None),
+        # accept-new is file-dependent (the real path when the file is
+        # present, else the empty trust set), so it is covered by the
+        # dedicated tests below rather than this static table.
     ],
 )
 async def test_known_hosts_arg_translation(
@@ -113,6 +112,61 @@ async def test_known_hosts_arg_translation(
     await c.connect()
 
     assert captured["known_hosts"] == expected_known_hosts
+
+
+async def test_accept_new_engages_validator(monkeypatch, fake_conn, tmp_path):
+    """Regression: with no known_hosts file yet, ``accept-new`` still
+    engages the validator instead of disabling checking.
+
+    asyncssh calls ``SSHClient.validate_host_public_key`` only when
+    ``_trusted_host_keys`` is non-None, and substitutes the system
+    ``~/.ssh/known_hosts`` for any *falsy* value (so ``b""``/``None``
+    would bypass the validator). With the file absent the arg is the
+    truthy empty trust set, so every offered key defers to
+    ``_AcceptNewClient``.
+    """
+    kh = tmp_path / "known_hosts"  # not created: missing-file case
+    cfg = ConnectionConfig(host_key_policy="accept-new", known_hosts=kh)
+    captured: dict[str, Any] = {}
+
+    async def fake_connect(**kwargs):
+        captured.update(kwargs)
+        return fake_conn
+
+    monkeypatch.setattr(asyncssh, "connect", fake_connect)
+
+    c = AsyncConnection("h", "u", 22, config=cfg)
+    await c.connect()
+
+    kh_arg = captured["known_hosts"]
+    assert kh_arg  # truthy: asyncssh will not load system known_hosts
+    trusted, _ca, _revoked, *_ = asyncssh.match_known_hosts(kh_arg, "h", "0.0.0.0", 22)
+    assert list(trusted) == []  # empty trust -> validator sees every key
+    assert issubclass(captured["client_factory"], asyncssh.SSHClient)
+
+
+async def test_accept_new_existing_file_passed_to_asyncssh(
+    monkeypatch, fake_conn, tmp_path
+):
+    """When known_hosts exists, asyncssh receives the file path so it
+    does the native matching / algorithm negotiation."""
+    kh = tmp_path / "known_hosts"
+    key = asyncssh.generate_private_key("ssh-ed25519")
+    kh.write_text(f"h {key.export_public_key().decode().strip()}\n")
+    cfg = ConnectionConfig(host_key_policy="accept-new", known_hosts=kh)
+    captured: dict[str, Any] = {}
+
+    async def fake_connect(**kwargs):
+        captured.update(kwargs)
+        return fake_conn
+
+    monkeypatch.setattr(asyncssh, "connect", fake_connect)
+
+    c = AsyncConnection("h", "u", 22, config=cfg)
+    await c.connect()
+
+    assert captured["known_hosts"] == str(kh)  # asyncssh reads it natively
+    assert issubclass(captured["client_factory"], asyncssh.SSHClient)
 
 
 async def test_known_hosts_path_threaded_through(monkeypatch, fake_conn, tmp_path):
@@ -204,9 +258,9 @@ async def test_oserror_propagates(monkeypatch):
 async def test_accept_new_installs_client_factory(monkeypatch, fake_conn, tmp_path):
     """``accept-new`` wires a custom ``SSHClient`` via ``client_factory=``.
 
-    Validation lives in that subclass; asyncssh's native checker is
-    explicitly disabled (``known_hosts=None``) so the subclass is the
-    only arbiter.
+    Validation lives in that subclass: asyncssh does the native matching
+    and defers any not-already-trusted key to the subclass, which is the
+    effective arbiter for accept-new.
     """
     kh = tmp_path / "known_hosts"
     kh.write_text("")
@@ -223,7 +277,7 @@ async def test_accept_new_installs_client_factory(monkeypatch, fake_conn, tmp_pa
     c = AsyncConnection("h", "u", 22, config=cfg)
     await c.connect()
 
-    assert captured["known_hosts"] is None
+    assert captured["known_hosts"]  # truthy: no system-file substitution
     assert "client_factory" in captured
     assert issubclass(captured["client_factory"], asyncssh.SSHClient)
 
@@ -275,6 +329,188 @@ async def test_accept_new_client_rejects_changed_key(tmp_path):
     # The same pinned key is still accepted.
     accepted = client.validate_host_public_key(
         host="h", addr="127.0.0.1", port=22, key=pinned_key
+    )
+    assert accepted is True
+
+
+async def test_accept_new_persist_preserves_trailing_newline(tmp_path):
+    """A known_hosts file without a trailing newline must not have its
+    last entry merged with the newly persisted one."""
+    from repose.aiossh import _make_accept_new_client
+
+    kh = tmp_path / "known_hosts"
+    # Existing entry for a *different* host, no trailing newline.
+    other = asyncssh.generate_private_key("ssh-ed25519")
+    other_line = f"other {other.export_public_key().decode().strip()}"
+    kh.write_bytes(other_line.encode())
+
+    key = asyncssh.generate_private_key("ssh-rsa")
+    factory = _make_accept_new_client(kh, expected_host="h")
+    accepted = factory().validate_host_public_key(
+        host="h", addr="127.0.0.1", port=22, key=key
+    )
+    assert accepted is True
+
+    lines = kh.read_text().splitlines()
+    assert len(lines) == 2  # not merged into one corrupt line
+    assert lines[0] == other_line
+    assert lines[1].startswith("h ")
+
+
+async def test_accept_new_no_duplicate_on_factory_reuse(tmp_path):
+    """The password-auth fallback re-runs the validator with the same
+    factory; a first-contact key must be persisted only once."""
+    from repose.aiossh import _make_accept_new_client
+
+    kh = tmp_path / "known_hosts"
+    kh.write_text("")
+    key = asyncssh.generate_private_key("ssh-rsa")
+
+    factory = _make_accept_new_client(kh, expected_host="h")
+    # Two instances from the same factory mirror the key-auth attempt
+    # followed by the password fallback (same client_factory reused).
+    for _ in range(2):
+        accepted = factory().validate_host_public_key(
+            host="h", addr="127.0.0.1", port=22, key=key
+        )
+        assert accepted is True
+
+    host_lines = [ln for ln in kh.read_text().splitlines() if ln.startswith("h ")]
+    assert len(host_lines) == 1  # no duplicate entry
+
+
+async def test_accept_new_matches_pin_with_trailing_comment(tmp_path):
+    """A pinned entry carrying a trailing comment still matches the
+    comment-less key the server offers (key equality ignores comments)."""
+    from repose.aiossh import _make_accept_new_client
+
+    kh = tmp_path / "known_hosts"
+    key = asyncssh.generate_private_key("ssh-rsa")
+    pub = key.export_public_key().decode().strip()
+    kh.write_text(f"h {pub} admin@ops\n")
+
+    factory = _make_accept_new_client(kh, expected_host="h")
+    accepted = factory().validate_host_public_key(
+        host="h", addr="127.0.0.1", port=22, key=key
+    )
+    assert accepted is True
+
+
+async def test_accept_new_honours_non_default_port_pin(tmp_path):
+    """A host pinned as ``[host]:port`` is matched on that port, so a
+    changed key is rejected instead of being taken as first contact."""
+    from repose.aiossh import _make_accept_new_client
+
+    kh = tmp_path / "known_hosts"
+    pinned = asyncssh.generate_private_key("ssh-rsa")
+    pinned_pub = pinned.export_public_key().decode().strip()
+    kh.write_text(f"[h]:2222 {pinned_pub}\n")
+
+    factory = _make_accept_new_client(kh, expected_host="h")
+    client = factory()
+
+    other = asyncssh.generate_private_key("ssh-rsa")
+    changed = client.validate_host_public_key(
+        host="h", addr="127.0.0.1", port=2222, key=other
+    )
+    assert changed is False  # changed key on the pinned port → reject
+
+    same = client.validate_host_public_key(
+        host="h", addr="127.0.0.1", port=2222, key=pinned
+    )
+    assert same is True
+
+
+async def test_accept_new_persists_non_default_port_in_bracket_form(tmp_path):
+    """First contact on a non-default port persists an ``[host]:port``
+    entry so it matches on the next connect."""
+    from repose.aiossh import _make_accept_new_client
+
+    kh = tmp_path / "known_hosts"
+    kh.write_text("")
+    key = asyncssh.generate_private_key("ssh-rsa")
+
+    factory = _make_accept_new_client(kh, expected_host="h")
+    accepted = factory().validate_host_public_key(
+        host="h", addr="127.0.0.1", port=2222, key=key
+    )
+    assert accepted is True
+    assert kh.read_text().startswith("[h]:2222 ")
+
+
+async def test_accept_new_rejects_revoked_key(tmp_path):
+    """A key explicitly revoked in known_hosts is refused, not taken as
+    first contact and re-persisted."""
+    from repose.aiossh import _make_accept_new_client
+
+    kh = tmp_path / "known_hosts"
+    revoked = asyncssh.generate_private_key("ssh-rsa")
+    revoked_pub = revoked.export_public_key().decode().strip()
+    kh.write_text(f"@revoked h {revoked_pub}\n")
+    before = kh.read_text()
+
+    factory = _make_accept_new_client(kh, expected_host="h")
+    accepted = factory().validate_host_public_key(
+        host="h", addr="127.0.0.1", port=22, key=revoked
+    )
+    assert accepted is False
+    assert kh.read_text() == before  # revoked key not persisted back
+
+
+async def test_accept_new_matches_pin_under_configured_alias(tmp_path):
+    """A key pinned under the configured alias is accepted even when
+    asyncssh resolves and reports a different HostName; a changed key for
+    that aliased host is still refused rather than taken as first
+    contact."""
+    from repose.aiossh import _make_accept_new_client
+
+    kh = tmp_path / "known_hosts"
+    key = asyncssh.generate_private_key("ssh-rsa")
+    pub = key.export_public_key().decode().strip()
+    kh.write_text(f"rh1 {pub}\n")  # pinned under the alias
+
+    # expected_host is the alias; asyncssh calls back with the resolved
+    # HostName, which is not what the pin is stored under.
+    factory = _make_accept_new_client(kh, expected_host="rh1")
+    client = factory()
+
+    accepted = client.validate_host_public_key(
+        host="10.0.0.5", addr="10.0.0.5", port=22, key=key
+    )
+    assert accepted is True
+
+    other = asyncssh.generate_private_key("ssh-rsa")
+    changed = client.validate_host_public_key(
+        host="10.0.0.5", addr="10.0.0.5", port=22, key=other
+    )
+    assert changed is False
+
+
+async def test_accept_new_malformed_known_hosts_raises(tmp_path):
+    """We use asyncssh's native parser and deliberately do NOT skip bad
+    lines the way OpenSSH does: a malformed known_hosts surfaces as an
+    error instead of being silently ignored."""
+    from repose.aiossh import _make_accept_new_client
+
+    kh = tmp_path / "known_hosts"
+    kh.write_text("@badmarker garbage line\n")
+
+    with pytest.raises(ValueError):
+        _make_accept_new_client(kh, expected_host="h")
+
+
+async def test_accept_new_accepts_host_certificate_first_contact(tmp_path):
+    """accept-new trusts a host certificate on first contact (TOFU), so
+    the CA-key hook accepts rather than hard-rejecting cert hosts."""
+    from repose.aiossh import _make_accept_new_client
+
+    kh = tmp_path / "known_hosts"
+    kh.write_text("")
+    ca = asyncssh.generate_private_key("ssh-rsa")
+
+    factory = _make_accept_new_client(kh, expected_host="h")
+    accepted = factory().validate_host_ca_key(
+        host="h", addr="127.0.0.1", port=22, key=ca
     )
     assert accepted is True
 
