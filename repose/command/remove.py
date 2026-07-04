@@ -37,10 +37,21 @@ class Remove(Command, name="remove"):
         return patterns
 
     def _calculate_repolist(self, host: str, patterns: set[str]) -> set[str]:
+        """Map REPA patterns to concrete repo aliases on ``host``.
+
+        A pattern ending in ``::`` carries no repo component, i.e. the
+        operator asked to remove *all* repos for a given
+        ``product:version``; such patterns match by prefix. A pattern
+        naming a specific repo alias must match that alias exactly, so
+        that removing ``repo1`` never also deletes ``repo10`` or
+        ``repo1-debuginfo``.
+        """
         repolist: set[str] = set()
         for pattern in patterns:
+            all_repos = pattern.endswith("::")
             for repo in self.targets[host].repos.keys():
-                if pattern in repo:
+                matched = pattern in repo if all_repos else repo == pattern
+                if matched:
                     repolist.add(repo)
         return repolist
 

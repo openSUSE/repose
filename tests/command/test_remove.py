@@ -171,6 +171,69 @@ def test_remove_command_empty_repolist_does_not_run_rrcmd(
     assert any("no repos for remove" in r.message for r in caplog.records)
 
 
+def test_remove_command_specific_repo_matches_exact_alias_only(
+    monkeypatch, mock_ssh_client
+):
+    """A specific repo alias must match exactly.
+
+    Removing ``repo1`` must not also delete ``repo10`` or
+    ``repo1-debuginfo`` just because their aliases share a prefix.
+    """
+    args = Namespace(
+        dry=False,
+        target=[{"user@host1": MagicMock()}],
+        repa=[Repa("SLES:15-SP4::repo1")],
+        config="dummy",
+        yaml=False,
+    )
+    target, _ = _build_remove_env(
+        monkeypatch,
+        args,
+        [MockProduct("SLES", "15-SP4")],
+        [
+            "SLES:15-SP4::repo1",
+            "SLES:15-SP4::repo10",
+            "SLES:15-SP4::repo1-debuginfo",
+        ],
+    )
+
+    remove_command = Remove(args)
+    assert remove_command.run() == 0
+
+    expected_cmd = remove_command.rrcmd.format(repos="SLES:15-SP4::repo1")
+    target.run.assert_called_once_with(expected_cmd)
+
+
+def test_remove_command_empty_repo_removes_all_for_product(
+    monkeypatch, mock_ssh_client
+):
+    """An empty repo component removes every repo for the product."""
+    args = Namespace(
+        dry=False,
+        target=[{"user@host1": MagicMock()}],
+        repa=[Repa("SLES:15-SP4")],
+        config="dummy",
+        yaml=False,
+    )
+    target, _ = _build_remove_env(
+        monkeypatch,
+        args,
+        [MockProduct("SLES", "15-SP4")],
+        [
+            "SLES:15-SP4::repo1",
+            "SLES:15-SP4::repo10",
+        ],
+    )
+
+    remove_command = Remove(args)
+    assert remove_command.run() == 0
+
+    target.run.assert_called_once()
+    (called_cmd,), _ = target.run.call_args
+    assert "SLES:15-SP4::repo1" in called_cmd
+    assert "SLES:15-SP4::repo10" in called_cmd
+
+
 def test_remove_command_version_mismatch_skipped(monkeypatch, caplog, mock_ssh_client):
     """If version is specified but doesn't match, the product is skipped."""
     args = Namespace(
