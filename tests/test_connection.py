@@ -1,6 +1,8 @@
 """Tests for ``repose.connection``."""
 
 import threading
+import logging
+import os
 from unittest.mock import MagicMock
 
 import paramiko
@@ -243,17 +245,99 @@ def test_accept_new_policy_adds_unknown_key():
     client.save_host_keys.assert_not_called()
 
 
-def test_accept_new_policy_persists_when_path_given(tmp_path):
-    """When ``known_hosts_path`` is set, ``save_host_keys`` is called."""
+def test_accept_new_defaults_known_hosts_to_user_file(mock_ssh_client, monkeypatch):
+    """Without a config override, accept-new persists to ~/.ssh/known_hosts."""
+    monkeypatch.setattr(os.path, "expanduser", lambda p: p.replace("~", "/home/fake"))
+    cfg = ConnectionConfig(host_key_policy="accept-new")  # known_hosts=None
+    conn = Connection("h", "u", 22, config=cfg)
+    conn.connect()
+
+    # The default path still goes through the system loader (missing
+    # file tolerated); only the *persist* target is resolved eagerly.
+    mock_ssh_client.load_system_host_keys.assert_called_once_with()
+    policy = mock_ssh_client.set_missing_host_key_policy.call_args.args[0]
+    assert isinstance(policy, AcceptNewPolicy)
+    assert policy.known_hosts_path == "/home/fake/.ssh/known_hosts"
+
+
+def test_accept_new_uses_configured_known_hosts(mock_ssh_client, tmp_path):
+    """A ``known_hosts`` config override is also the persist target."""
     kh = tmp_path / "kh"
-    client = MagicMock()
-    key = MagicMock()
-    key.get_name.return_value = "ssh-rsa"
+    kh.write_text("")
+    cfg = ConnectionConfig(host_key_policy="accept-new", known_hosts=kh)
+    conn = Connection("h", "u", 22, config=cfg)
+    conn.connect()
 
-    policy = AcceptNewPolicy(known_hosts_path=str(kh))
-    policy.missing_host_key(client, "h.example.com", key)
+    mock_ssh_client.load_host_keys.assert_called_once_with(str(kh))
+    policy = mock_ssh_client.set_missing_host_key_policy.call_args.args[0]
+    assert isinstance(policy, AcceptNewPolicy)
+    assert policy.known_hosts_path == str(kh)
 
-    client.save_host_keys.assert_called_once_with(str(kh))
+
+def test_accept_new_first_contact_creates_known_hosts(tmp_path):
+    """First contact ever: no known_hosts file (nor parent directory).
+
+    The policy must create both with safe permissions and write exactly
+    one well-formed line, while also trusting the key in-memory.
+    """
+    known_hosts = tmp_path / ".ssh" / "known_hosts"  # parent missing too
+    client = paramiko.SSHClient()
+    key = paramiko.ECDSAKey.generate()
+
+    policy = AcceptNewPolicy(known_hosts_path=str(known_hosts))
+    policy.missing_host_key(client, "newhost.example.com", key)
+
+    assert client.get_host_keys().lookup("newhost.example.com") is not None
+    expected = f"newhost.example.com {key.get_name()} {key.get_base64()}\n"
+    assert known_hosts.read_text() == expected
+    # 0o600/0o700 modulo umask: never group/other accessible.
+    assert known_hosts.stat().st_mode & 0o077 == 0
+    assert known_hosts.parent.stat().st_mode & 0o077 == 0
+
+
+def test_accept_new_appends_without_rewriting_existing_content(tmp_path):
+    """Persisting must append, byte-preserving prior file content.
+
+    ``SSHClient.save_host_keys`` would truncate-rewrite the file and
+    drop the comment and blank line below; the append path keeps them.
+    """
+    known_hosts = tmp_path / "known_hosts"
+    existing = (
+        "# trusted fleet hosts — hand-maintained comment\n"
+        "\n"
+        "old.example.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFakeFakeFake\n"
+    )
+    known_hosts.write_text(existing)
+    client = paramiko.SSHClient()
+    key = paramiko.ECDSAKey.generate()
+
+    policy = AcceptNewPolicy(known_hosts_path=str(known_hosts))
+    policy.missing_host_key(client, "new.example.com", key)
+
+    new_line = f"new.example.com {key.get_name()} {key.get_base64()}\n"
+    assert known_hosts.read_text() == existing + new_line
+
+
+def test_accept_new_persist_failure_warns_and_still_accepts(tmp_path, caplog):
+    """An OSError during persist is a visible soft failure.
+
+    The warning names the path and the error, and the key stays trusted
+    in-memory so the connection is not aborted.
+    """
+    blocker = tmp_path / "blocker"
+    blocker.write_text("")  # regular file where a directory is needed
+    known_hosts = blocker / ".ssh" / "known_hosts"
+    client = paramiko.SSHClient()
+    key = paramiko.ECDSAKey.generate()
+
+    policy = AcceptNewPolicy(known_hosts_path=str(known_hosts))
+    with caplog.at_level(logging.WARNING, logger="repose.connection_policy"):
+        # Must not raise: persist failure must not kill the session.
+        policy.missing_host_key(client, "h.example.com", key)
+
+    assert client.get_host_keys().lookup("h.example.com") is not None
+    assert "could not persist host key" in caplog.text
+    assert str(known_hosts) in caplog.text
 
 
 def test_run_timeout_non_tty_raises_without_prompt(mock_ssh_client, monkeypatch):

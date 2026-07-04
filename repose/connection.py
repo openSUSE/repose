@@ -120,20 +120,24 @@ class Connection:
         # paramiko already raises ``BadHostKeyException`` for keys that
         # exist in the host-key store but mismatch on connect, *before*
         # the missing-key policy is consulted. So both ``accept-new``
-        # (custom: persist on first contact) and ``yes`` (reject
-        # missing) get changed-key rejection automatically. ``no``/
-        # ``off`` use ``AutoAddPolicy`` which tolerates *changed* keys
-        # too — the historical pre-PR-12 behaviour.
+        # (persist on first contact) and ``yes`` (reject missing) get
+        # changed-key rejection automatically. ``no``/``off`` use
+        # ``AutoAddPolicy`` which tolerates *changed* keys too — the
+        # historical pre-PR-12 behaviour.
         policy: paramiko.MissingHostKeyPolicy
         if policy_name == "yes":
             policy = paramiko.RejectPolicy()
         elif policy_name == "accept-new":
-            kh = (
+            # A concrete path is always resolved (config override, else
+            # ~/.ssh/known_hosts to match the asyncssh backend) so a
+            # first-contact key survives the process and later runs can
+            # reject a changed key.
+            known_hosts = (
                 str(self.config.known_hosts)
                 if self.config.known_hosts is not None
-                else None
+                else os.path.expanduser("~/.ssh/known_hosts")
             )
-            policy = AcceptNewPolicy(known_hosts_path=kh)
+            policy = AcceptNewPolicy(known_hosts_path=known_hosts)
         else:
             # "no" or "off"
             policy = paramiko.AutoAddPolicy()
