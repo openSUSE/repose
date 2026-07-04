@@ -39,10 +39,54 @@ def __parse_product(prod: Any) -> tuple[str, str, str]:
     return (name, version, arch)  # ty: ignore[invalid-return-type]  # FOLLOWUP-ty-residuals
 
 
-def __parse_os_release(f: Any) -> tuple[str, str, str]:
-    # TODO : ...
-    logger.debug("TODO parse OSRELEASE file")
-    return ("rhel", "7", "x86_64")
+def __parse_os_release(f: Any, hostname: str) -> tuple[str, str, str]:
+    """Parse ``/etc/os-release`` into a ``(name, version, arch)`` tuple.
+
+    Reads the ``KEY=VALUE`` lines from the opened os-release file object,
+    stripping optional surrounding quotes, and derives the distribution
+    identity from ``ID`` and ``VERSION_ID`` (per ``os-release(5)``).
+
+    When the file carries no usable ``ID``, the spec default ``"linux"``
+    is used (``os-release(5)``: "If not set, a default value of 'linux'
+    may be used") and a warning names the host and the fallback, so the
+    host stays scannable without silently fabricating distro data.
+
+    ``/etc/os-release`` carries no architecture field, so ``arch`` is taken
+    from an optional, non-standard ``ARCHITECTURE`` key when present and
+    otherwise falls back to the documented placeholder ``"unknown"``.
+
+    Args:
+        f: An opened, iterable os-release file object yielding ``str`` or
+            ``bytes`` chunks, as returned by ``Connection.open``.
+        hostname: Host the file was read from, used in the fallback warning.
+
+    Returns:
+        A ``(name, version, arch)`` tuple built from the parsed ``ID``,
+        ``VERSION_ID`` and derived architecture.
+    """
+    values: dict[str, str] = {}
+    for chunk in f:
+        text = chunk.decode() if isinstance(chunk, bytes) else chunk
+        for raw_line in text.splitlines():
+            line = raw_line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, _, value = line.partition("=")
+            values[key.strip()] = value.strip().strip("\"'")
+
+    name = values.get("ID")
+    if not name:
+        name = "linux"
+        logger.warning(
+            "%s: /etc/os-release has no usable ID field; "
+            "falling back to the os-release(5) default ID %r",
+            hostname,
+            name,
+        )
+    version = values.get("VERSION_ID", "")
+    arch = values.get("ARCHITECTURE", "unknown")
+    logger.debug("Parsed os-release: %s %s %s", name, version, arch)
+    return (name, version, arch)
 
 
 # transactional-update ships its config here; its presence marks an
@@ -92,7 +136,7 @@ def parse_system(connection: Connection) -> System:
     if not suse:
         try:
             with connection.open("/etc/os-release") as f:
-                name, version, arch = __parse_os_release(f)
+                name, version, arch = __parse_os_release(f, connection.hostname)
         except FileNotFoundError:
             # TODO: old RH systems have only /etc/redhat-release
             return System(Product("rhel", "6", "x86_64"))
@@ -149,7 +193,7 @@ async def parse_system_async(connection: Any) -> System:
     if not suse:
         try:
             async with connection.open("/etc/os-release") as f:
-                name, version, arch = __parse_os_release(f)
+                name, version, arch = __parse_os_release(f, connection.hostname)
         except FileNotFoundError:
             return System(Product("rhel", "6", "x86_64"))
 

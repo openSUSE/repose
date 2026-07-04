@@ -12,9 +12,15 @@ from repose.types.refhost.transformations import transform_version_partialy
         ("15-SP3", {"major": 15, "minor": "SP3"}),
         ("12-SP5", {"major": 12, "minor": "SP5"}),
         ("15.3", {"major": 15, "minor": 3}),
+        ("15.6", {"major": 15, "minor": 6}),
         ("ALL", {"major": "ALL"}),
         ("15", {"major": 15}),
         ("7", {"major": 7}),
+        # Non-SUSE-shaped os-release VERSION_ID values pass through
+        # unchanged instead of raising ValueError:
+        ("", ""),
+        ("3.19.1", "3.19.1"),
+        ("tumbleweed", "tumbleweed"),
     ],
 )
 def test_transformations_table(version, expected):
