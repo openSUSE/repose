@@ -377,6 +377,42 @@ def test_install_command_solve_repa_value_error_logged(
     assert any("Unknow product" in r.message for r in caplog.records)
 
 
+def test_install_two_repas_same_product_keeps_all_repos(monkeypatch, mock_ssh_client):
+    """Two REPAs naming the same product must contribute *both* their
+    repos to the add-command set — the earlier REPA's repos must not be
+    dropped by the accumulation of the later one (key-collision bug)."""
+    repa_a = Repa("dummy-repa-a")
+    repa_b = Repa("dummy-repa-b")
+    args = Namespace(
+        dry=False,
+        target=[{"user@host1": MagicMock()}],
+        repa=[repa_a, repa_b],
+        config="dummy_config",
+        yaml=False,
+    )
+
+    mock_target, _, mock_repoq = _setup_install(monkeypatch, args, {})
+    # Both REPAs resolve to the same product but different repos.
+    # side_effect takes precedence over the helper's return_value.
+    mock_repoq.solve_repa.side_effect = [
+        {"product": [MockRepo("repo-a", "http://repo-a.url", refresh=False)]},
+        {"product": [MockRepo("repo-b", "http://repo-b.url", refresh=False)]},
+    ]
+
+    install_command = Install(args)
+    assert install_command.run() == 0
+
+    issued = [c.args[0] for c in mock_target.run.call_args_list]
+    expected_a = install_command.addcmd.format(
+        name="repo-a", url="http://repo-a.url", params="-ckn"
+    )
+    expected_b = install_command.addcmd.format(
+        name="repo-b", url="http://repo-b.url", params="-ckn"
+    )
+    assert expected_a in issued, "repos from the first REPA must be retained"
+    assert expected_b in issued, "repos from the second REPA must be retained"
+
+
 # ---------------------------------------------------------------------------
 # Exit code propagation (PR 06)
 # ---------------------------------------------------------------------------
