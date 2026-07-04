@@ -68,6 +68,58 @@ def test_parse_repos_fans_out(two_targets):
         t.parse_repos.assert_called_once()
 
 
+def test_read_products_logs_worker_exception(monkeypatch, two_targets, caplog):
+    """A worker exception in read_products is logged, not swallowed."""
+    monkeypatch.setattr(
+        "repose.target.hostgroup.concurrent.futures.ThreadPoolExecutor",
+        ImmediateExecutor,
+    )
+    two_targets["host-a"].read_products.side_effect = OSError("dropped link")
+
+    hg = HostGroup(two_targets)
+    with caplog.at_level("WARNING", logger="repose.target.hostgroup"):
+        hg.read_products()  # should not raise
+
+    messages = [r.getMessage() for r in caplog.records]
+    assert any("dropped link" in m and "host-a" in m for m in messages)
+    # Sibling host still ran to completion.
+    two_targets["host-b"].read_products.assert_called_once()
+
+
+def test_read_repos_logs_worker_exception(monkeypatch, two_targets, caplog):
+    """A worker exception in read_repos is logged, not swallowed."""
+    monkeypatch.setattr(
+        "repose.target.hostgroup.concurrent.futures.ThreadPoolExecutor",
+        ImmediateExecutor,
+    )
+    two_targets["host-a"].read_repos.side_effect = ValueError("bad repo")
+
+    hg = HostGroup(two_targets)
+    with caplog.at_level("WARNING", logger="repose.target.hostgroup"):
+        hg.read_repos()  # should not raise
+
+    messages = [r.getMessage() for r in caplog.records]
+    assert any("bad repo" in m and "host-a" in m for m in messages)
+    two_targets["host-b"].read_repos.assert_called_once()
+
+
+def test_parse_repos_logs_worker_exception(monkeypatch, two_targets, caplog):
+    """A worker exception in parse_repos is logged, not swallowed."""
+    monkeypatch.setattr(
+        "repose.target.hostgroup.concurrent.futures.ThreadPoolExecutor",
+        ImmediateExecutor,
+    )
+    two_targets["host-a"].parse_repos.side_effect = AttributeError("no attr")
+
+    hg = HostGroup(two_targets)
+    with caplog.at_level("WARNING", logger="repose.target.hostgroup"):
+        hg.parse_repos()  # should not raise
+
+    messages = [r.getMessage() for r in caplog.records]
+    assert any("no attr" in m and "host-a" in m for m in messages)
+    two_targets["host-b"].parse_repos.assert_called_once()
+
+
 def test_report_products_iterates_sorted(two_targets):
     hg = HostGroup(two_targets)
     sink = MagicMock()
