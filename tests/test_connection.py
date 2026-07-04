@@ -445,3 +445,35 @@ def test_run_reconnect_failures_consume_budget_then_raise(mock_ssh_client, _no_b
     # Every attempt from the forced teardown onwards tries to reconnect.
     expected_connects = _RECONNECT_MAX_ATTEMPTS - _RECONNECT_FORCE_AFTER + 1
     assert mock_ssh_client.connect.call_count == expected_connects
+
+
+# ---------------------------------------------------------------------------
+# Command-timeout handling: aborting a timed-out command must not leak the
+# channel on the shared transport.
+# ---------------------------------------------------------------------------
+
+
+def test_run_closes_session_when_timeout_aborted(mock_ssh_client, monkeypatch):
+    """Declining the wait prompt on a command timeout still closes the channel.
+
+    ``run`` raises ``CommandTimeout`` when the user declines to keep waiting.
+    The channel must be torn down on that path, otherwise sessions accumulate
+    on the shared transport until ``MaxSessions`` is hit.
+    """
+    session = mock_ssh_client.get_transport.return_value.open_session.return_value
+
+    # Force select() to report a timeout (no data ready), triggering the
+    # interactive wait prompt.
+    monkeypatch.setattr("repose.connection.select.select", lambda *a, **k: ([], [], []))
+    # The user declines to keep waiting → run() raises CommandTimeout.
+    monkeypatch.setattr("builtins.input", lambda *a, **k: "n")
+
+    conn = Connection("h", "u", 22)
+    conn.connect()
+
+    with pytest.raises(CommandTimeout):
+        conn.run("sleep 999")
+
+    # close_session() shuts down and closes the channel on the abort path.
+    session.shutdown.assert_called_once_with(2)
+    session.close.assert_called_once()

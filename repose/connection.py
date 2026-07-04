@@ -416,64 +416,69 @@ class Connection:
             self._recover_transport(attempt)
             session = self.__run_command(command)
 
-        while True:
-            buf = b""
+        try:
+            while True:
+                buf = b""
 
-            # wait for data to be transmitted. if the timeout is hit,
-            # ask the user on how to procceed
-            if select.select([session], [], [], self.timeout) == ([], [], []):
-                if session is None:
-                    raise RuntimeError(
-                        "Session is unexpectedly None during timeout handling"
-                    )
+                # wait for data to be transmitted. if the timeout is hit,
+                # ask the user on how to procceed
+                if select.select([session], [], [], self.timeout) == ([], [], []):
+                    if session is None:
+                        raise RuntimeError(
+                            "Session is unexpectedly None during timeout handling"
+                        )
 
-                # writing on stdout needs locking as all run threads could
-                # write at the same time to stdout
-                if lock:
-                    lock.acquire()
+                    # writing on stdout needs locking as all run threads could
+                    # write at the same time to stdout
+                    if lock:
+                        lock.acquire()
+
+                    try:
+                        if input(
+                            'command "%s" timed out on %s. wait? (y/N) '
+                            % (command, self.hostname)
+                        ).lower() in ["y", "yes"]:
+                            continue
+                        else:
+                            # if the user don't want to wait, raise
+                            # CommandTimeout and procceed
+                            raise CommandTimeout
+                    finally:
+                        # release lock to allow other command threads to write
+                        # to stdout
+                        if lock:
+                            lock.release()
 
                 try:
-                    if input(
-                        'command "%s" timed out on %s. wait? (y/N) '
-                        % (command, self.hostname)
-                    ).lower() in ["y", "yes"]:
-                        continue
-                    else:
-                        # if the user don't want to wait, raise CommandTimeout
-                        # and procceed
-                        raise CommandTimeout
-                finally:
-                    # release lock to allow other command threads to write to
-                    # stdout
-                    if lock:
-                        lock.release()
+                    # wait for data on the session's stdout/stderr. if debug is
+                    # enabled, print the received data
+                    if session.recv_ready():
+                        buf = session.recv(1024)
+                        stdout += buf
+                        for line in buf.decode("utf-8", "ignore").split("\n"):
+                            if line:
+                                logger.debug(line)
 
-            try:
-                # wait for data on the session's stdout/stderr. if debug is enabled,
-                # print the received data
-                if session.recv_ready():
-                    buf = session.recv(1024)
-                    stdout += buf
-                    for line in buf.decode("utf-8", "ignore").split("\n"):
-                        if line:
-                            logger.debug(line)
+                    if session.recv_stderr_ready():
+                        buf = session.recv_stderr(1024)
+                        stderr += buf
+                        for line in buf.decode("utf-8", "ignore").split("\n"):
+                            if line:
+                                logger.debug(line)
 
-                if session.recv_stderr_ready():
-                    buf = session.recv_stderr(1024)
-                    stderr += buf
-                    for line in buf.decode("utf-8", "ignore").split("\n"):
-                        if line:
-                            logger.debug(line)
+                    if not buf:
+                        break
 
-                if not buf:
-                    break
+                except socket.timeout:
+                    select.select([], [], [], 1)
 
-            except socket.timeout:
-                select.select([], [], [], 1)
-
-        # save the exitcode of the last command and return it
-        exitcode = session.recv_exit_status()
-        self.close_session(session)
+            # save the exitcode of the last command and return it
+            exitcode = session.recv_exit_status()
+        finally:
+            # always release the channel, including on the timeout-abort path
+            # where CommandTimeout is raised, so the session is not leaked on
+            # the shared transport
+            self.close_session(session)
 
         return (stdout.decode(), stderr.decode(), exitcode)
 
