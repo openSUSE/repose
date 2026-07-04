@@ -302,7 +302,7 @@ async def test_arun_one_aborts_when_no_live_replacement(mock_args, caplog):
 
     reset.targets = {"user@host1": target}
     # Empty replacement set == every probe failed.
-    reset._aadd = AsyncMock(return_value=set())
+    reset._aadd = AsyncMock(return_value=(set(), ["r1"]))
 
     with caplog.at_level("ERROR", logger="repose.command.reset"):
         ok = await reset._arun_one("user@host1", lambda host, msg: None)
@@ -310,3 +310,95 @@ async def test_arun_one_aborts_when_no_live_replacement(mock_args, caplog):
     assert ok is False
     target.run.assert_not_awaited()
     assert any("Refhost" in r.message for r in caplog.records)
+
+
+def test_reset_partial_probe_drop_aborts_without_removal(
+    monkeypatch, mock_args, caplog, mock_ssh_client
+):
+    """A partial probe failure must not silently lose repos.
+
+    When the live-URL probe drops a proper subset of the resolved
+    replacement repositories the destructive ``rr`` must NOT run and
+    the host is reported failed — otherwise the dropped repos are
+    permanently gone after a transient mirror blip while the survivors
+    are re-added and the host is still reported as success.
+    """
+    target, _, _ = _setup_reset(
+        monkeypatch,
+        mock_args,
+        repoq_solution={
+            "product": [
+                MockRepo("good", "http://good", refresh=False),
+                MockRepo("bad", "http://bad", refresh=False),
+            ]
+        },
+    )
+    # One mirror is alive, the other fails the probe → partial drop.
+    monkeypatch.setattr(
+        repose.command._command,
+        "check_repo_url",
+        lambda url, *, timeout: url != "http://bad",
+    )
+
+    with caplog.at_level("ERROR", logger="repose.command.reset"):
+        # Single host aborted before removal → all-fail → exit 2.
+        assert Reset(mock_args).run() == 2
+
+    # Neither the destructive rr nor any ar ran.
+    target.run.assert_not_called()
+    assert any("bad" in r.getMessage() for r in caplog.records)
+
+
+def test_reset_dryrun_predicts_partial_drop_abort(
+    monkeypatch, mock_args, caplog, mock_ssh_client
+):
+    """``--dry`` must predict the real abort on a partial drop, not show
+    a destructive plan that never executes."""
+    mock_args.dry = True
+    target, _, _ = _setup_reset(
+        monkeypatch,
+        mock_args,
+        repoq_solution={
+            "product": [
+                MockRepo("good", "http://good", refresh=False),
+                MockRepo("bad", "http://bad", refresh=False),
+            ]
+        },
+    )
+    monkeypatch.setattr(
+        repose.command._command,
+        "check_repo_url",
+        lambda url, *, timeout: url != "http://bad",
+    )
+
+    with caplog.at_level("ERROR", logger="repose.command.reset"):
+        # Dry-run aborts (exit 2), matching the real run.
+        assert Reset(mock_args).run() == 2
+    target.run.assert_not_called()
+    assert any("bad" in r.getMessage() for r in caplog.records)
+
+
+async def test_arun_one_aborts_on_partial_probe_drop(mock_args, caplog):
+    """Async ``_arun_one`` must mirror the sync partial-drop guard.
+
+    With a survivor *and* a dropped candidate it must not run the
+    destructive ``rr`` and must report the host as failed.
+    """
+    mock_args.ssh_backend = "asyncssh"
+    reset = Reset(mock_args)
+
+    target = MagicMock()
+    target.raw_repos = [MockRawRepo("existing-repo1")]
+    target.out = _ok_out()
+    target.run = AsyncMock()
+
+    reset.targets = {"user@host1": target}
+    # One survivor command, one candidate dropped by the probe.
+    reset._aadd = AsyncMock(return_value=({"ar good"}, ["bad"]))
+
+    with caplog.at_level("ERROR", logger="repose.command.reset"):
+        ok = await reset._arun_one("user@host1", lambda host, msg: None)
+
+    assert ok is False
+    target.run.assert_not_awaited()
+    assert any("bad" in r.getMessage() for r in caplog.records)
