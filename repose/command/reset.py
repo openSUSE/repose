@@ -11,22 +11,38 @@ logger = logging.getLogger("repose.command.reset")
 
 
 class Reset(Clear, name="reset"):
-    def _add(self, target):
+    def _add(self, target) -> tuple[set[str], list[str]]:
+        """Resolve replacement repos for ``target`` into ``zypper ar`` cmds.
+
+        Returns ``(cmds, dropped)`` where ``dropped`` is the list of
+        resolved-candidate repo names whose live-URL probe failed. A
+        non-empty ``dropped`` means the probe removed a proper subset of
+        the candidates; the caller must treat that as a failure rather
+        than silently re-adding only the survivors, which would
+        permanently lose the dropped repos on the destructive ``rr``.
+        """
         cmds = set()
-        repolist = chain.from_iterable(
-            x for x in self.repoq.solve_product(self.targets[target].products).values()
+        repolist = list(
+            chain.from_iterable(
+                x
+                for x in self.repoq.solve_product(
+                    self.targets[target].products
+                ).values()
+            )
         )
         # Probe all candidate URLs in parallel before issuing any
         # ``zypper ar``; otherwise each per-host worker would serialise
         # 1-2 probes per repository.
         live = self._filter_live_urls(repolist)
+        live_ids = {id(r) for r in live}
+        dropped = [r.name for r in repolist if id(r) not in live_ids]
         cmds.update(
             self.addcmd.format(
                 name=x.name, url=x.url, params="-cfkn" if x.refresh else "-ckn"
             )
             for x in live
         )
-        return cmds
+        return cmds, dropped
 
     def _run(self, host: str, update: UpdateFn) -> bool:
         update(host, "clearing repos")
@@ -34,14 +50,11 @@ class Reset(Clear, name="reset"):
         ok = True
         try:
             update(host, "resolving new repos")
-            cmds = self._add(host)
+            cmds, dropped = self._add(host)
 
-            if self.dryrun:
-                self.console.dry(host, self.rrcmd.format(repos=" ".join(repoaliases)))
-                for cmd in cmds:
-                    self.console.dry(host, cmd)
-                return True
-
+            # Guards run BEFORE the dry-run preview so ``--dry`` predicts
+            # the real abort instead of showing a destructive plan that
+            # never executes.
             if not cmds:
                 logger.error(
                     "Refhost %s - no live replacement repositories "
@@ -50,6 +63,24 @@ class Reset(Clear, name="reset"):
                     host,
                 )
                 return False
+
+            if dropped:
+                logger.error(
+                    "Refhost %s - live-URL probe dropped %d of the "
+                    "resolved replacement repositories (%s); aborting "
+                    "reset to avoid permanently losing repositories over "
+                    "a transient mirror failure",
+                    host,
+                    len(dropped),
+                    ", ".join(sorted(dropped)),
+                )
+                return False
+
+            if self.dryrun:
+                self.console.dry(host, self.rrcmd.format(repos=" ".join(repoaliases)))
+                for cmd in cmds:
+                    self.console.dry(host, cmd)
+                return True
 
             update(host, f"re-adding {len(cmds)} repo(s)")
             self.targets[host].run(self.rrcmd.format(repos=" ".join(repoaliases)))
@@ -64,13 +95,25 @@ class Reset(Clear, name="reset"):
             ok = False
         return ok
 
-    async def _aadd(self, target) -> set[str]:
-        """Async sibling of ``_add`` — uses async URL probing."""
+    async def _aadd(self, target) -> tuple[set[str], list[str]]:
+        """Async sibling of ``_add`` — uses async URL probing.
+
+        Returns ``(cmds, dropped)`` with the same contract as ``_add``:
+        ``dropped`` names the resolved candidates whose live-URL probe
+        failed so the caller can refuse a partial reset.
+        """
         cmds: set[str] = set()
-        repolist = chain.from_iterable(
-            x for x in self.repoq.solve_product(self.targets[target].products).values()
+        repolist = list(
+            chain.from_iterable(
+                x
+                for x in self.repoq.solve_product(
+                    self.targets[target].products
+                ).values()
+            )
         )
         live = await self._afilter_live_urls(repolist)
+        live_ids = {id(r) for r in live}
+        dropped = [r.name for r in repolist if id(r) not in live_ids]
         cmds.update(
             self.addcmd.format(
                 name=x.name,
@@ -79,7 +122,7 @@ class Reset(Clear, name="reset"):
             )
             for x in live
         )
-        return cmds
+        return cmds, dropped
 
     async def _arun_one(self, host: str, update: UpdateFn) -> bool:
         update(host, "clearing repos")
@@ -87,14 +130,11 @@ class Reset(Clear, name="reset"):
         ok = True
         try:
             update(host, "resolving new repos")
-            cmds = await self._aadd(host)
+            cmds, dropped = await self._aadd(host)
 
-            if self.dryrun:
-                self.console.dry(host, self.rrcmd.format(repos=" ".join(repoaliases)))
-                for cmd in cmds:
-                    self.console.dry(host, cmd)
-                return True
-
+            # Guards run BEFORE the dry-run preview so ``--dry`` predicts
+            # the real abort instead of showing a destructive plan that
+            # never executes.
             if not cmds:
                 logger.error(
                     "Refhost %s - no live replacement repositories "
@@ -103,6 +143,24 @@ class Reset(Clear, name="reset"):
                     host,
                 )
                 return False
+
+            if dropped:
+                logger.error(
+                    "Refhost %s - live-URL probe dropped %d of the "
+                    "resolved replacement repositories (%s); aborting "
+                    "reset to avoid permanently losing repositories over "
+                    "a transient mirror failure",
+                    host,
+                    len(dropped),
+                    ", ".join(sorted(dropped)),
+                )
+                return False
+
+            if self.dryrun:
+                self.console.dry(host, self.rrcmd.format(repos=" ".join(repoaliases)))
+                for cmd in cmds:
+                    self.console.dry(host, cmd)
+                return True
 
             update(host, f"re-adding {len(cmds)} repo(s)")
             await self.targets[host].run(self.rrcmd.format(repos=" ".join(repoaliases)))
