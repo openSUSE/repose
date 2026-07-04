@@ -21,6 +21,16 @@ if not sys.warnoptions:
 
 logger = logging.getLogger("repose.connection")
 
+# Bound the session/channel-creation retry loops. A transport can stay
+# "active" while persistently refusing to hand out new sessions/channels
+# (server MaxSessions reached, half-broken transport). Without a cap the
+# retry loops spin with no sleep and pin a CPU forever, so limit the
+# attempts, back off between them, and recycle the transport before
+# giving up.
+_RECONNECT_MAX_ATTEMPTS = 10
+_RECONNECT_FORCE_AFTER = 3
+_RECONNECT_BACKOFF = 1.0
+
 
 class CommandTimeout(Exception):
     """remote command timeout exception
@@ -279,6 +289,47 @@ class Connection:
                 )
         return self.is_active()
 
+    def _recover_transport(self, attempt: int) -> None:
+        """Back off and reconnect between failed session/channel opens.
+
+        Mirrors :meth:`wait_reconnect`'s bounded pattern for the
+        session/channel-creation loops: a short backoff avoids pinning a
+        CPU, and once ``attempt`` reaches ``_RECONNECT_FORCE_AFTER`` the
+        transport is torn down even if it still reports active. This
+        recycles a degraded-but-active transport (e.g. one that keeps
+        refusing new sessions) instead of spinning on it, since plain
+        :meth:`reconnect` is a no-op while ``is_active()`` is True.
+
+        A failing reconnect is logged and swallowed — again mirroring
+        :meth:`wait_reconnect` — so a transient connect error consumes
+        one attempt of the caller's budget instead of escaping past the
+        ``_RECONNECT_MAX_ATTEMPTS`` cap.
+
+        Args:
+            attempt: 1-based index of the failed attempt just completed.
+        """
+        select.select([], [], [], _RECONNECT_BACKOFF)
+        if attempt >= _RECONNECT_FORCE_AFTER and self.is_active():
+            logger.debug(
+                "forcing transport teardown on %s:%s after %d failed "
+                "session/channel opens",
+                self.hostname,
+                self.port,
+                attempt,
+            )
+            self.close()
+        try:
+            self.reconnect()
+        except Exception:
+            logger.debug(
+                "reconnect attempt %d/%d to %s:%s failed",
+                attempt,
+                _RECONNECT_MAX_ATTEMPTS,
+                self.hostname,
+                self.port,
+                exc_info=True,
+            )
+
     def new_session(self) -> Channel | None:
         logger.debug("Creating new session at %s:%s", self.hostname, self.port)
         session: Channel | None = None
@@ -334,7 +385,7 @@ class Connection:
         """run command over SSH channel
 
         Blocks until command terminates. returncode of issued command is returned.
-        In case of errors, -1 is returned.
+        In case of command-level errors, -1 is returned.
 
         If the connection hits the timeout limit, the user is asked to wait or
         cancel the current command.
@@ -342,6 +393,11 @@ class Connection:
         Keyword arguments:
         command -- the command to run
         lock    -- lock object for write on stdout
+
+        Raises:
+            paramiko.SSHException: if no session can be opened after
+                ``_RECONNECT_MAX_ATTEMPTS`` attempts (including forced
+                transport teardowns and failed reconnects).
         """
 
         stdout = b""
@@ -349,8 +405,15 @@ class Connection:
 
         session = self.__run_command(command)
 
+        attempt = 0
         while not session:
-            self.reconnect()
+            attempt += 1
+            if attempt > _RECONNECT_MAX_ATTEMPTS:
+                raise paramiko.SSHException(
+                    f"Unable to open a session on {self.hostname}:"
+                    f"{self.port} after {_RECONNECT_MAX_ATTEMPTS} attempts"
+                )
+            self._recover_transport(attempt)
             session = self.__run_command(command)
 
         while True:
@@ -426,8 +489,15 @@ class Connection:
 
     def __sftp_reconnect(self) -> SFTPClient:
         sftp = self.__sftp_open()
+        attempt = 0
         while not sftp:
-            self.reconnect()
+            attempt += 1
+            if attempt > _RECONNECT_MAX_ATTEMPTS:
+                raise paramiko.SSHException(
+                    f"Unable to open an SFTP channel on {self.hostname}:"
+                    f"{self.port} after {_RECONNECT_MAX_ATTEMPTS} attempts"
+                )
+            self._recover_transport(attempt)
             sftp = self.__sftp_open()
         return sftp
 
