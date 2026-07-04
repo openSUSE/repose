@@ -1,5 +1,6 @@
 """Tests for ``repose.target.parsers.product.parse_system``."""
 
+import logging
 from contextlib import asynccontextmanager, contextmanager
 from unittest.mock import AsyncMock, MagicMock
 
@@ -188,21 +189,82 @@ def test_non_transactional_host_not_detected():
     assert system.is_transactional() is False
 
 
-def test_non_suse_falls_back_to_os_release():
-    """When /etc/products.d is absent, parser opens /etc/os-release."""
+_UBUNTU_OS_RELEASE = (
+    b'NAME="Ubuntu"\n'
+    b'VERSION_ID="22.04"\n'
+    b'VERSION="22.04.3 LTS (Jammy Jellyfish)"\n'
+    b"ID=ubuntu\n"
+    b"ID_LIKE=debian\n"
+)
+
+
+def test_non_suse_reflects_os_release_id_and_version():
+    """A non-SUSE host's identity comes from os-release ID/VERSION_ID.
+
+    Regression guard: the parser must reflect the file contents (ubuntu
+    22.04) rather than fabricating a hardcoded rhel/7 tuple.
+    """
     conn = MagicMock()
     conn.listdir.side_effect = OSError("No such directory")
 
     def _open(path, *args, **kwargs):
         if path == "/etc/os-release":
-            return _open_returning(b"")
+            return _open_returning(_UBUNTU_OS_RELEASE)
         raise FileNotFoundError(path)
 
     conn.open.side_effect = _open
 
     system = parse_system(conn)
-    # Stub returns ("rhel", "7", "x86_64")
-    assert system.get_base() == Product("rhel", "7", "x86_64")
+    assert system.get_base() == Product("ubuntu", "22.04", "unknown")
+
+
+def test_non_suse_os_release_uses_optional_architecture_field():
+    """An optional ARCHITECTURE key overrides the arch placeholder."""
+    conn = MagicMock()
+    conn.listdir.side_effect = OSError("No such directory")
+
+    def _open(path, *args, **kwargs):
+        if path == "/etc/os-release":
+            return _open_returning(b"ID=fedora\nVERSION_ID=40\nARCHITECTURE=aarch64\n")
+        raise FileNotFoundError(path)
+
+    conn.open.side_effect = _open
+
+    system = parse_system(conn)
+    assert system.get_base() == Product("fedora", "40", "aarch64")
+
+
+def test_non_suse_os_release_without_id_falls_back_to_linux(caplog):
+    """A malformed os-release (no ID) warns and uses the spec default.
+
+    os-release(5) defines ``ID``'s default as ``"linux"``, so the parser
+    falls back to that identity with a warning naming the host instead of
+    raising and knocking the host out of the scan.
+    """
+    conn = MagicMock()
+    conn.hostname = "mystery.example.com"
+    conn.listdir.side_effect = OSError("No such directory")
+
+    def _open(path, *args, **kwargs):
+        if path == "/etc/os-release":
+            return _open_returning(b'PRETTY_NAME="Mystery OS"\n')
+        raise FileNotFoundError(path)
+
+    conn.open.side_effect = _open
+
+    with caplog.at_level(logging.WARNING):
+        system = parse_system(conn)
+
+    assert system.get_base() == Product("linux", "", "unknown")
+    warning = next(
+        record.getMessage()
+        for record in caplog.records
+        if record.levelno == logging.WARNING
+    )
+    assert warning == (
+        "mystery.example.com: /etc/os-release has no usable ID field; "
+        "falling back to the os-release(5) default ID 'linux'"
+    )
 
 
 def test_non_suse_without_osrelease_returns_rhel6_default():
@@ -300,13 +362,13 @@ async def test_async_non_suse_falls_back_to_os_release():
 
     def _open(path, *args, **kwargs):
         if path == "/etc/os-release":
-            return _async_open_returning(b"")
+            return _async_open_returning(_UBUNTU_OS_RELEASE)
         raise FileNotFoundError(path)
 
     conn.open.side_effect = _open
 
     system = await parse_system_async(conn)
-    assert system.get_base() == Product("rhel", "7", "x86_64")
+    assert system.get_base() == Product("ubuntu", "22.04", "unknown")
 
 
 async def test_async_non_suse_without_osrelease_returns_rhel6_default():

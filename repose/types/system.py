@@ -11,10 +11,6 @@ if TYPE_CHECKING:
     from ..target.parsers import Product
 
 
-class UnknownSystemError(ValueError):
-    pass
-
-
 @dataclass(frozen=True, slots=True)
 class SystemData:
     """Typed internal storage for System.
