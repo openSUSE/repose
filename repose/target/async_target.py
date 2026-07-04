@@ -132,6 +132,19 @@ class AsyncTarget:
             logger.critical('%s: command "%s" timed out', self.hostname, command)
         except AssertionError:
             logger.debug("zombie command terminated", exc_info=True)
+            # Record a synthetic failure so ``out[-1]`` reflects this
+            # aborted command (exitcode -1) rather than desyncing to the
+            # previous command's tuple; callers reading ``out[-1][3]``
+            # must not see a stale success. ``None`` is still returned so
+            # ``read_repos`` keeps treating this as a transient failure.
+            if not stderr:
+                # The pre-initialised stderr is empty here, and
+                # ``_report_target`` prints only the entry's streams --
+                # without a diagnostic the host shows FAILED with no
+                # reason. Keep any real captured stderr.
+                stderr = "command aborted: no exit status received from channel"
+            runtime = int(timestamp()) - int(time_before)
+            self.out.append([command, stdout, stderr, exitcode, runtime])
             return None
         except Exception as e:  # noqa: BLE001
             logger.error('%s: failed to run command "%s"', self.hostname, command)

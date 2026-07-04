@@ -109,13 +109,40 @@ async def test_run_handles_command_timeout(make_target, caplog):
 
 
 async def test_run_handles_assertion_error_returns_none(make_target):
+    """``AssertionError`` returns ``None`` yet still appends a failure
+    entry (exitcode -1) so ``out[-1]`` reflects this aborted command
+    instead of desyncing to a previous command's tuple. The entry's
+    stderr carries a diagnostic so ``_report_target`` does not report a
+    FAILED host with zero explanatory output."""
     target, conn = make_target()
     conn.run.side_effect = AssertionError("zombie")
 
     result = await target.run("cmd")
     assert result is None
-    # AssertionError path does not append to ``out``.
-    assert target.out == []
+    assert target.out[-1][0] == "cmd"
+    assert target.out[-1][2] == (
+        "command aborted: no exit status received from channel"
+    )
+    assert target.out[-1][3] == -1
+
+
+async def test_run_assertion_error_does_not_mask_prior_success(make_target):
+    """Regression: a first command succeeds (exit 0), then a second
+    command hits the AssertionError branch. ``out[-1]`` must report the
+    second command's failure, not the first command's stale success."""
+    target, conn = make_target()
+    conn.run.return_value = ("out", "err", 0)
+    assert await target.run("first") == ("out", "err", 0)
+
+    conn.run.side_effect = AssertionError("zombie")
+    assert await target.run("second") is None
+
+    assert len(target.out) == 2
+    assert target.out[-1][0] == "second"
+    assert target.out[-1][2] == (
+        "command aborted: no exit status received from channel"
+    )
+    assert target.out[-1][3] == -1
 
 
 async def test_run_handles_generic_exception(make_target, caplog):
