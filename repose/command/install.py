@@ -3,22 +3,42 @@ import logging
 
 from . import Command, UpdateFn
 from ..target.async_hostgroup import AsyncHostGroup
+from ..template.resolver import Repos
 from ..types import ExitCode
 
 logger = logging.getLogger("repose.command.install")
 
 
+def _merge_repos(
+    repositories: dict[str, list[Repos]], resolved: dict[str, list[Repos]]
+) -> None:
+    """Merge a resolved REPA solution into the accumulator in place.
+
+    Two REPAs may name the same product (e.g. differing only in the
+    requested repo). A plain ``dict.update`` would overwrite the first
+    product's repo list with the second's, silently dropping the repos
+    from the earlier REPA. Instead, extend each product's list with any
+    repos not already present so every resolved repo is retained.
+    """
+    for product, repos in resolved.items():
+        existing = repositories.setdefault(product, [])
+        for repo in repos:
+            if repo not in existing:
+                existing.append(repo)
+
+
 class Install(Command, name="install"):
     def _run(self, target: str, update: UpdateFn) -> bool:
         update(target, "resolving repos")
-        repositories = {}
+        repositories: dict[str, list[Repos]] = {}
         ok = True
         for repa in self.repa:
             try:
-                repositories.update(
+                _merge_repos(
+                    repositories,
                     self.repoq.solve_repa(
                         repa, self.targets[target].products.get_base()
-                    )
+                    ),
                 )
             except ValueError as error:
                 logger.error(error)
@@ -85,14 +105,15 @@ class Install(Command, name="install"):
         calls become ``await``s.
         """
         update(target, "resolving repos")
-        repositories: dict = {}
+        repositories: dict[str, list[Repos]] = {}
         ok = True
         for repa in self.repa:
             try:
-                repositories.update(
+                _merge_repos(
+                    repositories,
                     self.repoq.solve_repa(
                         repa, self.targets[target].products.get_base()
-                    )
+                    ),
                 )
             except ValueError as error:
                 logger.error(error)
