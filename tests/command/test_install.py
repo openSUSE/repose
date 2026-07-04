@@ -249,6 +249,38 @@ def test_install_transactional_verify_fails_when_product_absent(
     target.reboot.assert_called_once()
 
 
+def test_install_transactional_preserves_earlier_failure(
+    monkeypatch, mock_args_and_repa, mock_ssh_client
+):
+    """A passing reboot/verify must not mask an earlier failure.
+
+    When one repa fails to resolve (``solve_repa`` raises) but another
+    resolves, the product install and a passing reboot/verify must not
+    clobber the accumulated ``ok=False`` — the host still fails.
+    """
+    args, repa_instance = mock_args_and_repa
+    other_repa = Repa("other-repa")
+    args.repa = [repa_instance, other_repa]
+
+    target, _, repoq = _setup_install(
+        monkeypatch,
+        args,
+        {"qa": [MockRepo("repo1", "http://repo1.url", refresh=True)]},
+    )
+    # First repa fails to resolve, second resolves to a product so the
+    # transactional install branch is still reached.
+    repoq.solve_repa.side_effect = [
+        ValueError("Unknow product: X"),
+        {"qa": [MockRepo("repo1", "http://repo1.url", refresh=True)]},
+    ]
+    _make_transactional(target, installed_after={"qa"})
+    # Reboot/verify passes — it must not reset the earlier failure.
+    monkeypatch.setattr(Install, "_reboot_and_verify", lambda self, *a, **k: True)
+
+    # Single host, earlier failure preserved → all hosts failed → exit 2.
+    assert Install(args).run() == 2
+
+
 def test_install_transactional_no_reboot_stages_only(
     monkeypatch, mock_args_and_repa, mock_ssh_client
 ):

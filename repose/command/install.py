@@ -71,7 +71,8 @@ class Install(Command, name="install"):
                 if not self._report_target(target):
                     ok = False
                 elif transactional:
-                    ok = self._reboot_and_verify(target, list(repositories.keys()))
+                    if not self._reboot_and_verify(target, list(repositories.keys())):
+                        ok = False
         else:
             logger.error("No products to install")
             ok = False
@@ -137,9 +138,10 @@ class Install(Command, name="install"):
                 if not self._report_target(target):
                     ok = False
                 elif transactional:
-                    ok = await self._areboot_and_verify(
+                    if not await self._areboot_and_verify(
                         target, list(repositories.keys())
-                    )
+                    ):
+                        ok = False
         else:
             logger.error("No products to install")
             ok = False
