@@ -1,5 +1,6 @@
 """Tests for ``repose.connection``."""
 
+import threading
 from unittest.mock import MagicMock
 
 import paramiko
@@ -253,6 +254,127 @@ def test_accept_new_policy_persists_when_path_given(tmp_path):
     policy.missing_host_key(client, "h.example.com", key)
 
     client.save_host_keys.assert_called_once_with(str(kh))
+
+
+def test_run_timeout_non_tty_raises_without_prompt(mock_ssh_client, monkeypatch):
+    """A timed-out command on non-interactive stdin yields CommandTimeout.
+
+    Under multi-host fan-out every worker passes ``lock=None`` and shares
+    stdin; calling ``input()`` there interleaves prompts and (on non-TTY
+    stdin) raises EOFError. The non-TTY guard must instead raise
+    CommandTimeout without ever touching ``input()``.
+    """
+    conn = Connection("h", "u", 22, timeout=0)
+    conn.connect()
+
+    # Force select() to report a timeout on every poll.
+    monkeypatch.setattr("repose.connection.select.select", lambda *a, **k: ([], [], []))
+    # Non-interactive stdin: nobody can answer the wait/cancel prompt.
+    monkeypatch.setattr("sys.stdin.isatty", lambda: False)
+
+    # input() must never be reached; fail loudly if it is.
+    def _forbidden(*args, **kwargs):
+        raise AssertionError("input() called under non-TTY stdin")
+
+    monkeypatch.setattr("builtins.input", _forbidden)
+
+    with pytest.raises(CommandTimeout):
+        conn.run("sleep 100")
+
+
+def test_run_timeout_tty_prompt_holds_module_lock(mock_ssh_client, monkeypatch):
+    """The interactive timeout prompt runs entirely under _PROMPT_LOCK.
+
+    With a TTY, timed-out fan-out workers used to call ``input()``
+    concurrently (no call site passes ``lock``), interleaving prompts on
+    shared stdin. The prompt/answer exchange must own the module-level
+    prompt lock so at most one thread prompts at a time.
+    """
+    conn = Connection("h", "u", 22, timeout=0)
+    conn.connect()
+
+    # Force select() to report a timeout on every poll.
+    monkeypatch.setattr("repose.connection.select.select", lambda *a, **k: ([], [], []))
+    # Interactive stdin: the wait/cancel prompt is reachable.
+    monkeypatch.setattr("sys.stdin.isatty", lambda: True)
+
+    prompts = []
+
+    def _fake_input(prompt):
+        # The entire exchange must be serialized under the module lock.
+        assert repose.connection._PROMPT_LOCK.locked()
+        prompts.append(prompt)
+        return "abort"
+
+    monkeypatch.setattr("builtins.input", _fake_input)
+
+    with pytest.raises(CommandTimeout):
+        conn.run("sleep 100")
+
+    assert len(prompts) == 1
+    assert 'command "sleep 100" timed out on h' in prompts[0]
+    # The lock is released again once the exchange is over.
+    assert not repose.connection._PROMPT_LOCK.locked()
+
+
+def test_run_timeout_tty_prompts_do_not_interleave(mock_ssh_client, monkeypatch):
+    """Two concurrently timed-out workers get strictly sequential prompts.
+
+    Worker A is parked inside its prompt on an event gate while worker B
+    is already running; B's prompt must not start until A's whole
+    prompt/answer exchange has finished.
+    """
+    monkeypatch.setattr("repose.connection.select.select", lambda *a, **k: ([], [], []))
+    monkeypatch.setattr("sys.stdin.isatty", lambda: True)
+
+    events = []
+    a_in_prompt = threading.Event()
+    release_a = threading.Event()
+
+    def _fake_input(prompt):
+        assert repose.connection._PROMPT_LOCK.locked()
+        name = threading.current_thread().name
+        events.append(f"{name}-enter")
+        if name == "worker-a":
+            a_in_prompt.set()
+            # Hold the prompt open until the main thread releases it.
+            assert release_a.wait(5)
+        events.append(f"{name}-exit")
+        return "n"
+
+    monkeypatch.setattr("builtins.input", _fake_input)
+
+    results = {}
+
+    def _worker():
+        conn = Connection("h", "u", 22, timeout=0)
+        conn.connect()
+        try:
+            conn.run("sleep 100")
+        except CommandTimeout:
+            results[threading.current_thread().name] = "timeout"
+
+    thread_a = threading.Thread(target=_worker, name="worker-a")
+    thread_b = threading.Thread(target=_worker, name="worker-b")
+
+    thread_a.start()
+    assert a_in_prompt.wait(5)  # A owns the prompt and is parked inside it.
+    thread_b.start()  # B times out too and must queue behind A.
+    release_a.set()
+
+    thread_a.join(5)
+    thread_b.join(5)
+    assert not thread_a.is_alive() and not thread_b.is_alive()
+
+    # Each worker got its own complete, non-interleaved exchange, and B's
+    # prompt only started after A's finished.
+    assert events == [
+        "worker-a-enter",
+        "worker-a-exit",
+        "worker-b-enter",
+        "worker-b-exit",
+    ]
+    assert results == {"worker-a": "timeout", "worker-b": "timeout"}
 
 
 # ---------------------------------------------------------------------------

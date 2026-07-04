@@ -5,6 +5,7 @@ import os
 import select
 import socket
 import sys
+import threading
 from traceback import format_exc
 
 import paramiko
@@ -30,6 +31,13 @@ logger = logging.getLogger("repose.connection")
 _RECONNECT_MAX_ATTEMPTS = 10
 _RECONNECT_FORCE_AFTER = 3
 _RECONNECT_BACKOFF = 1.0
+
+# Serializes the interactive command-timeout prompt across worker threads.
+# Under multi-host fan-out several timed-out run() calls can reach the
+# wait/cancel prompt at once; all of them share one stdin, so without
+# serialization the prompts interleave and a single typed answer is
+# consumed by an arbitrary thread while the others block forever.
+_PROMPT_LOCK = threading.Lock()
 
 
 class CommandTimeout(Exception):
@@ -428,26 +436,44 @@ class Connection:
                             "Session is unexpectedly None during timeout handling"
                         )
 
-                    # writing on stdout needs locking as all run threads could
-                    # write at the same time to stdout
-                    if lock:
-                        lock.acquire()
+                    # Without an interactive terminal there is nobody to answer
+                    # the wait/cancel prompt. Calling input() here would raise
+                    # EOFError on non-TTY stdin, and under multi-host fan-out
+                    # several worker threads would race on shared stdin. Treat
+                    # the timeout non-interactively as a CommandTimeout instead.
+                    if not sys.stdin.isatty():
+                        logger.warning(
+                            'command "%s" timed out on %s (non-interactive stdin)',
+                            command,
+                            self.hostname,
+                        )
+                        raise CommandTimeout(command)
 
-                    try:
-                        if input(
-                            'command "%s" timed out on %s. wait? (y/N) '
-                            % (command, self.hostname)
-                        ).lower() in ["y", "yes"]:
-                            continue
-                        else:
-                            # if the user don't want to wait, raise
-                            # CommandTimeout and procceed
-                            raise CommandTimeout
-                    finally:
-                        # release lock to allow other command threads to write
-                        # to stdout
+                    # The whole prompt/answer exchange must be atomic per
+                    # thread: serialize it so at most one thread owns the
+                    # prompt at any moment and every thread gets its own
+                    # complete question and answer.
+                    with _PROMPT_LOCK:
+                        # writing on stdout needs locking as all run threads
+                        # could write at the same time to stdout
                         if lock:
-                            lock.release()
+                            lock.acquire()
+
+                        try:
+                            if input(
+                                'command "%s" timed out on %s. wait? (y/N) '
+                                % (command, self.hostname)
+                            ).lower() in ["y", "yes"]:
+                                continue
+                            else:
+                                # if the user don't want to wait, raise
+                                # CommandTimeout and procceed
+                                raise CommandTimeout
+                        finally:
+                            # release lock to allow other command threads to
+                            # write to stdout
+                            if lock:
+                                lock.release()
 
                 try:
                     # wait for data on the session's stdout/stderr. if debug is
