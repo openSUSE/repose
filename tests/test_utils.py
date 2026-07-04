@@ -5,6 +5,8 @@ import ssl
 from unittest.mock import MagicMock
 from urllib.error import HTTPError, URLError
 
+import pytest
+
 import repose.utils
 
 
@@ -171,13 +173,18 @@ import httpx  # noqa: E402
 from unittest.mock import AsyncMock  # noqa: E402
 
 
-def _async_client_returning(responses: list[object]):
+def _async_client_returning(responses: list[object], probed: list[str] | None = None):
     """Patch ``httpx.AsyncClient`` to yield a context manager whose
-    ``.head`` / ``.get`` consume the given response queue."""
+    ``.head`` / ``.get`` consume the given response queue.
+
+    When ``probed`` is given, every requested URL is appended to it so
+    tests can assert which targets were actually probed."""
     client = MagicMock()
     queue = list(responses)
 
     async def _next(target, **kw):
+        if probed is not None:
+            probed.append(target)
         return queue.pop(0)
 
     client.head = _next
@@ -196,16 +203,31 @@ async def test_check_repo_url_async_returns_true_on_2xx(monkeypatch):
 
 
 async def test_check_repo_url_async_falls_back_to_suse_layout(monkeypatch):
-    """First probe (repodata/) → 404; second (suse/repodata/) → 200."""
+    """First suffix (repodata/) fails both HEAD and its GET retry;
+    the probe must then fall back to the suse/ layout → 200 → True."""
     bad = MagicMock(status_code=404)
     good = MagicMock(status_code=200)
-    monkeypatch.setattr(httpx, "AsyncClient", _async_client_returning([bad, good]))
+    probed: list[str] = []
+    monkeypatch.setattr(
+        httpx,
+        "AsyncClient",
+        _async_client_returning([bad, bad, good], probed=probed),
+    )
     assert (await repose.utils.check_repo_url_async("http://example.com/")) is True
+    assert probed == [
+        "http://example.com/repodata/repomd.xml",  # HEAD -> 404
+        "http://example.com/repodata/repomd.xml",  # GET retry -> 404
+        "http://example.com/suse/repodata/repomd.xml",  # HEAD -> 200
+    ]
 
 
 async def test_check_repo_url_async_returns_false_when_both_4xx(monkeypatch):
+    # Each of the two suffixes probes HEAD then falls back to GET, so a
+    # dead repo yields four 4xx responses.
     bad = MagicMock(status_code=404)
-    monkeypatch.setattr(httpx, "AsyncClient", _async_client_returning([bad, bad]))
+    monkeypatch.setattr(
+        httpx, "AsyncClient", _async_client_returning([bad, bad, bad, bad])
+    )
     assert (await repose.utils.check_repo_url_async("http://example.com/")) is False
 
 
@@ -226,16 +248,25 @@ async def test_check_repo_url_async_swallows_httpx_errors(monkeypatch):
     assert (await repose.utils.check_repo_url_async("http://example.com/")) is False
 
 
-async def test_check_repo_url_async_retries_get_on_405(monkeypatch):
-    """A 405 on HEAD must trigger a GET retry; a 200 on GET wins."""
-    head_405 = MagicMock(status_code=405)
+@pytest.mark.parametrize("head_status", [400, 401, 403, 404, 405, 500])
+async def test_check_repo_url_async_retries_get_on_non_success_head(
+    monkeypatch, head_status
+):
+    """Any non-success HEAD must trigger a GET retry; a 200 on GET wins.
+
+    Backend-parity regression: 405 covers mirrors that disallow HEAD
+    outright, while 400/401/403 come from nginx ``limit_except``, WAFs,
+    or S3/proxy layers that reject HEAD yet serve GET. Such repos are
+    live for the sync ``urlopen`` (GET) probe, so the async probe must
+    judge them live too."""
+    head_resp = MagicMock(status_code=head_status)
     get_200 = MagicMock(status_code=200)
 
     calls: list[str] = []
 
     async def _head(target, **kw):
         calls.append("head")
-        return head_405
+        return head_resp
 
     async def _get(target, **kw):
         calls.append("get")

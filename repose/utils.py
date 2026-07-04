@@ -64,8 +64,12 @@ async def check_repo_url_async(url: str, *, timeout: float = 5.0) -> bool:
     semantic.
 
     HEAD is used in preference to GET to avoid pulling the full
-    ``repomd.xml`` payload, with a GET fallback because some mirrors
-    return 405 on HEAD even though the resource exists.
+    ``repomd.xml`` payload, with a GET fallback on *any* non-success
+    HEAD status. Some servers reject HEAD outright — 405, but also
+    400/401/403 from nginx ``limit_except``, WAFs, or S3/proxy layers —
+    while serving GET fine; without the broad fallback such a repo,
+    judged live by the sync ``urlopen`` (GET) probe, would be reported
+    dead here and break backend parity.
 
     TLS is verified against the system trust store (see
     :func:`_system_ssl_context`) rather than ``httpx``'s bundled
@@ -87,11 +91,12 @@ async def check_repo_url_async(url: str, *, timeout: float = 5.0) -> bool:
                 resp = await client.head(target, follow_redirects=True)
                 if resp.status_code < 400:
                     return True
-                if resp.status_code == 405:
-                    # Some mirrors disallow HEAD; retry with GET.
-                    resp = await client.get(target, follow_redirects=True)
-                    if resp.status_code < 400:
-                        return True
+                # Any non-success HEAD (405, but also 400/401/403 from
+                # servers that reject HEAD yet serve GET) retries with
+                # GET, matching the sync urllib (GET) probe's semantics.
+                resp = await client.get(target, follow_redirects=True)
+                if resp.status_code < 400:
+                    return True
             except (httpx.HTTPError, OSError):
                 continue
     return False
