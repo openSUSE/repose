@@ -5,7 +5,13 @@ from unittest.mock import MagicMock
 import paramiko
 import pytest
 
-from repose.connection import CommandTimeout, Connection
+import repose.connection
+from repose.connection import (
+    _RECONNECT_FORCE_AFTER,
+    _RECONNECT_MAX_ATTEMPTS,
+    CommandTimeout,
+    Connection,
+)
 from repose.connection_policy import AcceptNewPolicy
 from repose.types.connection_config import ConnectionConfig
 
@@ -303,3 +309,139 @@ def test_wait_reconnect_gives_up_after_retry_budget(mock_ssh_client):
     assert ok is False
     # count increments after entering, so retry=N yields N+1 attempts.
     assert mock_ssh_client.connect.call_count == 3
+
+
+# ---------------------------------------------------------------------------
+# Bounded reconnect loops: a transport that stays active but keeps
+# refusing new sessions/channels must fail loudly after a capped number
+# of attempts instead of spinning forever (concurrency hazard).
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def _no_backoff(monkeypatch):
+    """Neutralise the reconnect backoff so the bounded loops run fast.
+
+    The stub reports the channel as readable so that, when a session does
+    open, ``run``'s read loop skips its interactive timeout prompt.
+    """
+    monkeypatch.setattr(
+        repose.connection.select, "select", lambda *a, **k: (["ready"], [], [])
+    )
+
+
+def _active_transport(mock_ssh_client):
+    """Wire the mock so ``is_active()`` reports a live transport."""
+    transport = MagicMock()
+    transport.is_active.return_value = True
+    mock_ssh_client._transport = transport
+    mock_ssh_client.get_transport.return_value = transport
+    return transport
+
+
+def test_run_raises_after_attempt_cap_on_active_transport(mock_ssh_client, _no_backoff):
+    """``run`` must not spin forever when the transport stays active but
+    ``open_session`` keeps failing; it raises after the attempt cap."""
+    transport = _active_transport(mock_ssh_client)
+
+    calls = {"n": 0}
+
+    def _open_session(*args, **kwargs):
+        calls["n"] += 1
+        # Guard against the pre-fix unbounded loop turning this test
+        # into a hang: surface a distinct failure well past the cap.
+        if calls["n"] > _RECONNECT_MAX_ATTEMPTS + 50:
+            raise AssertionError("run() looped past the attempt cap")
+        raise paramiko.SSHException("no session")
+
+    transport.open_session.side_effect = _open_session
+
+    conn = Connection("h", "u", 22)
+    with pytest.raises(paramiko.SSHException):
+        conn.run("true")
+
+    # One initial attempt plus one per bounded retry, then it raises.
+    assert calls["n"] == _RECONNECT_MAX_ATTEMPTS + 1
+
+
+def test_sftp_reconnect_raises_after_attempt_cap_on_active_transport(
+    mock_ssh_client, _no_backoff
+):
+    """``__sftp_reconnect`` (via ``listdir``) must also bound its retries
+    when the SFTP channel open keeps failing on an active transport."""
+    _active_transport(mock_ssh_client)
+
+    calls = {"n": 0}
+
+    def _open_sftp(*args, **kwargs):
+        calls["n"] += 1
+        if calls["n"] > _RECONNECT_MAX_ATTEMPTS + 50:
+            raise AssertionError("__sftp_reconnect looped past the cap")
+        raise paramiko.SSHException("no channel")
+
+    mock_ssh_client.open_sftp.side_effect = _open_sftp
+
+    conn = Connection("h", "u", 22)
+    with pytest.raises(paramiko.SSHException):
+        conn.listdir("/etc")
+
+    assert calls["n"] == _RECONNECT_MAX_ATTEMPTS + 1
+
+
+def test_run_recovers_after_forced_transport_teardown(mock_ssh_client, _no_backoff):
+    """A degraded-but-active transport is recycled at the force threshold:
+    ``close()`` tears it down, ``connect()`` brings up a fresh transport,
+    and ``run`` then completes normally."""
+    broken = _active_transport(mock_ssh_client)
+    broken.open_session.side_effect = paramiko.SSHException("no session")
+
+    good_session = MagicMock()
+    good_session.recv_ready.return_value = False
+    good_session.recv_stderr_ready.return_value = False
+    good_session.recv_exit_status.return_value = 0
+
+    def _teardown(*args, **kwargs):
+        # A real close() leaves no live transport behind.
+        mock_ssh_client._transport = None
+
+    def _fresh_transport(*args, **kwargs):
+        # A real connect() installs a new, working transport.
+        fresh = MagicMock()
+        fresh.is_active.return_value = True
+        fresh.open_session.return_value = good_session
+        mock_ssh_client._transport = fresh
+        mock_ssh_client.get_transport.return_value = fresh
+
+    mock_ssh_client.close.side_effect = _teardown
+    mock_ssh_client.connect.side_effect = _fresh_transport
+
+    conn = Connection("h", "u", 22)
+    assert conn.run("true") == ("", "", 0)
+
+    # The broken transport was retried up to the force threshold, then
+    # recycled: close() tore it down and connect() replaced it.
+    assert broken.open_session.call_count == _RECONNECT_FORCE_AFTER
+    assert mock_ssh_client.close.called
+    assert mock_ssh_client.connect.called
+
+
+def test_run_reconnect_failures_consume_budget_then_raise(mock_ssh_client, _no_backoff):
+    """When reconnect() keeps failing after the forced teardown, the loop
+    must consume the remaining attempt budget and raise the cap-exhausted
+    ``SSHException`` — not leak the raw connect error."""
+    broken = _active_transport(mock_ssh_client)
+    broken.open_session.side_effect = paramiko.SSHException("no session")
+
+    def _teardown(*args, **kwargs):
+        mock_ssh_client._transport = None
+
+    mock_ssh_client.close.side_effect = _teardown
+    mock_ssh_client.connect.side_effect = RuntimeError("network down")
+
+    conn = Connection("h", "u", 22)
+    with pytest.raises(paramiko.SSHException, match="Unable to open a session"):
+        conn.run("true")
+
+    # Every attempt from the forced teardown onwards tries to reconnect.
+    expected_connects = _RECONNECT_MAX_ATTEMPTS - _RECONNECT_FORCE_AFTER + 1
+    assert mock_ssh_client.connect.call_count == expected_connects
