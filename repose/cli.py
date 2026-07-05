@@ -27,7 +27,7 @@ from repose import __version__
 from repose.colorlog import create_logger
 from repose.command import Command
 from repose.host import ParseHosts
-from repose.template import load_template
+from repose.template import TemplateError, load_template
 from repose.types.connection_config import ConnectionConfig
 from repose.types.repa import Repa
 
@@ -158,8 +158,9 @@ def _complete_repa(ctx: typer.Context, incomplete: str) -> list[str]:
     (``:VERSION:ARCH:REPO``) are left to free-form user input.
 
     Any failure to read or parse the YAML — missing file, permission
-    error, malformed YAML — collapses to an empty completion list so
-    the user's shell never raises mid-keystroke.
+    error, malformed YAML, non-mapping top level — collapses to an
+    empty completion list so the user's shell never raises
+    mid-keystroke.
     """
     # The root callback populates ``ctx.obj``; during completion it
     # has typically already run. Fall back gracefully if not.
@@ -171,7 +172,7 @@ def _complete_repa(ctx: typer.Context, incomplete: str) -> list[str]:
         config_path = Path("/etc/repose/products.yml")
     try:
         template = load_template(config_path)
-    except (OSError, YAMLError):
+    except (OSError, ValueError, YAMLError):
         return []
     # Only complete the first ``:``-separated segment (product name).
     # If the user has already typed past a colon, return nothing so we
@@ -247,6 +248,11 @@ def _dispatch(name: str, ns: argparse.Namespace) -> int:
         if ns.debug:
             raise
         logger.error("invalid YAML in config: %s", e)
+        return 2
+    except TemplateError as e:
+        if ns.debug:
+            raise
+        logger.error("invalid config: %s", e)
         return 2
     except KeyboardInterrupt:
         logger.error("interrupted")

@@ -128,6 +128,41 @@ def test_repa_complete_malformed_yaml_returns_empty(tmp_path: Path) -> None:
     assert _complete_repa(ctx, "") == []
 
 
+def test_repa_complete_empty_config_returns_empty(tmp_path: Path) -> None:
+    """An empty products.yml collapses to an empty completion list.
+
+    Regression: safe-YAML loads an empty file as ``None``; before the
+    ``load_template`` normalization, ``template.keys()`` raised
+    ``AttributeError`` past the ``except (OSError, YAMLError)`` guard,
+    crashing the completion callback mid-keystroke.
+    """
+    empty = tmp_path / "empty.yml"
+    empty.write_text("")
+    ctx = _StubCtx(obj=_make_globals(empty))
+    assert _complete_repa(ctx, "") == []
+
+
+def test_repa_complete_comment_only_config_returns_empty(tmp_path: Path) -> None:
+    """A comment-only products.yml also collapses to an empty list."""
+    comments = tmp_path / "comments.yml"
+    comments.write_text("# nothing here yet\n")
+    ctx = _StubCtx(obj=_make_globals(comments))
+    assert _complete_repa(ctx, "") == []
+
+
+def test_repa_complete_non_mapping_config_returns_empty(tmp_path: Path) -> None:
+    """A top-level YAML sequence collapses to an empty list.
+
+    Regression: ``load_template`` now raises ``ValueError`` for a
+    non-mapping top level; the callback must swallow it like the other
+    parse failures rather than raising in the user's shell.
+    """
+    listy = tmp_path / "list.yml"
+    listy.write_text("- SLES\n- openSUSE-Leap\n")
+    ctx = _StubCtx(obj=_make_globals(listy))
+    assert _complete_repa(ctx, "") == []
+
+
 def test_repa_complete_no_ctx_obj_uses_default_path() -> None:
     """When ``ctx.obj`` is missing, the helper falls back to the default
     ``/etc/repose/products.yml``; if that file is unreadable, return [].
