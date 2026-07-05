@@ -54,8 +54,32 @@ class ColorFormatter(logging.Formatter):
         return logging.Formatter.format(self, record)
 
 
-def create_logger(name: str | None = None, level: str = "INFO") -> Logger:
-    """Return the named (or root) logger with a color handler installed.
+class PlainFormatter(logging.Formatter):
+    """``ColorFormatter``'s message layout without escape sequences.
+
+    Attached instead of :class:`ColorFormatter` when color output is
+    disabled (``--no-color`` or the ``NO_COLOR`` environment variable),
+    so logs redirected to files or non-ANSI terminals stay clean. The
+    line layout is preserved: lowercased level name, plus the
+    ``[module:function]`` origin tag on DEBUG records (sourced from the
+    record's logger name, which repose names after the module).
+    """
+
+    def format(self, record: logging.LogRecord) -> str:
+        """Format ``record`` with a decorated but color-free levelname."""
+        if self._fmt and self._fmt.find("%(levelname)") >= 0:
+            levelname = record.levelname.lower()
+            if record.levelname == "DEBUG":
+                levelname += f" [{record.name!s}:{record.funcName!s}]"
+            record.levelname = levelname
+
+        return logging.Formatter.format(self, record)
+
+
+def create_logger(
+    name: str | None = None, level: str = "INFO", no_color: bool = False
+) -> Logger:
+    """Return a logger with a stream handler and repose's log format.
 
     Handler installation is idempotent: if the logger already has a
     handler, no new one is added. Without this guard, every invocation
@@ -65,8 +89,11 @@ def create_logger(name: str | None = None, level: str = "INFO") -> Logger:
     emitted once per accumulated handler.
 
     Args:
-        name: Logger name; the root logger is used when omitted.
-        level: Logging level name to set on the logger.
+        name: Logger to configure; the root logger when omitted.
+        level: Initial log level name (e.g. ``"INFO"``).
+        no_color: When ``True``, attach a :class:`PlainFormatter` so no
+            ANSI escape sequences are emitted; otherwise attach the
+            default :class:`ColorFormatter`.
 
     Returns:
         The configured :class:`logging.Logger`.
@@ -75,7 +102,7 @@ def create_logger(name: str | None = None, level: str = "INFO") -> Logger:
     out.setLevel(level)
     if not out.handlers:
         handler = logging.StreamHandler()
-        formatter = ColorFormatter("%(levelname)s: %(message)s")
-        handler.setFormatter(formatter)
+        formatter_cls = PlainFormatter if no_color else ColorFormatter
+        handler.setFormatter(formatter_cls("%(levelname)s: %(message)s"))
         out.addHandler(handler)
     return out
