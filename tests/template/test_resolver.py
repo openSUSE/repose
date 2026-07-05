@@ -139,6 +139,71 @@ def test_missing_repo_in_template_yields_empty_url(repoq, base):
     assert repo.refresh is False
 
 
+def test_unknown_placeholder_in_repo_url_raises_valueerror(base):
+    """An unknown ``$placeholder`` in a repo URL must raise ValueError
+    naming the REPA and the placeholder, not a bare KeyError."""
+    template = {
+        "SLES": {
+            "15-SP3": {
+                "default_repos": ["update"],
+                "update": {
+                    "url": "http://example.com/$releasever/upd",
+                    "enabled": True,
+                },
+            },
+        },
+    }
+    repa = Repa("SLES:15-SP3:x86_64:update")
+    with pytest.raises(ValueError) as exc:
+        Repoq(template).solve_repa(repa, base)
+    msg = str(exc.value)
+    assert "SLES:15-SP3::update" in msg
+    assert "releasever" in msg
+
+
+def test_unknown_placeholder_in_default_repos_raises_valueerror(base):
+    """The default_repos expansion path must also map KeyError from
+    Template.substitute to a contextful ValueError."""
+    template = {
+        "SLES": {
+            "15-SP3": {
+                "default_repos": ["update"],
+                "update": {
+                    "url": "http://example.com/$basearch/upd",
+                    "enabled": True,
+                },
+            },
+        },
+    }
+    repa = Repa("SLES:15-SP3:x86_64:")
+    with pytest.raises(ValueError) as exc:
+        Repoq(template).solve_repa(repa, base)
+    msg = str(exc.value)
+    assert "SLES:15-SP3::" in msg
+    assert "basearch" in msg
+
+
+def test_missing_default_repos_raises_valueerror(base):
+    """A template entry without ``default_repos`` must raise ValueError
+    naming the REPA and the missing key, not a bare KeyError."""
+    template = {
+        "SLES": {
+            "15-SP3": {
+                "update": {
+                    "url": "http://example.com/$version/$arch/upd",
+                    "enabled": True,
+                },
+            },
+        },
+    }
+    repa = Repa("SLES:15-SP3:x86_64:")
+    with pytest.raises(ValueError) as exc:
+        Repoq(template).solve_repa(repa, base)
+    msg = str(exc.value)
+    assert "SLES:15-SP3::" in msg
+    assert "default_repos" in msg
+
+
 def test_solve_product_happy_path(repoq):
     base = Product("SLES", "15-SP3", "x86_64")
     system = System(base)

@@ -7,6 +7,8 @@ from conftest import ImmediateExecutor
 
 import repose.command._command
 from repose.command.install import Install
+from repose.target.parsers import Product
+from repose.template.resolver import Repoq
 from repose.types.repa import Repa
 
 
@@ -411,6 +413,43 @@ def test_install_two_repas_same_product_keeps_all_repos(monkeypatch, mock_ssh_cl
     )
     assert expected_a in issued, "repos from the first REPA must be retained"
     assert expected_b in issued, "repos from the second REPA must be retained"
+
+
+def test_install_command_unresolvable_repa_logged_not_crashed(
+    monkeypatch, mock_args_and_repa, caplog, mock_ssh_client
+):
+    """A template KeyError (unknown URL placeholder) must surface via
+    the worker's ValueError handler as a logged error, not escape into
+    the future as a bare KeyError that is never reported."""
+    args, _ = mock_args_and_repa
+    args.repa = [Repa("SLES:15-SP3:x86_64:update")]
+
+    template = {
+        "SLES": {
+            "15-SP3": {
+                "default_repos": ["update"],
+                "update": {
+                    "url": "http://example.com/$releasever/upd",
+                    "enabled": True,
+                },
+            },
+        },
+    }
+
+    target, _, repoq = _setup_install(monkeypatch, args, {})
+    # Deltas from the helper's defaults: a real base product, and the
+    # real resolver behind the mock so the actual KeyError -> ValueError
+    # mapping is exercised end to end.
+    target.products.get_base.return_value = Product("SLES", "15-SP3", "x86_64")
+    repoq.solve_repa.side_effect = Repoq(template).solve_repa
+
+    with caplog.at_level("ERROR", logger="repose.command.install"):
+        # Unresolvable repa, no products → single host fails → exit 2.
+        assert Install(args).run() == 2
+
+    assert any("releasever" in r.message for r in caplog.records), (
+        "the unresolvable REPA must be reported to the operator"
+    )
 
 
 # ---------------------------------------------------------------------------

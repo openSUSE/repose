@@ -29,7 +29,11 @@ class Repoq:
         """.. returns needed repositories for REPA
         ::param:: orepa - instance of Repa object
         ::param:: base -- System.get_base()
-        ::return:: {release-file:[(name, url, refresh-state,),]}"""
+        ::return:: {release-file:[(name, url, refresh-state,),]}
+        ::raises:: ValueError when the REPA cannot be resolved (unknown
+        product or version, missing template key such as
+        ``default_repos``, or an unknown ``$placeholder`` in a repo URL)
+        """
         repa = deepcopy(orepa)
         if repa.product not in self.template:
             candidates = get_close_matches(
@@ -62,25 +66,31 @@ class Repoq:
         # used by for example QA:SLE projects
         shortversion = version.replace("-", "")
 
-        if repa.repo:
-            logger.debug("Return data for %s - %s", name, repa.repo)
-            url = Template(
-                subtemplate.get(repa.repo, {"url": "http://empty.url"})["url"]
-            ).substitute(version=version, arch=repa.arch, shortver=shortversion)
-            rname = name + repa.repo
-            refresh = subtemplate.get(repa.repo, {}).get("enabled", False)
-            result[repa.product] = [Repos(rname, url, refresh)]
-        else:
-            rlist = []
-            for x in subtemplate["default_repos"]:
-                logger.debug("Return data for %s - %s", name, x)
+        try:
+            if repa.repo:
+                logger.debug("Return data for %s - %s", name, repa.repo)
                 url = Template(
-                    subtemplate.get(x, {"url": "http://empty.url"})["url"]
+                    subtemplate.get(repa.repo, {"url": "http://empty.url"})["url"]
                 ).substitute(version=version, arch=repa.arch, shortver=shortversion)
-                rname = name + x
-                refresh = subtemplate.get(x, {}).get("enabled", False)
-                rlist.append(Repos(rname, url, refresh))
-            result[repa.product] = rlist
+                rname = name + repa.repo
+                refresh = subtemplate.get(repa.repo, {}).get("enabled", False)
+                result[repa.product] = [Repos(rname, url, refresh)]
+            else:
+                rlist = []
+                for x in subtemplate["default_repos"]:
+                    logger.debug("Return data for %s - %s", name, x)
+                    url = Template(
+                        subtemplate.get(x, {"url": "http://empty.url"})["url"]
+                    ).substitute(version=version, arch=repa.arch, shortver=shortversion)
+                    rname = name + x
+                    refresh = subtemplate.get(x, {}).get("enabled", False)
+                    rlist.append(Repos(rname, url, refresh))
+                result[repa.product] = rlist
+        except KeyError as error:
+            raise ValueError(
+                f"Cannot resolve REPA {name}{repa.repo or ''}: "
+                f"missing template key or URL placeholder {error}"
+            ) from error
 
         return result
 
