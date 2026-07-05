@@ -280,7 +280,7 @@ class Connection:
         """
         count = 0
         rtimeout = timeout
-        while not self.is_active() and count <= retry:
+        while not self.is_active() and count < retry:
             count += 1
             # Wait first: right after a reboot dispatch the host is still
             # going down, so an immediate connect would only race the

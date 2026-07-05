@@ -585,7 +585,7 @@ class AsyncConnection:
         self._sftp = None
         count = 0
         rtimeout = timeout
-        while not self.is_active() and count <= retry:
+        while not self.is_active() and count < retry:
             count += 1
             await asyncio.sleep(rtimeout)
             if backoff:

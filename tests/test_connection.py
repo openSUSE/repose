@@ -561,14 +561,14 @@ def test_wait_reconnect_succeeds_after_retries(mock_ssh_client):
 
 
 def test_wait_reconnect_gives_up_after_retry_budget(mock_ssh_client):
+    """A host that never comes back gets exactly ``retry`` attempts."""
     conn = Connection("h", "u", 22)
     mock_ssh_client._transport.is_active.return_value = False
 
     ok = conn.wait_reconnect(retry=2, timeout=0, backoff=False)
 
     assert ok is False
-    # count increments after entering, so retry=N yields N+1 attempts.
-    assert mock_ssh_client.connect.call_count == 3
+    assert mock_ssh_client.connect.call_count == 2
 
 
 # ---------------------------------------------------------------------------
