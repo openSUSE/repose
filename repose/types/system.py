@@ -11,6 +11,10 @@ if TYPE_CHECKING:
     from ..target.parsers import Product
 
 
+class UnknownSystemError(ValueError):
+    """Raised when a host's base product cannot be determined."""
+
+
 @dataclass(frozen=True, slots=True)
 class SystemData:
     """Typed internal storage for System.

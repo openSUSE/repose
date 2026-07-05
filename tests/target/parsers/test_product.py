@@ -4,9 +4,11 @@ import logging
 from contextlib import asynccontextmanager, contextmanager
 from unittest.mock import AsyncMock, MagicMock
 
+import pytest
+
 from repose.target.parsers import Product
 from repose.target.parsers.product import parse_system, parse_system_async
-from repose.types.system import System
+from repose.types.system import System, UnknownSystemError
 
 
 def _prod_xml(name, baseversion=None, patchlevel=None, version=None, arch="x86_64"):
@@ -378,3 +380,213 @@ async def test_async_non_suse_without_osrelease_returns_rhel6_default():
 
     system = await parse_system_async(conn)
     assert system.get_base() == Product("rhel", "6", "x86_64")
+
+
+# ---------------------------------------------------------------------------
+# Malformed product data must be skipped, not abort the whole host parse.
+# Regressions for review findings N7 (missing <name>/<arch> raised
+# AttributeError), N8 (files.remove(basefile) raised ValueError when the
+# baseproduct target was not a listed .prod file) and v1 #24 (readlink
+# returning None raised TypeError).
+# ---------------------------------------------------------------------------
+
+_BASE_XML = _prod_xml("SLES", baseversion="15", patchlevel="3")
+_ADDON_XML = _prod_xml("sle-module-basesystem", version="15.3")
+
+# Raw byte literals below: _prod_xml cannot omit <name>/<arch> or emit
+# self-closing empty elements, which is exactly what these shapes need.
+_MALFORMED_PRODS = [
+    pytest.param(
+        b"<product><arch>x86_64</arch><version>1.0</version></product>",
+        id="missing-name",
+    ),
+    pytest.param(
+        b"<product><name>bad</name><version>1.0</version></product>",
+        id="missing-arch",
+    ),
+    pytest.param(
+        b"<product><name/><arch>x86_64</arch><version>1.0</version></product>",
+        id="empty-name",
+    ),
+    pytest.param(
+        b"<product><name>bad</name><arch>x86_64</arch></product>",
+        id="missing-version",
+    ),
+    pytest.param(
+        b"<product><name>bad</name><arch>x86_64</arch>"
+        b"<baseversion/><patchlevel>3</patchlevel></product>",
+        id="empty-baseversion-with-patchlevel",
+    ),
+    pytest.param(
+        b"<product><name>bad</name><arch>x86_64</arch>"
+        b"<baseversion/><patchlevel>0</patchlevel></product>",
+        id="empty-baseversion-patchlevel-zero",
+    ),
+]
+
+
+@pytest.mark.parametrize("bad", _MALFORMED_PRODS)
+def test_malformed_addon_prod_is_skipped(bad):
+    """One malformed .prod skips that file only; siblings still parse."""
+    conn = _make_connection(
+        files=["SLES.prod", "module.prod", "bad.prod"],
+        basefile="SLES.prod",
+        file_contents={
+            "/etc/products.d/SLES.prod": _BASE_XML,
+            "/etc/products.d/module.prod": _ADDON_XML,
+            "/etc/products.d/bad.prod": bad,
+        },
+    )
+
+    system = parse_system(conn)
+
+    assert system.get_base() == Product("SLES", "15-SP3", "x86_64")
+    assert system.get_addons() == {Product("sle-module-basesystem", "15.3", "x86_64")}
+
+
+def test_malformed_baseproduct_raises_unknown_system_error():
+    """A malformed baseproduct cannot yield a System — specific error."""
+    conn = _make_connection(
+        files=["SLES.prod"],
+        basefile="SLES.prod",
+        file_contents={
+            "/etc/products.d/SLES.prod": b"<product><arch>x86_64</arch></product>",
+        },
+    )
+
+    with pytest.raises(UnknownSystemError):
+        parse_system(conn)
+
+
+def test_baseproduct_target_not_in_prod_files_is_tolerated():
+    """A baseproduct target missing from the .prod list must not abort."""
+    conn = _make_connection(
+        files=["module.prod"],
+        basefile="SLES.sav",  # filtered out by the .endswith('.prod') listing
+        file_contents={
+            "/etc/products.d/SLES.sav": _BASE_XML,
+            "/etc/products.d/module.prod": _ADDON_XML,
+        },
+    )
+
+    system = parse_system(conn)
+
+    assert system.get_base() == Product("SLES", "15-SP3", "x86_64")
+    assert system.get_addons() == {Product("sle-module-basesystem", "15.3", "x86_64")}
+
+
+def test_dangling_baseproduct_symlink_raises_unknown_system_error():
+    """A baseproduct symlink whose target file is gone fails clean.
+
+    The open of the resolved target raises FileNotFoundError; that must
+    surface as UnknownSystemError, not abort the parse with an opaque
+    error.
+    """
+    conn = _make_connection(
+        files=["module.prod"],
+        basefile="SLES.prod.old",  # readlink resolves, but the file is gone
+        file_contents={"/etc/products.d/module.prod": _ADDON_XML},
+    )
+
+    with pytest.raises(UnknownSystemError):
+        parse_system(conn)
+
+
+def test_malformed_addon_logs_single_warning_naming_file(caplog):
+    """One malformed addon emits exactly one warning, with the filename."""
+    conn = _make_connection(
+        files=["SLES.prod", "bad.prod"],
+        basefile="SLES.prod",
+        file_contents={
+            "/etc/products.d/SLES.prod": _BASE_XML,
+            "/etc/products.d/bad.prod": b"<product><arch>x86_64</arch></product>",
+        },
+    )
+
+    with caplog.at_level(logging.WARNING):
+        parse_system(conn)
+
+    warnings = [r for r in caplog.records if r.levelno == logging.WARNING]
+    assert len(warnings) == 1
+    assert "bad.prod" in warnings[0].getMessage()
+
+
+def test_readlink_none_raises_unknown_system_error():
+    """An unresolvable baseproduct symlink fails clean, not TypeError."""
+    conn = _make_connection(
+        files=["SLES.prod"],
+        basefile=None,
+        file_contents={"/etc/products.d/SLES.prod": _BASE_XML},
+    )
+
+    with pytest.raises(UnknownSystemError):
+        parse_system(conn)
+
+
+@pytest.mark.parametrize("bad", _MALFORMED_PRODS)
+async def test_async_malformed_addon_prod_is_skipped(bad):
+    conn = _make_async_connection(
+        files=["SLES.prod", "module.prod", "bad.prod"],
+        basefile="SLES.prod",
+        file_contents={
+            "/etc/products.d/SLES.prod": _BASE_XML,
+            "/etc/products.d/module.prod": _ADDON_XML,
+            "/etc/products.d/bad.prod": bad,
+        },
+    )
+
+    system = await parse_system_async(conn)
+
+    assert system.get_base() == Product("SLES", "15-SP3", "x86_64")
+    assert system.get_addons() == {Product("sle-module-basesystem", "15.3", "x86_64")}
+
+
+async def test_async_malformed_baseproduct_raises_unknown_system_error():
+    conn = _make_async_connection(
+        files=["SLES.prod"],
+        basefile="SLES.prod",
+        file_contents={
+            "/etc/products.d/SLES.prod": b"<product><arch>x86_64</arch></product>",
+        },
+    )
+
+    with pytest.raises(UnknownSystemError):
+        await parse_system_async(conn)
+
+
+async def test_async_baseproduct_target_not_in_prod_files_is_tolerated():
+    conn = _make_async_connection(
+        files=["module.prod"],
+        basefile="SLES.sav",
+        file_contents={
+            "/etc/products.d/SLES.sav": _BASE_XML,
+            "/etc/products.d/module.prod": _ADDON_XML,
+        },
+    )
+
+    system = await parse_system_async(conn)
+
+    assert system.get_base() == Product("SLES", "15-SP3", "x86_64")
+    assert system.get_addons() == {Product("sle-module-basesystem", "15.3", "x86_64")}
+
+
+async def test_async_dangling_baseproduct_symlink_raises_unknown_system_error():
+    conn = _make_async_connection(
+        files=["module.prod"],
+        basefile="SLES.prod.old",  # readlink resolves, but the file is gone
+        file_contents={"/etc/products.d/module.prod": _ADDON_XML},
+    )
+
+    with pytest.raises(UnknownSystemError):
+        await parse_system_async(conn)
+
+
+async def test_async_readlink_none_raises_unknown_system_error():
+    conn = _make_async_connection(
+        files=["SLES.prod"],
+        basefile=None,
+        file_contents={"/etc/products.d/SLES.prod": _BASE_XML},
+    )
+
+    with pytest.raises(UnknownSystemError):
+        await parse_system_async(conn)

@@ -3,7 +3,7 @@ import xml.etree.ElementTree as ET
 from typing import Any
 
 from ...connection import Connection
-from ...types.system import System
+from ...types.system import System, UnknownSystemError
 from ..parsers import Product
 
 logger = logging.getLogger("repose.tartget.parsers.product")
@@ -16,10 +16,23 @@ if False:  # TYPE_CHECKING — but cheaper for ty/ruff
     from ...aiossh import AsyncConnection  # noqa: F401
 
 
-def __parse_product(prod: Any) -> tuple[str, str, str]:
+def __parse_product(prod: Any, filename: str) -> tuple[str, str, str] | None:
+    """Parse one ``.prod`` XML stream into ``(name, version, arch)``.
+
+    Returns ``None`` (after logging a single warning naming *filename*
+    and the defect) when the product file is malformed — missing or
+    empty ``<name>``/``<arch>``, or without any usable version element
+    — so callers can decide how to proceed without an opaque exception
+    aborting the parse of the whole host.
+    """
     root = ET.fromstringlist(prod)
-    name = root.find("./name").text  # ty: ignore[unresolved-attribute]  # FOLLOWUP-ty-residuals
-    arch = root.find("./arch").text  # ty: ignore[unresolved-attribute]  # FOLLOWUP-ty-residuals
+    name_element = root.find("./name")
+    arch_element = root.find("./arch")
+    name = name_element.text if name_element is not None else None
+    arch = arch_element.text if arch_element is not None else None
+    if not name or not arch:
+        logger.warning("malformed product file %s: no usable <name>/<arch>", filename)
+        return None
     try:
         version = root.find("./baseversion").text  # ty: ignore[unresolved-attribute]  # FOLLOWUP-ty-residuals
         sp = (
@@ -27,16 +40,23 @@ def __parse_product(prod: Any) -> tuple[str, str, str]:
             if root.find("./patchlevel").text != "0"  # ty: ignore[unresolved-attribute]  # FOLLOWUP-ty-residuals
             else ""
         )
-        version += f"-SP{sp}" if sp else ""  # ty: ignore[unsupported-operator]  # FOLLOWUP-ty-residuals
+        # An empty <baseversion/> parses to None — guard before the
+        # suffix concatenation or the += would raise TypeError.
+        if version and sp:
+            version += f"-SP{sp}"
     except AttributeError:
-        version = root.find("./version").text  # ty: ignore[unresolved-attribute]  # FOLLOWUP-ty-residuals
+        version_element = root.find("./version")
+        version = version_element.text if version_element is not None else None
         logger.debug("simpleversion")
+    if not version:
+        logger.warning("malformed product file %s: no usable version element", filename)
+        return None
 
     # CAASP uses ALL for update repos and there is only one supported version at time
     # can change in tommorow
     if name == "CAASP":
         version = "ALL"
-    return (name, version, arch)  # ty: ignore[invalid-return-type]  # FOLLOWUP-ty-residuals
+    return (name, version, arch)
 
 
 def __parse_os_release(f: Any, hostname: str) -> tuple[str, str, str]:
@@ -122,6 +142,19 @@ async def __detect_transactional_async(connection: Any) -> bool:
 
 
 def parse_system(connection: Connection) -> System:
+    """Detect the host's installed products from ``/etc/products.d``.
+
+    A malformed addon ``.prod`` file is skipped with a warning instead
+    of aborting the parse of the whole host. A baseproduct symlink
+    whose target is not among the listed ``.prod`` files is tolerated:
+    the parse continues and the target is still used as the base
+    product when it can be read.
+
+    Raises:
+        UnknownSystemError: If no base product can be determined — the
+            baseproduct symlink has no target, its target cannot be
+            read, or the baseproduct file itself is malformed.
+    """
     files = []
     try:
         files = [
@@ -144,23 +177,45 @@ def parse_system(connection: Connection) -> System:
         return System(Product(name, version, arch))
 
     basefile = connection.readlink("/etc/products.d/baseproduct")
-    if "/" in basefile:  # ty: ignore[unsupported-operator]  # FOLLOWUP-ty-residuals
-        basefile = basefile.split("/")[-1]  # ty: ignore[unresolved-attribute]  # FOLLOWUP-ty-residuals
-    files.remove(basefile)  # ty: ignore[invalid-argument-type]  # FOLLOWUP-ty-residuals
+    if basefile is None:
+        logger.warning("baseproduct symlink has no target; no baseproduct")
+        raise UnknownSystemError("/etc/products.d/baseproduct symlink did not resolve")
+    if "/" in basefile:
+        basefile = basefile.split("/")[-1]
+    if basefile in files:
+        files.remove(basefile)
+    else:
+        logger.warning(
+            "baseproduct target %s not among the listed .prod files", basefile
+        )
 
-    with connection.open(f"/etc/products.d/{basefile}") as f:
-        logger.debug("Parsing basefile")
-        name, version, arch = __parse_product(f)
-        base = Product(name, version, arch)
+    try:
+        with connection.open(f"/etc/products.d/{basefile}") as f:
+            logger.debug("Parsing basefile")
+            parsed = __parse_product(f, basefile)
+    except OSError as error:
+        logger.warning(
+            "baseproduct target %s could not be read; no baseproduct", basefile
+        )
+        raise UnknownSystemError(
+            f"baseproduct file {basefile} could not be read"
+        ) from error
+    if parsed is None:
+        raise UnknownSystemError(f"baseproduct file {basefile} is malformed")
+    base = Product(*parsed)
 
     addons = set()
 
     for x in files:
         with connection.open(f"/etc/products.d/{x}") as f:
             logger.debug("parsing - %s", x)
-            name, version, arch = __parse_product(f)
-            if name.rpartition("-")[-1] != "migration":
-                addons.add(Product(name, version, arch))
+            parsed = __parse_product(f, x)
+        if parsed is None:
+            # __parse_product already warned with filename and reason.
+            continue
+        name, version, arch = parsed
+        if name.rpartition("-")[-1] != "migration":
+            addons.add(Product(name, version, arch))
     return System(base, addons, transactional=__detect_transactional(connection))
 
 
@@ -176,6 +231,11 @@ async def parse_system_async(connection: Any) -> System:
     ``connection`` is typed as ``Any`` because importing ``AsyncConnection``
     at module load would force asyncssh into the sync paramiko path's
     import graph for zero runtime benefit.
+
+    Raises:
+        UnknownSystemError: If no base product can be determined — the
+            baseproduct symlink has no target, its target cannot be
+            read, or the baseproduct file itself is malformed.
     """
     files: list[str] = []
     try:
@@ -200,22 +260,44 @@ async def parse_system_async(connection: Any) -> System:
         return System(Product(name, version, arch))
 
     basefile = await connection.readlink("/etc/products.d/baseproduct")
-    if "/" in basefile:  # FOLLOWUP-ty-residuals
-        basefile = basefile.split("/")[-1]  # FOLLOWUP-ty-residuals
-    files.remove(basefile)  # FOLLOWUP-ty-residuals
+    if basefile is None:
+        logger.warning("baseproduct symlink has no target; no baseproduct")
+        raise UnknownSystemError("/etc/products.d/baseproduct symlink did not resolve")
+    if "/" in basefile:
+        basefile = basefile.split("/")[-1]
+    if basefile in files:
+        files.remove(basefile)
+    else:
+        logger.warning(
+            "baseproduct target %s not among the listed .prod files", basefile
+        )
 
-    async with connection.open(f"/etc/products.d/{basefile}") as f:
-        logger.debug("Parsing basefile")
-        name, version, arch = __parse_product(f)
-        base = Product(name, version, arch)
+    try:
+        async with connection.open(f"/etc/products.d/{basefile}") as f:
+            logger.debug("Parsing basefile")
+            parsed = __parse_product(f, basefile)
+    except OSError as error:
+        logger.warning(
+            "baseproduct target %s could not be read; no baseproduct", basefile
+        )
+        raise UnknownSystemError(
+            f"baseproduct file {basefile} could not be read"
+        ) from error
+    if parsed is None:
+        raise UnknownSystemError(f"baseproduct file {basefile} is malformed")
+    base = Product(*parsed)
 
     addons = set()
 
     for x in files:
         async with connection.open(f"/etc/products.d/{x}") as f:
             logger.debug("parsing - %s", x)
-            name, version, arch = __parse_product(f)
-            if name.rpartition("-")[-1] != "migration":
-                addons.add(Product(name, version, arch))
+            parsed = __parse_product(f, x)
+        if parsed is None:
+            # __parse_product already warned with filename and reason.
+            continue
+        name, version, arch = parsed
+        if name.rpartition("-")[-1] != "migration":
+            addons.add(Product(name, version, arch))
     transactional = await __detect_transactional_async(connection)
     return System(base, addons, transactional=transactional)
