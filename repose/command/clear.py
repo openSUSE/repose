@@ -1,4 +1,5 @@
 import logging
+import shlex
 
 from . import Command, UpdateFn
 from ..target.async_hostgroup import AsyncHostGroup
@@ -17,10 +18,10 @@ class Clear(Command, name="clear"):
         repoaliases = self._clear(host)
 
         if self.dryrun:
-            self.console.dry(host, self.rrcmd.format(repos=" ".join(repoaliases)))
+            self.console.dry(host, self.rrcmd.format(repos=shlex.join(repoaliases)))
             return True
 
-        self.targets[host].run(self.rrcmd.format(repos=" ".join(repoaliases)))
+        self.targets[host].run(self.rrcmd.format(repos=shlex.join(repoaliases)))
         logger.info("Repositories cleared from %s", host)
         return True
 
@@ -29,10 +30,10 @@ class Clear(Command, name="clear"):
         repoaliases = self._clear(host)
 
         if self.dryrun:
-            self.console.dry(host, self.rrcmd.format(repos=" ".join(repoaliases)))
+            self.console.dry(host, self.rrcmd.format(repos=shlex.join(repoaliases)))
             return True
 
-        await self.targets[host].run(self.rrcmd.format(repos=" ".join(repoaliases)))
+        await self.targets[host].run(self.rrcmd.format(repos=shlex.join(repoaliases)))
         logger.info("Repositories cleared from %s", host)
         return True
 

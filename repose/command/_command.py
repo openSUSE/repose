@@ -57,6 +57,14 @@ class Command(ABC):
             raise RuntimeError(f"Duplicate command name: {name!r}")
         Command.registry[name] = cls
 
+    # Command templates below are ``str.format``-filled with runtime
+    # values (repo names/URLs, repo aliases, product ids) and the result
+    # is executed through the remote *login shell*. Every interpolated
+    # value MUST therefore be shell-quoted at the format site --
+    # ``shlex.quote`` for a single value, ``shlex.join`` for a
+    # space-joined list -- so whitespace or shell metacharacters in a
+    # value cannot break token boundaries or inject commands. Fixed
+    # template text stays unquoted.
     addcmd: str = "zypper -n ar {params} {name} {url} {name}"
     rrcmd: str = "zypper -n rr {repos}"
     refcmd: str = "zypper -n --gpg-auto-import-keys ref -f"

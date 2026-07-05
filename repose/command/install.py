@@ -1,5 +1,6 @@
 from itertools import chain
 import logging
+import shlex
 
 from . import Command, UpdateFn
 from ..target.async_hostgroup import AsyncHostGroup
@@ -55,7 +56,9 @@ class Install(Command, name="install"):
             update(target, f"adding {len(live_repos)} repo(s)")
         for repo in live_repos:
             addcmd = self.addcmd.format(
-                name=repo.name, url=repo.url, params="-cfkn" if repo.refresh else "-ckn"
+                name=shlex.quote(repo.name),
+                url=shlex.quote(repo.url),
+                params="-cfkn" if repo.refresh else "-ckn",
             )
             if self.dryrun:
                 self.console.dry(target, addcmd)
@@ -71,9 +74,9 @@ class Install(Command, name="install"):
             # transactional host must go through transactional-update.
             transactional = self.targets[target].products.is_transactional()
             if transactional:
-                inscmd = self.ipdtcmd.format(products=" ".join(repositories.keys()))
+                inscmd = self.ipdtcmd.format(products=shlex.join(repositories.keys()))
             else:
-                inscmd = self.ipdcmd.format(products=" ".join(repositories.keys()))
+                inscmd = self.ipdcmd.format(products=shlex.join(repositories.keys()))
             update(target, "installing products")
             if self.dryrun:
                 if transactional:
@@ -125,8 +128,8 @@ class Install(Command, name="install"):
             update(target, f"adding {len(live_repos)} repo(s)")
         for repo in live_repos:
             addcmd = self.addcmd.format(
-                name=repo.name,
-                url=repo.url,
+                name=shlex.quote(repo.name),
+                url=shlex.quote(repo.url),
                 params="-cfkn" if repo.refresh else "-ckn",
             )
             if self.dryrun:
@@ -141,9 +144,9 @@ class Install(Command, name="install"):
             # Host property, not product property (see sync ``_run``).
             transactional = self.targets[target].products.is_transactional()
             if transactional:
-                inscmd = self.ipdtcmd.format(products=" ".join(repositories.keys()))
+                inscmd = self.ipdtcmd.format(products=shlex.join(repositories.keys()))
             else:
-                inscmd = self.ipdcmd.format(products=" ".join(repositories.keys()))
+                inscmd = self.ipdcmd.format(products=shlex.join(repositories.keys()))
             update(target, "installing products")
             if self.dryrun:
                 if transactional:
