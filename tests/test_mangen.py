@@ -245,6 +245,46 @@ def test_generation_proceeds_with_malformed_epoch(monkeypatch: pytest.MonkeyPatc
     assert page.startswith(f'.TH "REPOSE" "1" "{_FALLBACK_DATE}"')
 
 
+def test_main_prunes_orphaned_subcommand_pages(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+):
+    """Regression: pages of removed/renamed subcommands are deleted.
+
+    ``main`` used to only write pages for currently-registered commands,
+    so a page like ``repose-oldcmd.1`` left behind by a rename lingered
+    untouched — invisible to the ``git diff --exit-code -- docs/man/``
+    CI drift gate. Pruning turns the orphan into a deletion the gate
+    catches, and each deletion is announced on stderr (repose-mangen
+    never configures logging, so a logger call would be silent).
+    """
+    stale = tmp_path / "repose-oldcmd.1"
+    stale.write_text('.TH "REPOSE OLDCMD" "1"\n')
+
+    mangen.main(tmp_path)
+
+    assert not stale.exists(), "orphaned repose-oldcmd.1 was not pruned"
+    err = capsys.readouterr().err
+    assert "repose-oldcmd.1" in err, "deletion must be announced on stderr"
+
+
+def test_main_prune_spares_root_page_and_unrelated_files(tmp_path: Path):
+    """Pruning only targets ``repose-<sub>.1``; everything else survives.
+
+    ``repose.1`` (the root page, regenerated every run) and files not
+    matching the naming scheme must never be deleted.
+    """
+    unrelated = tmp_path / "notes.1"
+    unrelated.write_text("not a repose page\n")
+
+    mangen.main(tmp_path)
+
+    assert unrelated.exists(), "non-matching file was wrongly deleted"
+    assert (tmp_path / "repose.1").exists(), "root page missing after prune"
+    for name in SUBCOMMANDS:
+        page = tmp_path / f"repose-{name}.1"
+        assert page.exists(), f"generated page {page.name} missing after prune"
+
+
 def test_leading_control_chars_are_neutralized(man_dir: Path):
     """No rendered text line may start with a bare ``.`` or ``'``.
 

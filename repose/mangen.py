@@ -3,7 +3,9 @@
 Walks the Typer/Click app object and emits one ``.1`` man page per
 command into ``docs/man/``. The output is committed to the repo so
 downstream packagers don't need any man-gen tooling at build time; a CI
-job regenerates and ``git diff --exit-code``s to catch drift.
+job regenerates and ``git diff --exit-code``s to catch drift. Stale
+``repose-<sub>.1`` pages of renamed/removed subcommands are pruned after
+generation so they surface as deletions in that diff.
 
 This module hand-builds the roff itself rather than delegating to
 ``click_man.core.write_man_pages`` (the ``click-man`` package), which
@@ -37,6 +39,7 @@ values are warned about and ignored as if the variable were unset.
 
 import logging
 import os
+import sys
 import textwrap
 import time
 from contextlib import contextmanager
@@ -612,16 +615,48 @@ def _render_page(command_name: str, page_name: str, ctx: click.Context) -> str:
     return page
 
 
-def main() -> None:
-    """Regenerate ``docs/man/repose*.1`` from the Typer app."""
-    out = Path(__file__).resolve().parent.parent / "docs" / "man"
+def _prune_orphaned_pages(out: Path, generated: set[str]) -> None:
+    """Delete ``repose-<sub>.1`` pages that this run did not generate.
+
+    Pages of renamed or removed subcommands would otherwise linger
+    forever: the CI drift gate is ``git diff --exit-code -- docs/man/``,
+    which cannot flag a stale tracked file that nothing rewrites.
+    Deleting orphans turns them into a deletion in ``git diff`` that the
+    gate catches. Only files matching the ``repose-*.1`` naming scheme
+    are candidates; ``repose.1`` and unrelated files are never touched.
+
+    Each deletion is announced on stderr: ``repose-mangen`` never
+    configures ``logging`` (only the Typer CLI callback does), so a
+    ``logger.info`` here would be silently dropped on every real
+    invocation.
+
+    Args:
+        out: Directory the pages were generated into.
+        generated: File names (not paths) written by this run.
+    """
+    for page in out.glob("repose-*.1"):
+        if page.name not in generated and page.is_file():
+            print(f"Removing orphaned man page {page}", file=sys.stderr)
+            page.unlink()
+
+
+def main(out_dir: Path | None = None) -> None:
+    """Regenerate ``docs/man/repose*.1`` from the Typer app.
+
+    Args:
+        out_dir: Directory to write the pages into. Defaults to the
+            repository's ``docs/man`` directory.
+    """
+    out = out_dir or Path(__file__).resolve().parent.parent / "docs" / "man"
     out.mkdir(parents=True, exist_ok=True)
     cli = cast(click.Command, typer.main.get_command(app))
 
+    generated: set[str] = set()
     with _pinned_source_date():
         # Root page.
         root_ctx = click.Context(cli, info_name="repose")
         (out / "repose.1").write_text(_render_page("repose", "repose", root_ctx))
+        generated.add("repose.1")
 
         # One page per subcommand.
         commands = getattr(cli, "commands", {})
@@ -632,6 +667,9 @@ def main() -> None:
             page_name = f"repose {name}"
             path = out / f"{page_name.replace(' ', '-')}.1"
             path.write_text(_render_page(name, page_name, ctx))
+            generated.add(path.name)
+
+    _prune_orphaned_pages(out, generated)
 
 
 if __name__ == "__main__":
