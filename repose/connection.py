@@ -245,12 +245,32 @@ class Connection:
         :meth:`wait_reconnect`. Avoids :meth:`run`'s reconnect recovery,
         which would otherwise fight the still-rebooting host.
 
+        The connection is closed whether or not the dispatch succeeded.
+
         Args:
             command: The command to dispatch.
+
+        Raises:
+            paramiko.SSHException: If no session could be opened, i.e.
+                the command was never dispatched to the host. Silently
+                swallowing this would let a follow-up
+                :meth:`wait_reconnect` instantly "succeed" against a
+                host that never acted on the command.
         """
         logger.debug("fire-and-forget %r on %s:%s", command, self.hostname, self.port)
-        self.__run_command(command)
+        session = self.__run_command(command)
         self.close()
+        if session is None:
+            logger.error(
+                "%s:%s: could not open a session, command %r was never dispatched",
+                self.hostname,
+                self.port,
+                command,
+            )
+            raise paramiko.SSHException(
+                f"could not open a session on {self.hostname}:{self.port}: "
+                f"command {command!r} was never dispatched"
+            )
 
     def boot_id(self) -> str:
         """Return the host's current boot id, or "" if unreadable.

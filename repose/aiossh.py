@@ -554,15 +554,50 @@ class AsyncConnection:
         Starts ``command`` on a new channel and closes the connection;
         a dropped link (e.g. from a reboot) is expected. Follow up with
         :meth:`wait_reconnect`.
+
+        The connection is closed whether or not the dispatch succeeded.
+
+        Raises:
+            asyncssh.ChannelOpenError: If there is no connection or the
+                channel never opened, i.e. the command was never
+                dispatched to the host. Silently swallowing this would
+                let a follow-up :meth:`wait_reconnect` instantly
+                "succeed" against a host that never acted on the
+                command. Post-dispatch link teardown, by contrast, is
+                expected and still tolerated.
         """
         logger.debug("fire-and-forget %r on %s:%s", command, self.hostname, self.port)
-        if self._conn is not None:
-            try:
-                # create_process sends the exec request without waiting
-                # for the command to finish — right for a reboot.
-                await self._conn.create_process(command)
-            except Exception:  # noqa: BLE001 - link teardown is expected
-                logger.debug("fire-and-forget dispatch raised", exc_info=True)
+        if self._conn is None:
+            await self.close()
+            logger.error(
+                "%s:%s: not connected, command %r was never dispatched",
+                self.hostname,
+                self.port,
+                command,
+            )
+            raise asyncssh.ChannelOpenError(
+                asyncssh.OPEN_CONNECT_FAILED,
+                f"not connected to {self.hostname}:{self.port}: "
+                f"command {command!r} was never dispatched",
+            )
+        try:
+            # create_process sends the exec request without waiting
+            # for the command to finish — right for a reboot.
+            await self._conn.create_process(command)
+        except asyncssh.ChannelOpenError:
+            # The channel never opened, so the exec request was never
+            # sent — the same never-dispatched failure as above, unlike
+            # a link drop after dispatch.
+            await self.close()
+            logger.error(
+                "%s:%s: could not open a channel, command %r was never dispatched",
+                self.hostname,
+                self.port,
+                command,
+            )
+            raise
+        except Exception:  # noqa: BLE001 - post-dispatch teardown is expected
+            logger.debug("fire-and-forget dispatch raised", exc_info=True)
         await self.close()
 
     async def boot_id(self) -> str:

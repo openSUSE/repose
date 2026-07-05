@@ -532,6 +532,26 @@ def test_fire_and_forget_dispatches_then_closes(mock_ssh_client):
     mock_ssh_client.close.assert_called()
 
 
+def test_fire_and_forget_raises_when_session_never_opens(mock_ssh_client):
+    """A failed session open must surface instead of dropping the command.
+
+    Regression test for the silent-drop defect: with the session-open
+    failure swallowed, the reboot is never dispatched, yet the caller
+    proceeds to ``wait_reconnect`` which instantly "succeeds" against a
+    host that never went down.
+    """
+    conn = Connection("h", "u", 22)
+    conn.connect()
+    transport = mock_ssh_client.get_transport.return_value
+    transport.open_session.side_effect = paramiko.SSHException("no session")
+
+    with pytest.raises(paramiko.SSHException, match="never dispatched"):
+        conn.fire_and_forget("systemctl reboot")
+
+    # The link is still torn down; the command was never exec'd.
+    mock_ssh_client.close.assert_called()
+
+
 def test_boot_id_returns_stripped_output(mock_ssh_client, monkeypatch):
     conn = Connection("h", "u", 22)
     monkeypatch.setattr(conn, "run", lambda *a, **k: ("abc-123\n", "", 0))
