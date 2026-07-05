@@ -61,3 +61,29 @@ def test_create_logger_returns_named_logger():
 def test_create_logger_root_when_no_name():
     logger = create_logger(level="WARNING")
     assert logger.level == logging.WARNING
+
+
+def test_create_logger_installs_handler_only_once():
+    """Repeated create_logger calls must not stack handlers."""
+    name = "repose-test-idempotent-handlers"
+    logger = create_logger(name)
+    create_logger(name)
+    try:
+        assert len(logger.handlers) == 1
+    finally:
+        for handler in list(logger.handlers):
+            logger.removeHandler(handler)
+
+
+def test_create_logger_twice_emits_record_once(capsys):
+    """A record logged after two create_logger calls appears exactly once."""
+    name = "repose-test-idempotent-emission"
+    logger = create_logger(name)
+    logger.propagate = False
+    create_logger(name)
+    try:
+        logger.info("emitted-once")
+    finally:
+        for handler in list(logger.handlers):
+            logger.removeHandler(handler)
+    assert capsys.readouterr().err.count("emitted-once") == 1
