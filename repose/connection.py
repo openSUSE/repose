@@ -442,9 +442,10 @@ class Connection:
         logger.debug("getting %s:%s:%s listing", self.hostname, self.port, path)
         sftp = self.__sftp_reconnect()
 
-        listdir = sftp.listdir(path)
-        sftp.close()
-        return listdir
+        try:
+            return sftp.listdir(path)
+        finally:
+            sftp.close()
 
     def open(self, filename, mode="r", bufsize=-1) -> SFTPFile:
         """open remote file
@@ -471,9 +472,10 @@ class Connection:
         logger.debug("read link %s:%s:%s", self.hostname, self.port, path)
 
         sftp = self.__sftp_reconnect()
-        link = sftp.readlink(path)
-        sftp.close()
-        return link
+        try:
+            return sftp.readlink(path)
+        finally:
+            sftp.close()
 
     def is_active(self) -> bool:
         return self.client._transport and self.client._transport.is_active()  # type: ignore
