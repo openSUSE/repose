@@ -563,6 +563,32 @@ async def test_run_returns_stdout_stderr_exitcode(fake_conn):
     assert kwargs["check"] is False
 
 
+async def test_run_requests_tolerant_decode(fake_conn):
+    """run() must ask asyncssh for ``errors="replace"`` decoding.
+
+    Regression test: asyncssh decodes command output with strict UTF-8
+    by default and raises ProtocolError (from UnicodeDecodeError) on
+    the first non-UTF-8 byte (e.g. ``b"ok\\xff\\xfe"``), tearing down
+    the connection mid-command. Requesting ``errors="replace"`` makes
+    such output come back with U+FFFD replacements instead, matching
+    the paramiko backend.
+    """
+    result = MagicMock()
+    result.stdout = "ok\ufffd\ufffd"
+    result.stderr = ""
+    result.exit_status = 0
+    fake_conn.run = AsyncMock(return_value=result)
+
+    c = AsyncConnection("h", "u", 22)
+    c._conn = fake_conn
+
+    stdout, _, _ = await c.run("zypper lr")
+
+    assert stdout == "ok\ufffd\ufffd"
+    _, kwargs = fake_conn.run.call_args
+    assert kwargs["errors"] == "replace"
+
+
 async def test_run_translates_timeout_to_command_timeout(fake_conn):
     fake_conn.run = AsyncMock(side_effect=asyncio.TimeoutError())
 
