@@ -105,3 +105,37 @@ def test_flatten_returns_base_plus_addons():
     addon = make_addon()
     s = System(base, addons={addon})
     assert s.flatten() == {base, addon}
+
+
+def test_mutating_input_set_after_construction_does_not_leak_in():
+    addon = make_addon()
+    addons = {addon}
+    s = System(make_base(), addons=addons)
+
+    addons.add(make_addon("sneaky-module", "15-SP3"))
+    addons.remove(addon)
+
+    assert s.get_addons() == {addon}
+    assert str(s) == "sles-modules-15-SP3-x86_64"
+
+
+def test_mutating_get_addons_return_does_not_leak_in():
+    addon = make_addon()
+    s = System(make_base(), addons={addon})
+
+    leaked = s.get_addons()
+    leaked.clear()
+
+    assert s.get_addons() == {addon}
+    assert s.flatten() == {make_base(), addon}
+
+
+def test_eq_unaffected_by_caller_side_mutation():
+    addons = {make_addon()}
+    s1 = System(make_base(), addons=addons)
+    s2 = System(make_base(), addons={make_addon()})
+    assert s1 == s2
+
+    addons.add(make_addon("extra-module", "15-SP3"))
+
+    assert s1 == s2
