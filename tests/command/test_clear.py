@@ -1,6 +1,6 @@
 import concurrent.futures
 from argparse import Namespace
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from conftest import ImmediateExecutor
@@ -123,7 +123,13 @@ def test_clear_command_dryrun_json_format(monkeypatch, capsys, mock_ssh_client):
     assert "repo1" in payload["cmd"]
 
 
-def test_clear_command_empty_repos(monkeypatch, mock_ssh_client):
+def test_clear_command_empty_repos_skips_rr(monkeypatch, caplog, mock_ssh_client):
+    """A host without repositories is an INFO-level no-op.
+
+    Issuing the command anyway would run a bare ``zypper -n rr`` (no
+    argument), which zypper rejects with a non-zero exit — so no command
+    must be run and the host must still be reported ok.
+    """
     args = Namespace(
         dry=False,
         target=[{"user@host1": MagicMock()}],
@@ -145,11 +151,62 @@ def test_clear_command_empty_repos(monkeypatch, mock_ssh_client):
         MagicMock(return_value=mock_hg),
     )
 
+    with caplog.at_level("INFO", logger="repose.command.clear"):
+        assert Clear(args).run() == 0
+
+    mock_target.run.assert_not_called()
+    assert any("No repositories to clear" in r.message for r in caplog.records)
+
+
+def test_clear_command_mixed_hosts_skips_only_empty(monkeypatch, mock_ssh_client):
+    """Only the repo-less host is skipped; the other still gets ``rr``."""
+    args = Namespace(
+        dry=False,
+        target=[{"h1": MagicMock(), "h2": MagicMock()}],
+        repa=None,
+        config="dummy_config",
+        yaml=False,
+    )
+    t1 = MagicMock()
+    t1.raw_repos = [MockRawRepo("h1-repo")]
+    t2 = MagicMock()
+    t2.raw_repos = []
+    targets = {"h1": t1, "h2": t2}
+
+    mock_hg = MagicMock()
+    mock_hg.keys.return_value = ["h1", "h2"]
+    mock_hg.__getitem__.side_effect = lambda k: targets[k]
+
+    monkeypatch.setattr(concurrent.futures, "ThreadPoolExecutor", ImmediateExecutor)
+    monkeypatch.setattr(
+        repose.command._command,
+        "HostGroup",
+        MagicMock(return_value=mock_hg),
+    )
+
     assert Clear(args).run() == 0
 
-    # rr command still issued, just with empty repos list
-    cmd = mock_target.run.call_args[0][0]
-    assert cmd.startswith("zypper -n rr")
+    assert t1.run.call_args[0][0] == "zypper -n rr h1-repo"
+    t2.run.assert_not_called()
+
+
+async def test_clear_arun_one_empty_repos_skips_rr(mock_args, caplog):
+    """Async ``_arun_one`` must mirror the sync no-repos no-op guard."""
+    mock_args.ssh_backend = "asyncssh"
+    clear = Clear(mock_args)
+
+    target = MagicMock()
+    target.raw_repos = []
+    target.run = AsyncMock()
+
+    clear.targets = {"user@host1": target}
+
+    with caplog.at_level("INFO", logger="repose.command.clear"):
+        ok = await clear._arun_one("user@host1", lambda host, msg: None)
+
+    assert ok is True
+    target.run.assert_not_awaited()
+    assert any("No repositories to clear" in r.message for r in caplog.records)
 
 
 # ---------------------------------------------------------------------------

@@ -50,6 +50,12 @@ class Reset(Clear, name="reset"):
     def _run(self, host: str, update: UpdateFn) -> bool:
         update(host, "clearing repos")
         repoaliases = self._clear(host)
+        # A host whose current repo list is empty has nothing to clear;
+        # issuing the removal anyway would produce a bare ``zypper -n rr``
+        # that zypper rejects with a non-zero exit. Skip the ``rr`` step
+        # and proceed straight to re-adding the replacement repos.
+        if not repoaliases:
+            logger.info("No repositories to clear from %s", host)
         ok = True
         try:
             update(host, "resolving new repos")
@@ -80,15 +86,19 @@ class Reset(Clear, name="reset"):
                 return False
 
             if self.dryrun:
-                self.console.dry(host, self.rrcmd.format(repos=shlex.join(repoaliases)))
+                if repoaliases:
+                    self.console.dry(
+                        host, self.rrcmd.format(repos=shlex.join(repoaliases))
+                    )
                 for cmd in cmds:
                     self.console.dry(host, cmd)
                 return True
 
             update(host, f"re-adding {len(cmds)} repo(s)")
-            self.targets[host].run(self.rrcmd.format(repos=shlex.join(repoaliases)))
-            if not self._report_target(host):
-                ok = False
+            if repoaliases:
+                self.targets[host].run(self.rrcmd.format(repos=shlex.join(repoaliases)))
+                if not self._report_target(host):
+                    ok = False
             for cmd in cmds:
                 self.targets[host].run(cmd)
                 if not self._report_target(host):
@@ -130,6 +140,9 @@ class Reset(Clear, name="reset"):
     async def _arun_one(self, host: str, update: UpdateFn) -> bool:
         update(host, "clearing repos")
         repoaliases = self._clear(host)
+        # Same no-repos guard as ``_run``: never issue a bare ``zypper rr``.
+        if not repoaliases:
+            logger.info("No repositories to clear from %s", host)
         ok = True
         try:
             update(host, "resolving new repos")
@@ -160,17 +173,21 @@ class Reset(Clear, name="reset"):
                 return False
 
             if self.dryrun:
-                self.console.dry(host, self.rrcmd.format(repos=shlex.join(repoaliases)))
+                if repoaliases:
+                    self.console.dry(
+                        host, self.rrcmd.format(repos=shlex.join(repoaliases))
+                    )
                 for cmd in cmds:
                     self.console.dry(host, cmd)
                 return True
 
             update(host, f"re-adding {len(cmds)} repo(s)")
-            await self.targets[host].run(
-                self.rrcmd.format(repos=shlex.join(repoaliases))
-            )
-            if not self._report_target(host):
-                ok = False
+            if repoaliases:
+                await self.targets[host].run(
+                    self.rrcmd.format(repos=shlex.join(repoaliases))
+                )
+                if not self._report_target(host):
+                    ok = False
             for cmd in cmds:
                 await self.targets[host].run(cmd)
                 if not self._report_target(host):

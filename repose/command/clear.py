@@ -14,8 +14,18 @@ class Clear(Command, name="clear"):
         return set(r.alias for r in self.targets[host].raw_repos)
 
     def _run(self, host: str, update: UpdateFn) -> bool:
+        """Remove every repository from ``host`` via ``zypper rr``.
+
+        A host without any repositories is an INFO-level no-op, not an
+        error: issuing the command anyway would produce a bare
+        ``zypper -n rr`` that zypper rejects with a non-zero exit.
+        """
         update(host, "clearing repos")
         repoaliases = self._clear(host)
+
+        if not repoaliases:
+            logger.info("No repositories to clear from %s", host)
+            return True
 
         if self.dryrun:
             self.console.dry(host, self.rrcmd.format(repos=shlex.join(repoaliases)))
@@ -26,8 +36,13 @@ class Clear(Command, name="clear"):
         return True
 
     async def _arun_one(self, host: str, update: UpdateFn) -> bool:
+        """Async sibling of ``_run`` with the same no-repos no-op guard."""
         update(host, "clearing repos")
         repoaliases = self._clear(host)
+
+        if not repoaliases:
+            logger.info("No repositories to clear from %s", host)
+            return True
 
         if self.dryrun:
             self.console.dry(host, self.rrcmd.format(repos=shlex.join(repoaliases)))
