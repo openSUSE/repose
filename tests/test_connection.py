@@ -462,6 +462,36 @@ def test_run_timeout_tty_prompts_do_not_interleave(mock_ssh_client, monkeypatch)
 
 
 # ---------------------------------------------------------------------------
+# run() — output decoding
+# ---------------------------------------------------------------------------
+
+
+def test_run_tolerates_non_utf8_output(mock_ssh_client, monkeypatch):
+    """Non-UTF-8 bytes in command output are replaced, not fatal.
+
+    Regression test: the final decode used strict UTF-8, so a single
+    non-UTF-8 byte from the remote command raised UnicodeDecodeError
+    out of run(), killing the host worker mid-run.
+    """
+    session = mock_ssh_client.get_transport.return_value.open_session.return_value
+    # First loop iteration delivers the payloads, second sees EOF.
+    session.recv_ready.side_effect = [True, False]
+    session.recv.return_value = b"ok\xff\xfe"
+    session.recv_stderr_ready.side_effect = [True, False]
+    session.recv_stderr.return_value = b"err\xfd"
+    session.recv_exit_status.return_value = 0
+    # Pretend data is always ready so the timeout prompt never triggers.
+    monkeypatch.setattr(
+        "repose.connection.select.select", lambda *a, **k: ([session], [], [])
+    )
+
+    conn = Connection("h", "u", 22)
+    stdout, stderr, exitcode = conn.run("zypper lr")
+
+    assert (stdout, stderr, exitcode) == ("ok\ufffd\ufffd", "err\ufffd", 0)
+
+
+# ---------------------------------------------------------------------------
 # Transactional reboot support: fire_and_forget / boot_id / wait_reconnect
 # ---------------------------------------------------------------------------
 

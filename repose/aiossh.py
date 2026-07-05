@@ -465,7 +465,14 @@ class AsyncConnection:
         """
         assert self._conn is not None, "connect() must run first"
         try:
-            result = await self._conn.run(command, check=False, timeout=self.timeout)
+            # errors="replace": asyncssh's default strict UTF-8 decode
+            # raises ProtocolError (from UnicodeDecodeError) as soon as
+            # a command emits a non-UTF-8 byte, killing the whole
+            # connection mid-command. Replacing undecodable bytes with
+            # U+FFFD matches the paramiko backend's tolerant decode.
+            result = await self._conn.run(
+                command, check=False, timeout=self.timeout, errors="replace"
+            )
         except asyncio.TimeoutError as exc:
             # asyncssh raises asyncio.TimeoutError when its own timeout
             # fires; translate to the project-wide exception type.

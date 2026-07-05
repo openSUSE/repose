@@ -510,7 +510,14 @@ class Connection:
             # the shared transport
             self.close_session(session)
 
-        return (stdout.decode(), stderr.decode(), exitcode)
+        # Decode tolerantly: remote commands may emit non-UTF-8 bytes
+        # (locale-encoded package descriptions, binary noise), and a
+        # strict decode would raise UnicodeDecodeError out of run().
+        return (
+            stdout.decode("utf-8", errors="replace"),
+            stderr.decode("utf-8", errors="replace"),
+            exitcode,
+        )
 
     def __sftp_open(self) -> SFTPClient | None:
         sftp: SFTPClient | None = None
