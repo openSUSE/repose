@@ -54,11 +54,28 @@ class ColorFormatter(logging.Formatter):
         return logging.Formatter.format(self, record)
 
 
-def create_logger(name=None, level="INFO") -> Logger:
+def create_logger(name: str | None = None, level: str = "INFO") -> Logger:
+    """Return the named (or root) logger with a color handler installed.
+
+    Handler installation is idempotent: if the logger already has a
+    handler, no new one is added. Without this guard, every invocation
+    (in-process test runners importing the CLI, embedding via
+    ``repose.main``, invoking the Typer app twice in one process) would
+    stack another ``StreamHandler`` and each log record would be
+    emitted once per accumulated handler.
+
+    Args:
+        name: Logger name; the root logger is used when omitted.
+        level: Logging level name to set on the logger.
+
+    Returns:
+        The configured :class:`logging.Logger`.
+    """
     out = logging.getLogger(name) if name else logging.getLogger()
     out.setLevel(level)
-    handler = logging.StreamHandler()
-    formatter = ColorFormatter("%(levelname)s: %(message)s")
-    handler.setFormatter(formatter)
-    out.addHandler(handler)
+    if not out.handlers:
+        handler = logging.StreamHandler()
+        formatter = ColorFormatter("%(levelname)s: %(message)s")
+        handler.setFormatter(formatter)
+        out.addHandler(handler)
     return out
