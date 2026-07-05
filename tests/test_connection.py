@@ -122,6 +122,18 @@ def test_listdir_uses_sftp(mock_ssh_client):
     sftp.close.assert_called_once()
 
 
+def test_listdir_closes_sftp_when_op_raises(mock_ssh_client):
+    """A failing listdir op must still close the SFTP client (channel leak)."""
+    sftp = MagicMock()
+    sftp.listdir.side_effect = FileNotFoundError("/missing")
+    mock_ssh_client.open_sftp.return_value = sftp
+
+    conn = Connection("h", "u", 22)
+    with pytest.raises(FileNotFoundError):
+        conn.listdir("/missing")
+    sftp.close.assert_called_once()
+
+
 def test_readlink_uses_sftp(mock_ssh_client):
     sftp = MagicMock()
     sftp.readlink.return_value = "/target"
@@ -130,6 +142,18 @@ def test_readlink_uses_sftp(mock_ssh_client):
     conn = Connection("h", "u", 22)
     assert conn.readlink("/link") == "/target"
     sftp.readlink.assert_called_once_with("/link")
+
+
+def test_readlink_closes_sftp_when_op_raises(mock_ssh_client):
+    """A failing readlink op must still close the SFTP client (channel leak)."""
+    sftp = MagicMock()
+    sftp.readlink.side_effect = PermissionError("denied")
+    mock_ssh_client.open_sftp.return_value = sftp
+
+    conn = Connection("h", "u", 22)
+    with pytest.raises(PermissionError):
+        conn.readlink("/protected/link")
+    sftp.close.assert_called_once()
 
 
 def test_open_returns_sftp_file(mock_ssh_client):
