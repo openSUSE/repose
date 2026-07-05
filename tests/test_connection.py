@@ -1,5 +1,6 @@
 """Tests for ``repose.connection``."""
 
+import logging
 import threading
 from unittest.mock import MagicMock
 
@@ -73,6 +74,31 @@ def test_password_failure_reraises(mock_ssh_client, monkeypatch):
     conn = Connection("h", "u", 22)
     with pytest.raises(paramiko.AuthenticationException):
         conn.connect()
+
+
+def test_bad_host_key_refuses_without_password_prompt(
+    mock_ssh_client, monkeypatch, caplog
+):
+    """A changed host key must fail fast: no password prompt, no retry,
+    a clear error log, and the exception propagated."""
+    mock_ssh_client.connect.side_effect = paramiko.BadHostKeyException(
+        "h", MagicMock(), MagicMock()
+    )
+    prompt = MagicMock()
+    monkeypatch.setattr("getpass.getpass", prompt)
+
+    conn = Connection("h", "u", 22)
+    with caplog.at_level(logging.ERROR, logger="repose.connection"):
+        with pytest.raises(paramiko.BadHostKeyException):
+            conn.connect()
+
+    prompt.assert_not_called()
+    mock_ssh_client.connect.assert_called_once()
+    assert any(
+        record.levelno == logging.ERROR
+        and "host key verification failed for h" in record.getMessage()
+        for record in caplog.records
+    )
 
 
 def test_ssh_exception_propagates(mock_ssh_client):
