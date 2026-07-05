@@ -9,6 +9,7 @@ SSH host-key transport globals. Where the old tests inspected an
 ``CliRunner``.
 """
 
+import logging
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -156,6 +157,71 @@ def test_no_color_sets_true(mock_registry):
     result = runner.invoke(app, ["--no-color", "add", "-t", "h", "x"])
     assert result.exit_code == 0, result.stderr
     assert _ns(mock_registry, "add").no_color is True
+
+
+@pytest.fixture
+def repose_logger(monkeypatch):
+    """Isolate the ``repose`` logger for one CLI invocation.
+
+    ``main_callback`` attaches a fresh handler per invocation; clearing
+    the handler list first makes ``handlers[-1]`` the one installed by
+    the invocation under test, and teardown restores the prior state.
+    ``NO_COLOR`` is unset so only the test controls the color decision.
+    """
+    lg = logging.getLogger("repose")
+    saved_handlers = lg.handlers[:]
+    saved_level = lg.level
+    lg.handlers = []
+    monkeypatch.delenv("NO_COLOR", raising=False)
+    yield lg
+    lg.handlers = saved_handlers
+    lg.setLevel(saved_level)
+
+
+def _log_record(levelname: str = "WARNING", msg: str = "boom") -> logging.LogRecord:
+    return logging.LogRecord(
+        name="repose.cli",
+        level=getattr(logging, levelname),
+        pathname=__file__,
+        lineno=1,
+        msg=msg,
+        args=(),
+        exc_info=None,
+    )
+
+
+def test_no_color_flag_log_output_has_no_ansi(mock_registry, repose_logger):
+    result = runner.invoke(app, ["--no-color", "known-products"])
+    assert result.exit_code == 0, result.stderr
+    formatted = repose_logger.handlers[-1].format(_log_record())
+    assert "\x1b" not in formatted
+    assert formatted == "warning: boom"
+
+
+def test_no_color_env_log_output_has_no_ansi(mock_registry, repose_logger, monkeypatch):
+    monkeypatch.setenv("NO_COLOR", "1")
+    result = runner.invoke(app, ["known-products"])
+    assert result.exit_code == 0, result.stderr
+    formatted = repose_logger.handlers[-1].format(_log_record())
+    assert "\x1b" not in formatted
+
+
+def test_no_color_env_empty_string_keeps_ansi(
+    mock_registry, repose_logger, monkeypatch
+):
+    """NO_COLOR="" does not disable color (no-color.org: non-empty only)."""
+    monkeypatch.setenv("NO_COLOR", "")
+    result = runner.invoke(app, ["known-products"])
+    assert result.exit_code == 0, result.stderr
+    formatted = repose_logger.handlers[-1].format(_log_record())
+    assert "\x1b[1;33m" in formatted
+
+
+def test_color_on_log_output_keeps_ansi(mock_registry, repose_logger):
+    result = runner.invoke(app, ["known-products"])
+    assert result.exit_code == 0, result.stderr
+    formatted = repose_logger.handlers[-1].format(_log_record())
+    assert "\x1b[1;33m" in formatted
 
 
 def test_format_default_text(mock_registry):

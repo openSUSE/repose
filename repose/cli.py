@@ -14,6 +14,7 @@ test. The shim is surgical and matches the layout this PR replaces.
 
 import argparse
 import logging
+import os
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
@@ -418,8 +419,13 @@ def main_callback(
 
     # Configure root logger level from -d/-q. This used to live in
     # ``main.py`` after parsing; the Typer port relocates it here
-    # because the callback runs before any subcommand body.
-    root_logger = create_logger("repose")
+    # because the callback runs before any subcommand body. The log
+    # formatter honors --no-color and the NO_COLOR environment
+    # variable (https://no-color.org: present and non-empty, the same
+    # truthy check ``Console._use_color`` applies) so redirected log
+    # output stays free of ANSI escapes.
+    log_no_color = no_color or bool(os.environ.get("NO_COLOR"))
+    root_logger = create_logger("repose", no_color=log_no_color)
     if debug:
         root_logger.setLevel("DEBUG")
     elif quiet:
