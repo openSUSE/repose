@@ -566,6 +566,29 @@ def test_friendly_message_on_yaml_error(monkeypatch, caplog):
     assert "invalid yaml" in caplog.text.lower()
 
 
+def test_friendly_message_on_non_mapping_config(tmp_path, caplog):
+    """A list-shaped products.yml gets the one-liner + exit 2, end to end.
+
+    Regression: ``load_template`` raises ``TemplateError`` for a
+    non-mapping top level, but ``_dispatch`` only translated
+    ``FileNotFoundError``/``PermissionError``/``IsADirectoryError``/
+    ``YAMLError`` — the new exception escaped every real command as a
+    raw traceback (exit 1) while malformed YAML got the friendly
+    treatment. Uses the real loader on a real file on purpose.
+    """
+    listy = tmp_path / "products.yml"
+    listy.write_text("- SLES\n- openSUSE-Leap\n")
+
+    with caplog.at_level("ERROR", logger="repose.cli"):
+        result = runner.invoke(app, ["-c", str(listy), "known-products"])
+
+    assert result.exit_code == 2
+    assert not isinstance(result.exception, ValueError), (
+        "the config error must be translated, not raised as a traceback"
+    )
+    assert "must be a YAML mapping" in caplog.text
+
+
 def test_debug_propagates_traceback(monkeypatch):
     """With ``--debug``, the original exception is re-raised intact so
     contributors see the full stack instead of the friendly summary."""
