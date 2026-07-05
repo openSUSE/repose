@@ -15,6 +15,7 @@ edit that strips the enriched sections, should fail here rather than
 silently shipping unhelpful pages.
 """
 
+import logging
 from pathlib import Path
 
 import click
@@ -160,6 +161,88 @@ def test_th_header_uses_pinned_date_and_version(man_dir: Path):
     from repose import __version__
 
     assert f'"{__version__}"' in first
+
+
+# Date rendered from _FALLBACK_SOURCE_DATE_EPOCH (2024-01-01T00:00:00Z).
+# Hardcoded (not derived from the constant) so an accidental edit to the
+# constant or the strftime format fails here instead of tracking along.
+_FALLBACK_DATE = "2024-01-01"
+
+# int()-parseable but unusable epochs: a nanosecond-epoch leak (e.g.
+# ``date +%s%N``) raises OSError in time.gmtime on Linux, and a value
+# beyond time_t raises OverflowError.
+_OUT_OF_RANGE_EPOCHS = ["1704067200000000000", "99999999999999999999"]
+
+
+@pytest.mark.parametrize("bad", ["", "abc", "12.5", *_OUT_OF_RANGE_EPOCHS])
+def test_malformed_source_date_epoch_warns_and_falls_back(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture, bad: str
+):
+    """Regression: a bad SOURCE_DATE_EPOCH used to abort generation.
+
+    ``_pinned_source_date`` only injected the fallback when the variable
+    was entirely absent, so a present-but-empty or non-integer value
+    reached ``int()`` unguarded (ValueError), and an int-parseable but
+    out-of-range value crashed ``time.gmtime()`` (OverflowError/OSError).
+    The reproducible-builds convention is to warn and ignore invalid
+    values, behaving exactly as if the variable were unset.
+    """
+    monkeypatch.setenv("SOURCE_DATE_EPOCH", bad)
+    with caplog.at_level(logging.WARNING, logger="repose.mangen"):
+        assert mangen._th_date() == _FALLBACK_DATE
+    assert any("SOURCE_DATE_EPOCH" in rec.message for rec in caplog.records)
+
+
+def test_absent_source_date_epoch_falls_back(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.delenv("SOURCE_DATE_EPOCH", raising=False)
+    assert mangen._th_date() == _FALLBACK_DATE
+
+
+@pytest.mark.parametrize("bad", ["", "abc", *_OUT_OF_RANGE_EPOCHS])
+def test_invalid_epoch_behaves_exactly_like_absent(
+    monkeypatch: pytest.MonkeyPatch, bad: str
+):
+    monkeypatch.delenv("SOURCE_DATE_EPOCH", raising=False)
+    absent = mangen._th_date()
+    monkeypatch.setenv("SOURCE_DATE_EPOCH", bad)
+    assert mangen._th_date() == absent
+
+
+def test_valid_source_date_epoch_wins(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+):
+    monkeypatch.setenv("SOURCE_DATE_EPOCH", "1750000000")  # 2025-06-15 UTC
+    with caplog.at_level(logging.WARNING, logger="repose.mangen"):
+        assert mangen._th_date() == "2025-06-15"
+    assert not caplog.records
+
+
+def test_malformed_epoch_warns_once_per_run(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+):
+    """The malformed-value warning fires once per run, not once per page.
+
+    ``main()`` renders ~10 pages inside one ``_pinned_source_date``
+    block; resolution (and the warning) must happen there exactly once,
+    with every per-page ``_th_date()`` reusing the validated value.
+    """
+    monkeypatch.setenv("SOURCE_DATE_EPOCH", "garbage")
+    with caplog.at_level(logging.WARNING, logger="repose.mangen"):
+        with mangen._pinned_source_date():
+            for _ in range(3):
+                assert mangen._th_date() == _FALLBACK_DATE
+    warnings = [r for r in caplog.records if "SOURCE_DATE_EPOCH" in r.message]
+    assert len(warnings) == 1
+
+
+def test_generation_proceeds_with_malformed_epoch(monkeypatch: pytest.MonkeyPatch):
+    """A full page renders (rather than crashing) under a bad value."""
+    monkeypatch.setenv("SOURCE_DATE_EPOCH", "garbage")
+    cli = typer.main.get_command(app)
+    with mangen._pinned_source_date():
+        root_ctx = click.Context(cli, info_name="repose")
+        page = mangen._render_page("repose", "repose", root_ctx)
+    assert page.startswith(f'.TH "REPOSE" "1" "{_FALLBACK_DATE}"')
 
 
 def test_leading_control_chars_are_neutralized(man_dir: Path):

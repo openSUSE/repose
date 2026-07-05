@@ -31,9 +31,11 @@ Reproducibility: the ``.TH`` header stamps a date. We pin it via
 ``SOURCE_DATE_EPOCH`` (reproducible-builds standard) so ``uv run
 repose-mangen`` is byte-stable across machines and dates; CI uses this
 to catch drift via ``git diff --exit-code``. If callers already export
-``SOURCE_DATE_EPOCH`` (e.g. distro builds), their value wins.
+``SOURCE_DATE_EPOCH`` (e.g. distro builds), their value wins; malformed
+values are warned about and ignored as if the variable were unset.
 """
 
+import logging
 import os
 import textwrap
 import time
@@ -47,6 +49,8 @@ import typer
 
 from repose import __version__
 from repose.cli import app
+
+logger = logging.getLogger("repose.mangen")
 
 # Fallback epoch (UTC ``2024-01-01 00:00:00``) used when callers
 # haven't already exported ``SOURCE_DATE_EPOCH``. Pinning a constant
@@ -379,32 +383,53 @@ def _wrap(text: str) -> str:
     return "\n".join(_neutralize_leading(line) for line in wrapped.split("\n"))
 
 
+def _source_date_epoch() -> int:
+    """Return ``SOURCE_DATE_EPOCH`` as a usable int, tolerating bad values.
+
+    Per the reproducible-builds convention, a malformed value (empty,
+    non-integer, or out of range for the platform's timestamp type, e.g.
+    a leaked nanosecond epoch) is warned about and ignored: generation
+    proceeds as if the variable were unset, using the pinned fallback
+    epoch. The ``time.gmtime`` probe rejects values ``int()`` accepts
+    but the later strftime conversion would crash on (OverflowError or
+    OSError, platform-dependent).
+    """
+    raw = os.environ.get("SOURCE_DATE_EPOCH", _FALLBACK_SOURCE_DATE_EPOCH)
+    try:
+        epoch = int(raw)
+        time.gmtime(epoch)
+    except (ValueError, OverflowError, OSError):
+        logger.warning(
+            "Ignoring malformed SOURCE_DATE_EPOCH %r; using fallback %s",
+            raw,
+            _FALLBACK_SOURCE_DATE_EPOCH,
+        )
+        return int(_FALLBACK_SOURCE_DATE_EPOCH)
+    return epoch
+
+
 def _th_date() -> str:
     """Return the ``.TH`` date string from ``SOURCE_DATE_EPOCH``."""
-    epoch = int(os.environ.get("SOURCE_DATE_EPOCH", _FALLBACK_SOURCE_DATE_EPOCH))
-    return time.strftime("%Y-%m-%d", time.gmtime(epoch))
+    return time.strftime("%Y-%m-%d", time.gmtime(_source_date_epoch()))
 
 
 @contextmanager
 def _pinned_source_date() -> Iterator[None]:
-    """Temporarily set ``SOURCE_DATE_EPOCH`` if unset, restore on exit.
+    """Temporarily pin ``SOURCE_DATE_EPOCH`` to a usable value.
 
-    Caller-provided values take precedence — distro builds frequently
-    export this from a changelog timestamp and we don't want to clobber
-    that.
+    Usable caller-provided values take precedence — distro builds
+    frequently export this from a changelog timestamp and we don't want
+    to clobber that. Resolving (and, for a present-but-malformed value,
+    warning) happens exactly once per run here; the per-page
+    ``_th_date()`` calls then parse the validated value silently. The
+    prior value is restored on exit.
     """
-    had_value = "SOURCE_DATE_EPOCH" in os.environ
     prior = os.environ.get("SOURCE_DATE_EPOCH")
-    if not had_value:
-        os.environ["SOURCE_DATE_EPOCH"] = _FALLBACK_SOURCE_DATE_EPOCH
+    os.environ["SOURCE_DATE_EPOCH"] = str(_source_date_epoch())
     try:
         yield
     finally:
-        if had_value:
-            # ``had_value`` is True iff the key was present at entry,
-            # which means ``prior`` was bound to ``os.environ[...]``
-            # and is therefore ``str`` (never ``None``).
-            assert prior is not None
+        if prior is not None:
             os.environ["SOURCE_DATE_EPOCH"] = prior
         else:
             os.environ.pop("SOURCE_DATE_EPOCH", None)
