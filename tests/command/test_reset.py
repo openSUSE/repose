@@ -124,7 +124,11 @@ def _setup_reset(
 
     mock_target = MagicMock()
     mock_target.products = products or [MockProduct("SLES", "15-SP4")]
-    mock_target.raw_repos = raw_repos or [MockRawRepo("existing-repo1")]
+    # ``raw_repos=[]`` is meaningful (host without repos) — only ``None``
+    # falls back to the default.
+    if raw_repos is None:
+        raw_repos = [MockRawRepo("existing-repo1")]
+    mock_target.raw_repos = raw_repos
     mock_target.out = out if out is not None else _ok_out()
 
     mock_hg = MagicMock()
@@ -376,6 +380,104 @@ def test_reset_dryrun_predicts_partial_drop_abort(
         assert Reset(mock_args).run() == 2
     target.run.assert_not_called()
     assert any("bad" in r.getMessage() for r in caplog.records)
+
+
+def test_reset_empty_current_repos_skips_rr_still_adds(
+    monkeypatch, mock_args, caplog, mock_ssh_client
+):
+    """A host whose current repo list is empty must not issue a bare ``rr``.
+
+    Pre-fix the removal step ran as ``zypper -n rr`` with no argument,
+    which zypper rejects non-zero, so the exit-code classifier reported
+    the no-op host as failed. The replacement repos must still be added
+    and the host reported ok.
+    """
+    target, _, _ = _setup_reset(
+        monkeypatch,
+        mock_args,
+        repoq_solution={"product": [MockRepo("repo1", "http://r1", refresh=False)]},
+        raw_repos=[],
+    )
+
+    with caplog.at_level("INFO", logger="repose.command.reset"):
+        assert Reset(mock_args).run() == 0
+
+    run_calls = target.run.call_args_list
+    assert len(run_calls) == 1
+    assert run_calls[0][0][0].startswith("zypper -n ar")
+    assert any("No repositories to clear" in r.message for r in caplog.records)
+
+
+def test_reset_dryrun_empty_current_repos_skips_rr_preview(
+    monkeypatch, mock_args, capsys, mock_ssh_client
+):
+    """``--dry`` on a repo-less host must not preview a bare ``zypper -n rr``.
+
+    The dry-run must predict the real run, which skips the removal step
+    entirely and only adds the replacement repos.
+    """
+    mock_args.dry = True
+    target, _, _ = _setup_reset(
+        monkeypatch,
+        mock_args,
+        repoq_solution={"product": [MockRepo("repo1", "http://r1", refresh=False)]},
+        raw_repos=[],
+    )
+
+    assert Reset(mock_args).run() == 0
+
+    target.run.assert_not_called()
+    out = capsys.readouterr().out
+    assert "zypper -n rr" not in out
+    assert "zypper -n ar" in out
+
+
+async def test_reset_arun_one_empty_current_repos_skips_rr(mock_args, caplog):
+    """Async ``_arun_one`` must mirror the sync no-current-repos guard."""
+    mock_args.ssh_backend = "asyncssh"
+    reset = Reset(mock_args)
+
+    target = MagicMock()
+    target.raw_repos = []
+    target.out = _ok_out()
+    target.run = AsyncMock()
+
+    reset.targets = {"user@host1": target}
+    reset._aadd = AsyncMock(
+        return_value=({"zypper -n ar -ckn repo1 http://r1 repo1"}, [])
+    )
+
+    with caplog.at_level("INFO", logger="repose.command.reset"):
+        ok = await reset._arun_one("user@host1", lambda host, msg: None)
+
+    assert ok is True
+    assert target.run.await_count == 1
+    assert target.run.await_args_list[0][0][0].startswith("zypper -n ar")
+    assert any("No repositories to clear" in r.message for r in caplog.records)
+
+
+async def test_reset_arun_one_dryrun_empty_current_repos_skips_rr_preview(mock_args):
+    """Async dry-run must mirror the sync guard: no bare ``rr`` preview."""
+    mock_args.ssh_backend = "asyncssh"
+    mock_args.dry = True
+    reset = Reset(mock_args)
+    reset.console = MagicMock()
+
+    target = MagicMock()
+    target.raw_repos = []
+    target.out = _ok_out()
+    target.run = AsyncMock()
+
+    reset.targets = {"user@host1": target}
+    ar_cmd = "zypper -n ar -ckn repo1 http://r1 repo1"
+    reset._aadd = AsyncMock(return_value=({ar_cmd}, []))
+
+    ok = await reset._arun_one("user@host1", lambda host, msg: None)
+
+    assert ok is True
+    target.run.assert_not_awaited()
+    previews = [c.args[1] for c in reset.console.dry.call_args_list]
+    assert previews == [ar_cmd]
 
 
 async def test_arun_one_aborts_on_partial_probe_drop(mock_args, caplog):
