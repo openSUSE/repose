@@ -1,4 +1,5 @@
 import logging
+import shlex
 from typing import Any, Iterable
 
 from . import Command, UpdateFn
@@ -73,7 +74,7 @@ class Remove(Command, name="remove"):
         if not repolist:
             logger.info("For %s no repos for remove found", host)
             return True
-        cmd = self.rrcmd.format(repos=" ".join(repolist))
+        cmd = self.rrcmd.format(repos=shlex.join(repolist))
 
         if self.dryrun:
             self.console.dry(host, cmd)
@@ -95,7 +96,7 @@ class Remove(Command, name="remove"):
         if not repolist:
             logger.info("For %s no repos for remove found", host)
             return True
-        cmd = self.rrcmd.format(repos=" ".join(repolist))
+        cmd = self.rrcmd.format(repos=shlex.join(repolist))
 
         if self.dryrun:
             self.console.dry(host, cmd)

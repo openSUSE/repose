@@ -1,5 +1,6 @@
 from itertools import chain
 import logging
+import shlex
 
 from . import Command, UpdateFn
 from ..target.async_hostgroup import AsyncHostGroup
@@ -36,7 +37,9 @@ class Add(Command, name="add"):
         live = self._filter_live_urls(repolist)
         cmds.update(
             self.addcmd.format(
-                name=x.name, url=x.url, params="-cfkn" if x.refresh else "-ckn"
+                name=shlex.quote(x.name),
+                url=shlex.quote(x.url),
+                params="-cfkn" if x.refresh else "-ckn",
             )
             for x in live
         )
@@ -82,8 +85,8 @@ class Add(Command, name="add"):
         live = await self._afilter_live_urls(repolist)
         cmds.update(
             self.addcmd.format(
-                name=x.name,
-                url=x.url,
+                name=shlex.quote(x.name),
+                url=shlex.quote(x.url),
                 params="-cfkn" if x.refresh else "-ckn",
             )
             for x in live

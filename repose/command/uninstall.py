@@ -1,5 +1,6 @@
 import dataclasses
 import logging
+import shlex
 from itertools import chain
 from typing import Any
 
@@ -46,14 +47,14 @@ class Uninstall(Remove, name="uninstall"):
             rrcmd = False
         else:
             rrcmd = self.rrcmd.format(
-                repos=" ".join(chain.from_iterable(rdict.values()))
+                repos=shlex.join(chain.from_iterable(rdict.values()))
             )
 
         # Transactional is a property of the *host* (read-only /usr), not
         # of the product being removed.
         transactional = self.targets[host].products.is_transactional()
         product_names = [x.split(":")[0] for x in patterns]
-        products_arg = " ".join(product_names)
+        products_arg = shlex.join(product_names)
         if transactional:
             pdcmd = self.rrpdtcmd.format(products=products_arg)
         else:
@@ -96,12 +97,12 @@ class Uninstall(Remove, name="uninstall"):
             rrcmd = False
         else:
             rrcmd = self.rrcmd.format(
-                repos=" ".join(chain.from_iterable(rdict.values()))
+                repos=shlex.join(chain.from_iterable(rdict.values()))
             )
 
         transactional = self.targets[host].products.is_transactional()
         product_names = [x.split(":")[0] for x in patterns]
-        products_arg = " ".join(product_names)
+        products_arg = shlex.join(product_names)
         if transactional:
             pdcmd = self.rrpdtcmd.format(products=products_arg)
         else:

@@ -1,5 +1,6 @@
 from itertools import chain
 import logging
+import shlex
 
 from . import UpdateFn
 from ..messages import UnsuportedProductMessage
@@ -38,7 +39,9 @@ class Reset(Clear, name="reset"):
         dropped = [r.name for r in repolist if id(r) not in live_ids]
         cmds.update(
             self.addcmd.format(
-                name=x.name, url=x.url, params="-cfkn" if x.refresh else "-ckn"
+                name=shlex.quote(x.name),
+                url=shlex.quote(x.url),
+                params="-cfkn" if x.refresh else "-ckn",
             )
             for x in live
         )
@@ -77,13 +80,13 @@ class Reset(Clear, name="reset"):
                 return False
 
             if self.dryrun:
-                self.console.dry(host, self.rrcmd.format(repos=" ".join(repoaliases)))
+                self.console.dry(host, self.rrcmd.format(repos=shlex.join(repoaliases)))
                 for cmd in cmds:
                     self.console.dry(host, cmd)
                 return True
 
             update(host, f"re-adding {len(cmds)} repo(s)")
-            self.targets[host].run(self.rrcmd.format(repos=" ".join(repoaliases)))
+            self.targets[host].run(self.rrcmd.format(repos=shlex.join(repoaliases)))
             if not self._report_target(host):
                 ok = False
             for cmd in cmds:
@@ -116,8 +119,8 @@ class Reset(Clear, name="reset"):
         dropped = [r.name for r in repolist if id(r) not in live_ids]
         cmds.update(
             self.addcmd.format(
-                name=x.name,
-                url=x.url,
+                name=shlex.quote(x.name),
+                url=shlex.quote(x.url),
                 params="-cfkn" if x.refresh else "-ckn",
             )
             for x in live
@@ -157,13 +160,15 @@ class Reset(Clear, name="reset"):
                 return False
 
             if self.dryrun:
-                self.console.dry(host, self.rrcmd.format(repos=" ".join(repoaliases)))
+                self.console.dry(host, self.rrcmd.format(repos=shlex.join(repoaliases)))
                 for cmd in cmds:
                     self.console.dry(host, cmd)
                 return True
 
             update(host, f"re-adding {len(cmds)} repo(s)")
-            await self.targets[host].run(self.rrcmd.format(repos=" ".join(repoaliases)))
+            await self.targets[host].run(
+                self.rrcmd.format(repos=shlex.join(repoaliases))
+            )
             if not self._report_target(host):
                 ok = False
             for cmd in cmds:
