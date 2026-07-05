@@ -825,6 +825,7 @@ async def test_async_wait_reconnect_succeeds_after_retries(monkeypatch, fake_con
 
 
 async def test_async_wait_reconnect_gives_up(monkeypatch):
+    """A host that never comes back gets exactly ``retry`` attempts."""
     c = AsyncConnection("h", "u", 22)
     calls = {"n": 0}
 
@@ -836,4 +837,4 @@ async def test_async_wait_reconnect_gives_up(monkeypatch):
     ok = await c.wait_reconnect(retry=2, timeout=0, backoff=False)
 
     assert ok is False
-    assert calls["n"] == 3  # retry=N → N+1 attempts
+    assert calls["n"] == 2
