@@ -19,14 +19,22 @@ class UnknownSystemError(ValueError):
 class SystemData:
     """Typed internal storage for System.
 
+    ``addons`` is snapshotted into a ``frozenset`` on construction, so
+    later mutation of the iterable passed by the caller cannot alter
+    this record.
+
     ``transactional`` marks an immutable / transactional-update host (SL
     Micro, SLE Micro, MicroOS): package operations must go through
     ``transactional-update`` and a reboot, rather than direct ``zypper``.
     """
 
     base: Product
-    addons: set[Product]
+    addons: frozenset[Product]
     transactional: bool = False
+
+    def __post_init__(self) -> None:
+        """Defensively copy ``addons`` so the frozen record owns its state."""
+        object.__setattr__(self, "addons", frozenset(self.addons))
 
 
 @dataclass(eq=False)
@@ -55,7 +63,7 @@ class System:
         """
         self._data = SystemData(
             base=base,
-            addons=addons if addons else set(),
+            addons=frozenset(addons) if addons else frozenset(),
             transactional=transactional,
         )
 
@@ -111,7 +119,11 @@ class System:
     # __ne__ is automatically derived from __eq__ in Python 3 — no override needed.
 
     def get_addons(self) -> set[Product]:
-        return self._data.addons
+        """Return a fresh copy of the addon products.
+
+        Mutating the returned set does not affect this ``System``.
+        """
+        return set(self._data.addons)
 
     def get_base(self) -> Product:
         return self._data.base
