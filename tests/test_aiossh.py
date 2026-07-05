@@ -801,6 +801,52 @@ async def test_async_fire_and_forget_dispatches_then_closes(fake_conn):
     assert c._conn is None  # closed
 
 
+async def test_async_fire_and_forget_raises_when_channel_never_opens(fake_conn):
+    """A refused channel open must surface instead of dropping the command.
+
+    Async mirror of the sync silent-drop regression: ``ChannelOpenError``
+    means the exec request was never sent, so treating it as dispatched
+    would let ``wait_reconnect`` instantly "succeed" against a host that
+    never went down.
+    """
+    fake_conn.create_process = AsyncMock(
+        side_effect=asyncssh.ChannelOpenError(
+            asyncssh.OPEN_CONNECT_FAILED, "open failed"
+        )
+    )
+    c = AsyncConnection("h", "u", 22)
+    c._conn = fake_conn
+
+    with pytest.raises(asyncssh.ChannelOpenError):
+        await c.fire_and_forget("systemctl reboot")
+
+    fake_conn.close.assert_called()
+    assert c._conn is None  # still closed on failure
+
+
+async def test_async_fire_and_forget_raises_when_not_connected():
+    """Without a connection the command cannot have been dispatched."""
+    c = AsyncConnection("h", "u", 22)
+    assert c._conn is None
+
+    with pytest.raises(asyncssh.ChannelOpenError, match="never dispatched"):
+        await c.fire_and_forget("systemctl reboot")
+
+
+async def test_async_fire_and_forget_tolerates_post_dispatch_teardown(fake_conn):
+    """A link drop after dispatch stays tolerated (fire-and-forget contract)."""
+    fake_conn.create_process = AsyncMock(
+        side_effect=asyncssh.ConnectionLost("link dropped")
+    )
+    c = AsyncConnection("h", "u", 22)
+    c._conn = fake_conn
+
+    await c.fire_and_forget("systemctl reboot")
+
+    fake_conn.close.assert_called()
+    assert c._conn is None  # closed
+
+
 async def test_async_boot_id_returns_stripped(monkeypatch):
     c = AsyncConnection("h", "u", 22)
     monkeypatch.setattr(c, "run", AsyncMock(return_value=("abc-123\n", "", 0)))
