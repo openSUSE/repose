@@ -69,6 +69,13 @@ markers = [
 ]
 
 [tool.coverage.run]
+# Branch coverage records both directions of every conditional, not merely
+# whether the line executed -- exactly where edge-case bugs hide in the
+# untaken guard arc of an otherwise line-covered file. New code (the
+# codecov/patch gate) must now exercise both arcs of the conditionals it
+# adds. Only active when a run passes --cov (CI); a plain pytest run is
+# unaffected.
+branch = true
 source = ["repose"]
 omit = [
   "*/tests/*",
