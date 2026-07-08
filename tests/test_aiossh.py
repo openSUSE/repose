@@ -23,7 +23,7 @@ from unittest.mock import AsyncMock, MagicMock
 import asyncssh
 import pytest
 
-from repose.aiossh import AsyncConnection, CommandTimeout
+from repose.aiossh import AsyncConnection, CommandTimeout, _translate_sftp_error
 from repose.types.connection_config import ConnectionConfig
 
 
@@ -719,6 +719,114 @@ async def test_sftp_permission_denied_translates_to_permissionerror(fake_conn):
 
     with pytest.raises(PermissionError):
         await c.listdir("/etc/products.d")
+
+
+# ---------------------------------------------------------------------------
+# Output decoding & SFTP error/return translation
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "exc_cls, expected_cls",
+    [
+        (asyncssh.SFTPNoSuchFile, FileNotFoundError),
+        (asyncssh.SFTPPermissionDenied, PermissionError),
+        (asyncssh.SFTPFailure, OSError),
+    ],
+)
+def test_translate_sftp_error_maps_type_and_preserves_message(exc_cls, expected_cls):
+    """Each asyncssh SFTP error maps to the right ``OSError``, message intact.
+
+    ``SFTPNoSuchFile``/``SFTPPermissionDenied`` get their dedicated
+    ``OSError`` subclasses so backend-neutral ``except FileNotFoundError``
+    /``except PermissionError`` callers behave exactly as on the paramiko
+    backend; any other ``SFTPError`` falls back to a plain ``OSError``
+    (``type(...) is OSError`` pins the fallback against a subclass). The
+    original message must survive so the failure stays diagnosable.
+    """
+    result = _translate_sftp_error(exc_cls("boom"))
+    assert type(result) is expected_cls
+    assert "boom" in str(result)
+
+
+async def test_run_decodes_bytes_output(fake_conn):
+    """When asyncssh yields ``bytes`` output, run() decodes it tolerantly.
+
+    The ``str`` fast-path is the common case, but a session that is not
+    decoding hands back ``bytes``; those go through
+    ``decode("utf-8", "ignore")`` (an undecodable byte is dropped) and an
+    empty payload collapses to ``""``.
+    """
+    result = MagicMock()
+    result.stdout = b"out\xff"  # trailing 0xff dropped by errors="ignore"
+    result.stderr = b""  # falsy bytes -> ""
+    result.exit_status = 3
+    fake_conn.run = AsyncMock(return_value=result)
+
+    c = AsyncConnection("h", "u", 22)
+    c._conn = fake_conn
+
+    stdout, stderr, exitcode = await c.run("x")
+    assert (stdout, stderr, exitcode) == ("out", "", 3)
+
+
+async def test_readlink_returns_str_none_and_decodes_bytes(fake_conn):
+    """readlink returns ``str`` unchanged, passes ``None`` through, decodes bytes."""
+    sftp = MagicMock()
+    fake_conn.start_sftp_client = AsyncMock(return_value=sftp)
+    c = AsyncConnection("h", "u", 22)
+    c._conn = fake_conn
+
+    sftp.readlink = AsyncMock(return_value="/etc/products.d/SLES.prod")
+    assert await c.readlink("/p") == "/etc/products.d/SLES.prod"
+
+    sftp.readlink = AsyncMock(return_value=None)
+    assert await c.readlink("/p") is None
+
+    sftp.readlink = AsyncMock(return_value=b"/etc/products.d/SLES.prod")
+    assert await c.readlink("/p") == "/etc/products.d/SLES.prod"
+
+
+async def test_readlink_translates_sftp_error(fake_conn):
+    """A missing symlink surfaces as ``FileNotFoundError`` with the message kept."""
+    sftp = MagicMock()
+    sftp.readlink = AsyncMock(side_effect=asyncssh.SFTPNoSuchFile("gone"))
+    fake_conn.start_sftp_client = AsyncMock(return_value=sftp)
+    c = AsyncConnection("h", "u", 22)
+    c._conn = fake_conn
+
+    with pytest.raises(FileNotFoundError, match="gone"):
+        await c.readlink("/p")
+
+
+async def test_open_iterates_bytes_lines_then_empty_after_exit(fake_conn):
+    """The file proxy decodes ``bytes`` content into newline-kept lines and,
+    once ``__aexit__`` clears the content, iterating yields nothing (not an error).
+    """
+
+    class FakeFile:
+        def __init__(self, data):
+            self._data = data
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *exc):
+            pass
+
+        async def read(self):
+            return self._data
+
+    sftp = MagicMock()
+    # 0xff is undecodable UTF-8: errors="ignore" must drop it, not raise.
+    sftp.open = MagicMock(return_value=FakeFile(b"l1\xff\nl2\n"))
+    fake_conn.start_sftp_client = AsyncMock(return_value=sftp)
+    c = AsyncConnection("h", "u", 22)
+    c._conn = fake_conn
+
+    async with c.open("/etc/os-release") as f:
+        assert list(f) == ["l1\n", "l2\n"]  # bytes decoded tolerantly, newlines kept
+    assert list(f) == []  # content dropped on exit
 
 
 # ---------------------------------------------------------------------------
