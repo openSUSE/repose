@@ -95,3 +95,18 @@ include = ["repose"]
 
 [tool.ty.environment]
 python-version = "3.13"
+
+[tool.mutmut]
+# Mutation-testing config. Run with:
+#   uv run --with 'mutmut>=3.6' mutmut run
+# ``source_paths`` must be the whole package: mutmut copies it into a
+# ``mutants/`` tree that has to ``import repose``, and a single-file
+# scope breaks that import. ``do_not_mutate_patterns`` drops the
+# log-message mutants that otherwise dominate the survivor list -- every
+# ``logger`` call spawns several string/level mutants that no test should
+# pin -- so the surviving mutants reflect real logic gaps rather than
+# logging noise. ``--no-cov`` cancels the ``--cov`` from the pytest
+# addopts above, which the per-mutant test runs neither need nor tolerate.
+source_paths = ["repose/"]
+do_not_mutate_patterns = ['logger\.(debug|info|warning|error|exception|critical)']
+pytest_add_cli_args = ["--no-cov"]
