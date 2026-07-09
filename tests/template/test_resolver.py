@@ -220,6 +220,105 @@ def test_solve_product_unknown_product_raises(repoq):
         repoq.solve_product(system)
 
 
+def test_solve_repa_default_repos_full_repos(repoq, base):
+    """default_repos branch must build each Repos with the substituted URL
+    (version/arch/shortver) and the correct enabled flag."""
+    repa = Repa("SLES:15-SP3:x86_64:")
+    repos = repoq.solve_repa(repa, base)["SLES"]
+    by_name = {r.name: r for r in repos}
+    assert by_name["SLES:15-SP3::update"] == Repos(
+        "SLES:15-SP3::update",
+        "http://example.com/15-SP3/x86_64/upd",
+        True,
+    )
+    assert by_name["SLES:15-SP3::pool"] == Repos(
+        "SLES:15-SP3::pool",
+        "http://example.com/15SP3/x86_64/pool",
+        False,
+    )
+
+
+def test_solve_repa_default_repos_missing_repo_config(base):
+    """A repo listed in default_repos but lacking its own config block must
+    fall back to the empty-URL default with refresh False."""
+    template = {
+        "SLES": {
+            "15-SP3": {
+                "default_repos": ["ghost"],
+            },
+        },
+    }
+    repa = Repa("SLES:15-SP3:x86_64:")
+    (repo,) = Repoq(template).solve_repa(repa, base)["SLES"]
+    assert repo == Repos("SLES:15-SP3::ghost", "http://empty.url", False)
+
+
+def test_default_repos_error_message_has_no_repo_suffix(base):
+    """On the default_repos error path repa.repo is empty, so ``repa.repo or ''``
+    must contribute nothing to the message."""
+    template = {
+        "SLES": {
+            "15-SP3": {
+                "default_repos": ["update"],
+                "update": {"url": "http://example.com/$basearch/upd"},
+            },
+        },
+    }
+    repa = Repa("SLES:15-SP3:x86_64:")
+    with pytest.raises(ValueError) as exc:
+        Repoq(template).solve_repa(repa, base)
+    msg = str(exc.value)
+    # The empty repo segment must add nothing between the REPA name
+    # (``SLES:15-SP3::``) and the ``: `` message separator, leaving the
+    # three consecutive colons intact.
+    assert "SLES:15-SP3:::" in msg
+
+
+def test_solve_product_full_repos(repoq):
+    """solve_product must substitute version/arch/shortver into each repo URL
+    and carry the correct enabled flag."""
+    base = Product("SLES", "15-SP3", "x86_64")
+    system = System(base)
+    repos = repoq.solve_product(system)["SLES"]
+    by_name = {r.name: r for r in repos}
+    assert by_name["SLES:15-SP3::update"] == Repos(
+        "SLES:15-SP3::update",
+        "http://example.com/15-SP3/x86_64/upd",
+        True,
+    )
+    assert by_name["SLES:15-SP3::pool"] == Repos(
+        "SLES:15-SP3::pool",
+        "http://example.com/15SP3/x86_64/pool",
+        False,
+    )
+
+
+def test_solve_product_missing_repo_config(repoq):
+    """A default_repos entry without its own config block falls back to the
+    empty-URL default with refresh False."""
+    template = {
+        "SLES": {
+            "15-SP3": {
+                "default_repos": ["ghost"],
+            },
+        },
+    }
+    base = Product("SLES", "15-SP3", "x86_64")
+    system = System(base)
+    (repo,) = Repoq(template).solve_product(system)["SLES"]
+    assert repo == Repos("SLES:15-SP3::ghost", "http://empty.url", False)
+
+
+def test_solve_product_unknown_product_names_product(repoq):
+    """The raised UnsuportedProductMessage must carry the offending product,
+    not None."""
+    base = Product("Unknown", "1.0", "x86_64")
+    system = System(base)
+    with pytest.raises(UnsuportedProductMessage) as exc:
+        repoq.solve_product(system)
+    assert exc.value.product.name == "Unknown"
+
+
 def test_solve_repa_does_not_mutate_input(repoq, base):
     repa = Repa("SLES:::update")
     original_arch = repa.arch

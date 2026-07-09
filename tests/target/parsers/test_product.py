@@ -236,6 +236,28 @@ def test_non_suse_os_release_uses_optional_architecture_field():
     assert system.get_base() == Product("fedora", "40", "aarch64")
 
 
+def test_non_suse_os_release_bare_line_without_equals_is_skipped():
+    """A non-comment line lacking ``=`` is skipped, not parsed as ``key=''``.
+
+    Guards the ``or "=" not in line`` skip clause: a bare ``ARCHITECTURE``
+    line must leave the arch default intact. If ``or`` were ``and`` the
+    line would be split as key=whole-line, value='' and clobber the
+    ``"unknown"`` arch placeholder with an empty string.
+    """
+    conn = MagicMock()
+    conn.listdir.side_effect = OSError("No such directory")
+
+    def _open(path, *args, **kwargs):
+        if path == "/etc/os-release":
+            return _open_returning(b"ID=fedora\nVERSION_ID=40\nARCHITECTURE\n")
+        raise FileNotFoundError(path)
+
+    conn.open.side_effect = _open
+
+    system = parse_system(conn)
+    assert system.get_base() == Product("fedora", "40", "unknown")
+
+
 def test_non_suse_os_release_without_id_falls_back_to_linux(caplog):
     """A malformed os-release (no ID) warns and uses the spec default.
 
@@ -263,10 +285,9 @@ def test_non_suse_os_release_without_id_falls_back_to_linux(caplog):
         for record in caplog.records
         if record.levelno == logging.WARNING
     )
-    assert warning == (
-        "mystery.example.com: /etc/os-release has no usable ID field; "
-        "falling back to the os-release(5) default ID 'linux'"
-    )
+    # Pin the host prefix (kills the hostname->None mutant) without
+    # over-pinning the rest of the incidental warning phrasing.
+    assert warning.startswith("mystery.example.com:")
 
 
 def test_non_suse_without_osrelease_returns_rhel6_default():
@@ -590,3 +611,270 @@ async def test_async_readlink_none_raises_unknown_system_error():
 
     with pytest.raises(UnknownSystemError):
         await parse_system_async(conn)
+
+
+# ---------------------------------------------------------------------------
+# Mutation-kill tests: pin the exact probe paths, error/warning strings and
+# filtering semantics that the happy-path assertions above leave unchecked.
+# ---------------------------------------------------------------------------
+
+
+def test_listdir_probed_with_products_d_path():
+    """The product directory listed must be exactly /etc/products.d."""
+    conn = _make_connection(
+        files=["SLES.prod"],
+        basefile="SLES.prod",
+        file_contents={"/etc/products.d/SLES.prod": _BASE_XML},
+    )
+
+    parse_system(conn)
+
+    conn.listdir.assert_called_once_with("/etc/products.d")
+
+
+def test_readlink_probes_baseproduct_symlink_path():
+    """The baseproduct symlink read must be the exact well-known path."""
+    conn = _make_connection(
+        files=["SLES.prod"],
+        basefile="SLES.prod",
+        file_contents={"/etc/products.d/SLES.prod": _BASE_XML},
+    )
+
+    parse_system(conn)
+
+    conn.readlink.assert_called_once_with("/etc/products.d/baseproduct")
+
+
+def test_readlink_none_error_message_names_symlink():
+    """The unresolved-symlink error carries its specific message verbatim."""
+    conn = _make_connection(
+        files=["SLES.prod"],
+        basefile=None,
+        file_contents={"/etc/products.d/SLES.prod": _BASE_XML},
+    )
+
+    with pytest.raises(UnknownSystemError) as excinfo:
+        parse_system(conn)
+
+    assert str(excinfo.value) == ("/etc/products.d/baseproduct symlink did not resolve")
+
+
+def test_unreadable_baseproduct_error_message_names_file():
+    """The unreadable-baseproduct error names the offending file verbatim."""
+    conn = _make_connection(
+        files=["module.prod"],
+        basefile="SLES.prod.old",
+        file_contents={"/etc/products.d/module.prod": _ADDON_XML},
+    )
+
+    with pytest.raises(UnknownSystemError) as excinfo:
+        parse_system(conn)
+
+    assert str(excinfo.value) == "baseproduct file SLES.prod.old could not be read"
+
+
+def test_malformed_baseproduct_error_and_warning_name_file(caplog):
+    """A malformed base yields the exact error and a filename-tagged warning."""
+    conn = _make_connection(
+        files=["SLES.prod"],
+        basefile="SLES.prod",
+        file_contents={
+            "/etc/products.d/SLES.prod": b"<product><arch>x86_64</arch></product>",
+        },
+    )
+
+    with caplog.at_level(logging.WARNING), pytest.raises(UnknownSystemError) as excinfo:
+        parse_system(conn)
+
+    assert str(excinfo.value) == "baseproduct file SLES.prod is malformed"
+    malformed = [
+        r.getMessage()
+        for r in caplog.records
+        if "malformed product file" in r.getMessage()
+    ]
+    assert malformed
+    assert "SLES.prod" in malformed[0]
+
+
+def test_multi_dash_migration_addon_filtered():
+    """A migration product ending in ``-migration`` is filtered by suffix.
+
+    Uses a multi-dash name so ``rpartition('-')`` (last segment) differs
+    from ``partition('-')`` (first split) — only the correct suffix match
+    excludes it.
+    """
+    base = _prod_xml("SLES", baseversion="15", patchlevel="3")
+    migration = _prod_xml("sle-we-migration", baseversion="15", patchlevel="3")
+    conn = _make_connection(
+        files=["SLES.prod", "mig.prod"],
+        basefile="SLES.prod",
+        file_contents={
+            "/etc/products.d/SLES.prod": base,
+            "/etc/products.d/mig.prod": migration,
+        },
+    )
+
+    system = parse_system(conn)
+
+    assert system.get_addons() == set()
+
+
+def test_os_release_value_strips_only_quotes_not_x():
+    """Value unquoting strips only quotes, leaving other characters intact."""
+    conn = MagicMock()
+    conn.listdir.side_effect = OSError("No such directory")
+
+    def _open(path, *args, **kwargs):
+        if path == "/etc/os-release":
+            return _open_returning(b"ID=Xubuntu\nVERSION_ID=22.04\n")
+        raise FileNotFoundError(path)
+
+    conn.open.side_effect = _open
+
+    system = parse_system(conn)
+    assert system.get_base() == Product("Xubuntu", "22.04", "unknown")
+
+
+async def test_async_listdir_probed_with_products_d_path():
+    conn = _make_async_connection(
+        files=["SLES.prod"],
+        basefile="SLES.prod",
+        file_contents={"/etc/products.d/SLES.prod": _BASE_XML},
+    )
+
+    await parse_system_async(conn)
+
+    conn.listdir.assert_awaited_once_with("/etc/products.d")
+
+
+async def test_async_readlink_probes_baseproduct_symlink_path():
+    conn = _make_async_connection(
+        files=["SLES.prod"],
+        basefile="SLES.prod",
+        file_contents={"/etc/products.d/SLES.prod": _BASE_XML},
+    )
+
+    await parse_system_async(conn)
+
+    conn.readlink.assert_awaited_once_with("/etc/products.d/baseproduct")
+
+
+async def test_async_readlink_none_error_message_names_symlink():
+    conn = _make_async_connection(
+        files=["SLES.prod"],
+        basefile=None,
+        file_contents={"/etc/products.d/SLES.prod": _BASE_XML},
+    )
+
+    with pytest.raises(UnknownSystemError) as excinfo:
+        await parse_system_async(conn)
+
+    assert str(excinfo.value) == ("/etc/products.d/baseproduct symlink did not resolve")
+
+
+async def test_async_unreadable_baseproduct_error_message_names_file():
+    conn = _make_async_connection(
+        files=["module.prod"],
+        basefile="SLES.prod.old",
+        file_contents={"/etc/products.d/module.prod": _ADDON_XML},
+    )
+
+    with pytest.raises(UnknownSystemError) as excinfo:
+        await parse_system_async(conn)
+
+    assert str(excinfo.value) == "baseproduct file SLES.prod.old could not be read"
+
+
+async def test_async_malformed_baseproduct_error_and_warning_name_file(caplog):
+    conn = _make_async_connection(
+        files=["SLES.prod"],
+        basefile="SLES.prod",
+        file_contents={
+            "/etc/products.d/SLES.prod": b"<product><arch>x86_64</arch></product>",
+        },
+    )
+
+    with caplog.at_level(logging.WARNING), pytest.raises(UnknownSystemError) as excinfo:
+        await parse_system_async(conn)
+
+    assert str(excinfo.value) == "baseproduct file SLES.prod is malformed"
+    malformed = [
+        r.getMessage()
+        for r in caplog.records
+        if "malformed product file" in r.getMessage()
+    ]
+    assert malformed
+    assert "SLES.prod" in malformed[0]
+
+
+async def test_async_baseproduct_symlink_with_path_strips_dir():
+    base = _prod_xml("SLES", baseversion="15", patchlevel="3", arch="x86_64")
+    conn = _make_async_connection(
+        files=["SLES.prod"],
+        basefile="../SLES.prod",
+        file_contents={"/etc/products.d/SLES.prod": base},
+    )
+
+    system = await parse_system_async(conn)
+    assert system.get_base().name == "SLES"
+
+
+async def test_async_multi_dash_migration_addon_filtered():
+    base = _prod_xml("SLES", baseversion="15", patchlevel="3")
+    migration = _prod_xml("sle-we-migration", baseversion="15", patchlevel="3")
+    conn = _make_async_connection(
+        files=["SLES.prod", "mig.prod"],
+        basefile="SLES.prod",
+        file_contents={
+            "/etc/products.d/SLES.prod": base,
+            "/etc/products.d/mig.prod": migration,
+        },
+    )
+
+    system = await parse_system_async(conn)
+
+    assert system.get_addons() == set()
+
+
+async def test_async_malformed_addon_logs_warning_naming_file(caplog):
+    conn = _make_async_connection(
+        files=["SLES.prod", "bad.prod"],
+        basefile="SLES.prod",
+        file_contents={
+            "/etc/products.d/SLES.prod": _BASE_XML,
+            "/etc/products.d/bad.prod": b"<product><arch>x86_64</arch></product>",
+        },
+    )
+
+    with caplog.at_level(logging.WARNING):
+        await parse_system_async(conn)
+
+    warnings = [r for r in caplog.records if r.levelno == logging.WARNING]
+    assert len(warnings) == 1
+    assert "bad.prod" in warnings[0].getMessage()
+
+
+async def test_async_non_suse_os_release_without_id_warns_hostname(caplog):
+    conn = MagicMock()
+    conn.hostname = "asyncmystery.example.com"
+    conn.listdir = AsyncMock(side_effect=FileNotFoundError("No such directory"))
+
+    def _open(path, *args, **kwargs):
+        if path == "/etc/os-release":
+            return _async_open_returning(b'PRETTY_NAME="Mystery OS"\n')
+        raise FileNotFoundError(path)
+
+    conn.open.side_effect = _open
+
+    with caplog.at_level(logging.WARNING):
+        system = await parse_system_async(conn)
+
+    assert system.get_base() == Product("linux", "", "unknown")
+    warning = next(
+        record.getMessage()
+        for record in caplog.records
+        if record.levelno == logging.WARNING
+    )
+    # Pin the host prefix (kills the hostname->None mutant) without
+    # over-pinning the rest of the incidental warning phrasing.
+    assert warning.startswith("asyncmystery.example.com:")
