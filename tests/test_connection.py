@@ -2,7 +2,6 @@
 
 import logging
 import threading
-import logging
 import os
 from unittest.mock import MagicMock
 
@@ -688,7 +687,7 @@ def test_sftp_reconnect_raises_after_attempt_cap_on_active_transport(
     mock_ssh_client.open_sftp.side_effect = _open_sftp
 
     conn = Connection("h", "u", 22)
-    with pytest.raises(paramiko.SSHException):
+    with pytest.raises(paramiko.SSHException, match="Unable to open an SFTP channel"):
         conn.listdir("/etc")
 
     assert calls["n"] == _RECONNECT_MAX_ATTEMPTS + 1
@@ -783,3 +782,467 @@ def test_run_closes_session_when_timeout_aborted(mock_ssh_client, monkeypatch):
     # close_session() shuts down and closes the channel on the abort path.
     session.shutdown.assert_called_once_with(2)
     session.close.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# Mutation-killing tests (append-only): pin the exact wire behaviour of
+# connect / run / wait_reconnect / _recover_transport / open / new_session /
+# boot_id so a silent argument/kwarg/schedule mutation is caught.
+# ---------------------------------------------------------------------------
+
+
+def _stub_lookup(monkeypatch, opts):
+    """Force ``SSHConfig.lookup`` to return a fixed options dict."""
+    monkeypatch.setattr(
+        paramiko.config.SSHConfig, "lookup", lambda self, host: dict(opts)
+    )
+
+
+# --- __init__ port/timeout ------------------------------------------------
+
+
+def test_valid_port_is_preserved(mock_ssh_client):
+    """A parseable port is kept verbatim (int(port), not the 22 fallback)."""
+    conn = Connection("h", "u", 2200)
+    assert conn.port == 2200
+
+
+def test_explicit_timeout_overrides_config(mock_ssh_client):
+    """A positional timeout is stored as a float, not discarded."""
+    conn = Connection("h", "u", 22, 5)
+    assert conn.timeout == 5.0
+
+
+# --- connect(): first (public-key) attempt --------------------------------
+
+
+def test_connect_first_attempt_applies_ssh_config(mock_ssh_client, monkeypatch):
+    """The first connect() maps each ssh_config option onto the right kwarg."""
+    opts = {
+        "hostname": "real.example.com",
+        "port": "2200",
+        "user": "realuser",
+        "identityfile": ["/keys/id_ed25519"],
+    }
+    _stub_lookup(monkeypatch, opts)
+
+    conn = Connection("orig-host", "orig-user", 22)
+    conn.connect()
+
+    mock_ssh_client.connect.assert_called_once_with(
+        hostname="real.example.com",
+        port=2200,
+        username="realuser",
+        key_filename=["/keys/id_ed25519"],
+        sock=None,
+    )
+
+
+def test_connect_empty_config_uses_instance_values(mock_ssh_client, monkeypatch):
+    """With no matching ssh_config, the instance's own values are the defaults."""
+    _stub_lookup(monkeypatch, {})
+
+    conn = Connection("plain-host", "plain-user", 2022)
+    conn.connect()
+
+    mock_ssh_client.connect.assert_called_once_with(
+        hostname="plain-host",
+        port=2022,
+        username="plain-user",
+        key_filename=None,
+        sock=None,
+    )
+
+
+def test_connect_proxycommand_wires_sock(mock_ssh_client, monkeypatch):
+    """A ProxyCommand host forces the literal hostname and a ProxyCommand sock."""
+    proxy = MagicMock()
+    proxy_factory = MagicMock(return_value=proxy)
+    monkeypatch.setattr(paramiko, "ProxyCommand", proxy_factory)
+    opts = {
+        "hostname": "ignored.example.com",
+        "proxycommand": "nc %h %p",
+        "port": "2200",
+        "user": "realuser",
+    }
+    _stub_lookup(monkeypatch, opts)
+
+    conn = Connection("orig-host", "orig-user", 22)
+    conn.connect()
+
+    proxy_factory.assert_called_once_with("nc %h %p")
+    _, kwargs = mock_ssh_client.connect.call_args
+    assert kwargs["sock"] is proxy
+    # With a proxycommand the raw hostname is used, not opts["hostname"].
+    assert kwargs["hostname"] == "orig-host"
+
+
+# --- connect(): password fallback -----------------------------------------
+
+
+def test_connect_password_fallback_applies_ssh_config(mock_ssh_client, monkeypatch):
+    """The password-retry connect() also honours the ssh_config mapping."""
+    opts = {
+        "hostname": "real.example.com",
+        "port": "2200",
+        "user": "realuser",
+        "identityfile": ["/keys/id"],
+    }
+    _stub_lookup(monkeypatch, opts)
+    monkeypatch.setattr("getpass.getpass", lambda: "sekret")
+    mock_ssh_client.connect.side_effect = [
+        paramiko.AuthenticationException("no key"),
+        None,
+    ]
+
+    conn = Connection("orig-host", "orig-user", 22)
+    conn.connect()
+
+    assert mock_ssh_client.connect.call_count == 2
+    second = mock_ssh_client.connect.call_args_list[1]
+    assert second.kwargs == {
+        "hostname": "real.example.com",
+        "port": 2200,
+        "username": "realuser",
+        "password": "sekret",
+        "sock": None,
+    }
+
+
+def test_connect_password_fallback_empty_config_uses_instance_values(
+    mock_ssh_client, monkeypatch
+):
+    """Password retry with no ssh_config falls back to the instance values."""
+    _stub_lookup(monkeypatch, {})
+    monkeypatch.setattr("getpass.getpass", lambda: "pw")
+    mock_ssh_client.connect.side_effect = [
+        paramiko.AuthenticationException("x"),
+        None,
+    ]
+
+    conn = Connection("plain-host", "plain-user", 2022)
+    conn.connect()
+
+    second = mock_ssh_client.connect.call_args_list[1]
+    assert second.kwargs["hostname"] == "plain-host"
+    assert second.kwargs["username"] == "plain-user"
+    assert second.kwargs["port"] == 2022
+
+
+def test_connect_password_fallback_proxycommand_wires_sock(
+    mock_ssh_client, monkeypatch
+):
+    """Both connect attempts build a ProxyCommand sock and use the raw host."""
+    proxy = MagicMock()
+    proxy_factory = MagicMock(return_value=proxy)
+    monkeypatch.setattr(paramiko, "ProxyCommand", proxy_factory)
+    _stub_lookup(monkeypatch, {"hostname": "ignored", "proxycommand": "nc %h %p"})
+    monkeypatch.setattr("getpass.getpass", lambda: "pw")
+    mock_ssh_client.connect.side_effect = [
+        paramiko.AuthenticationException("x"),
+        None,
+    ]
+
+    conn = Connection("orig-host", "orig-user", 22)
+    conn.connect()
+
+    # One ProxyCommand per attempt, each from the real proxycommand string.
+    assert proxy_factory.call_count == 2
+    for call in proxy_factory.call_args_list:
+        assert call.args == ("nc %h %p",)
+    second = mock_ssh_client.connect.call_args_list[1]
+    assert second.kwargs["sock"] is proxy
+    assert second.kwargs["hostname"] == "orig-host"
+
+
+# --- connect(): ~/.ssh/config parsing -------------------------------------
+
+
+def test_connect_parses_real_ssh_config(mock_ssh_client, monkeypatch, tmp_path):
+    """connect() opens ~/.ssh/config and hands the open file to parse()."""
+    ssh_dir = tmp_path / ".ssh"
+    ssh_dir.mkdir()
+    cfg_file = ssh_dir / "config"
+    cfg_file.write_text("Host *\n    User someone\n")
+    monkeypatch.setenv("HOME", str(tmp_path))
+
+    recorded = {}
+
+    def _record_parse(self, fd):
+        recorded["fd"] = fd
+        recorded["name"] = getattr(fd, "name", None)
+        recorded["content"] = fd.read()
+
+    monkeypatch.setattr(paramiko.config.SSHConfig, "parse", _record_parse)
+
+    conn = Connection("h", "u", 22)
+    conn.connect()
+
+    assert recorded.get("fd") is not None
+    assert recorded["name"].endswith("/.ssh/config")
+    assert "User someone" in recorded["content"]
+
+
+def test_connect_missing_ssh_config_is_silent(
+    mock_ssh_client, monkeypatch, tmp_path, caplog
+):
+    """A missing ~/.ssh/config (ENOENT) is swallowed without a warning."""
+    monkeypatch.setenv("HOME", str(tmp_path))  # no .ssh/config here
+
+    conn = Connection("h", "u", 22)
+    with caplog.at_level(logging.WARNING, logger="repose.connection"):
+        conn.connect()
+
+    assert not any(r.levelno == logging.WARNING for r in caplog.records)
+
+
+# --- reconnect() ----------------------------------------------------------
+
+
+def test_reconnect_when_down_calls_connect(mock_ssh_client):
+    """A dead transport triggers a real connect() (condition not inverted)."""
+    conn = Connection("h", "u", 22)
+    mock_ssh_client._transport.is_active.side_effect = [False, True]
+
+    conn.reconnect()
+
+    mock_ssh_client.connect.assert_called_once()
+
+
+def test_reconnect_failure_raises_named_error(mock_ssh_client):
+    """A reconnect that never comes back raises the descriptive RuntimeError."""
+    conn = Connection("h", "u", 22)
+    mock_ssh_client._transport.is_active.return_value = False
+
+    with pytest.raises(RuntimeError, match="Reconnection to h:22 failed"):
+        conn.reconnect()
+
+
+# --- boot_id() ------------------------------------------------------------
+
+
+def test_boot_id_runs_exact_command(mock_ssh_client):
+    """boot_id() reads exactly the boot_id proc file and strips the result."""
+    conn = Connection("h", "u", 22)
+    conn.run = MagicMock(return_value=("abc-123\n", "", 0))
+
+    assert conn.boot_id() == "abc-123"
+    conn.run.assert_called_once_with("cat /proc/sys/kernel/random/boot_id")
+
+
+# --- new_session() --------------------------------------------------------
+
+
+def test_new_session_configures_channel(mock_ssh_client):
+    """A fresh session sets keepalive=60 and a non-blocking, zero-timeout channel."""
+    transport = mock_ssh_client.get_transport.return_value
+    session = transport.open_session.return_value
+
+    conn = Connection("h", "u", 22)
+    result = conn.new_session()
+
+    assert result is session
+    transport.set_keepalive.assert_called_once_with(60)
+    session.setblocking.assert_called_once_with(0)
+    session.settimeout.assert_called_once_with(0)
+
+
+def test_new_session_returns_none_when_open_fails(mock_ssh_client):
+    """A failed open_session yields None, not a broken sentinel that raises."""
+    transport = mock_ssh_client.get_transport.return_value
+    transport.open_session.side_effect = paramiko.SSHException("no session")
+
+    conn = Connection("h", "u", 22)
+    assert conn.new_session() is None
+
+
+# --- open() / listdir() ---------------------------------------------------
+
+
+def test_open_uses_default_mode_and_bufsize(mock_ssh_client):
+    """open() forwards the filename with the default mode 'r' and bufsize -1."""
+    sftp = MagicMock()
+    handle = MagicMock()
+    sftp.open.return_value = handle
+    mock_ssh_client.open_sftp.return_value = sftp
+
+    conn = Connection("h", "u", 22)
+    assert conn.open("/etc/hosts") is handle
+    sftp.open.assert_called_once_with("/etc/hosts", "r", -1)
+
+
+def test_listdir_default_path_is_cwd(mock_ssh_client):
+    """listdir() with no argument lists the remote cwd ('.')."""
+    sftp = MagicMock()
+    sftp.listdir.return_value = []
+    mock_ssh_client.open_sftp.return_value = sftp
+
+    conn = Connection("h", "u", 22)
+    conn.listdir()
+    sftp.listdir.assert_called_once_with(".")
+
+
+# --- run(): command dispatch & buffer sizes -------------------------------
+
+
+def test_run_dispatches_command_and_reads_buffers(mock_ssh_client, monkeypatch):
+    """run() exec's the exact command and reads stdout/stderr in 1024B chunks."""
+    session = mock_ssh_client.get_transport.return_value.open_session.return_value
+    session.recv_ready.side_effect = [True, False]
+    session.recv.return_value = b"out"
+    session.recv_stderr_ready.side_effect = [True, False]
+    session.recv_stderr.return_value = b"err"
+    session.recv_exit_status.return_value = 7
+    monkeypatch.setattr(
+        "repose.connection.select.select", lambda *a, **k: ([session], [], [])
+    )
+
+    conn = Connection("h", "u", 22)
+    conn.connect()
+
+    assert conn.run("id") == ("out", "err", 7)
+    session.exec_command.assert_called_once_with("id")
+    session.recv.assert_called_once_with(1024)
+    session.recv_stderr.assert_called_once_with(1024)
+
+
+def test_run_reissues_command_after_recovery(mock_ssh_client, _no_backoff):
+    """After a forced transport recycle, run() re-exec's the same command."""
+    broken = _active_transport(mock_ssh_client)
+    broken.open_session.side_effect = paramiko.SSHException("no session")
+
+    good = MagicMock()
+    good.recv_ready.return_value = False
+    good.recv_stderr_ready.return_value = False
+    good.recv_exit_status.return_value = 0
+
+    def _teardown(*args, **kwargs):
+        mock_ssh_client._transport = None
+
+    def _fresh(*args, **kwargs):
+        fresh = MagicMock()
+        fresh.is_active.return_value = True
+        fresh.open_session.return_value = good
+        mock_ssh_client._transport = fresh
+        mock_ssh_client.get_transport.return_value = fresh
+
+    mock_ssh_client.close.side_effect = _teardown
+    mock_ssh_client.connect.side_effect = _fresh
+
+    conn = Connection("h", "u", 22)
+    assert conn.run("reissue-me") == ("", "", 0)
+    good.exec_command.assert_called_once_with("reissue-me")
+
+
+# --- run(): interactive timeout prompt ------------------------------------
+
+
+def test_run_non_tty_timeout_carries_command(mock_ssh_client, monkeypatch):
+    """A non-TTY timeout raises CommandTimeout carrying the actual command."""
+    conn = Connection("h", "u", 22, timeout=0)
+    conn.connect()
+    monkeypatch.setattr("repose.connection.select.select", lambda *a, **k: ([], [], []))
+    monkeypatch.setattr("sys.stdin.isatty", lambda: False)
+
+    with pytest.raises(CommandTimeout) as excinfo:
+        conn.run("uptime")
+    assert excinfo.value.command == "uptime"
+
+
+def _timeout_then_ready(session):
+    """Return a select() stub: first poll times out, later polls are ready."""
+    calls = {"n": 0}
+
+    def _select(*args, **kwargs):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            return ([], [], [])
+        return ([session], [], [])
+
+    return _select
+
+
+def test_run_wait_answer_y_continues(mock_ssh_client, monkeypatch):
+    """Answering 'y' at the wait prompt keeps waiting (case-folded match)."""
+    session = mock_ssh_client.get_transport.return_value.open_session.return_value
+    session.recv_ready.side_effect = [True, False]
+    session.recv.return_value = b"done"
+    session.recv_stderr_ready.return_value = False
+    session.recv_exit_status.return_value = 0
+    monkeypatch.setattr("repose.connection.select.select", _timeout_then_ready(session))
+    monkeypatch.setattr("sys.stdin.isatty", lambda: True)
+    monkeypatch.setattr("builtins.input", lambda *a, **k: "y")
+
+    conn = Connection("h", "u", 22, timeout=0)
+    conn.connect()
+    assert conn.run("sleep 1") == ("done", "", 0)
+
+
+def test_run_wait_answer_yes_continues(mock_ssh_client, monkeypatch):
+    """The full word 'yes' is also accepted as a keep-waiting answer."""
+    session = mock_ssh_client.get_transport.return_value.open_session.return_value
+    session.recv_ready.side_effect = [True, False]
+    session.recv.return_value = b"done"
+    session.recv_stderr_ready.return_value = False
+    session.recv_exit_status.return_value = 0
+    monkeypatch.setattr("repose.connection.select.select", _timeout_then_ready(session))
+    monkeypatch.setattr("sys.stdin.isatty", lambda: True)
+    monkeypatch.setattr("builtins.input", lambda *a, **k: "yes")
+
+    conn = Connection("h", "u", 22, timeout=0)
+    conn.connect()
+    assert conn.run("sleep 1") == ("done", "", 0)
+
+
+# --- wait_reconnect(): retry budget & backoff schedule --------------------
+
+
+def test_wait_reconnect_default_retry_budget(mock_ssh_client, monkeypatch):
+    """The default retry budget is exactly 10 attempts when the host stays down."""
+    conn = Connection("h", "u", 22)
+    mock_ssh_client._transport.is_active.return_value = False
+    monkeypatch.setattr("repose.connection.select.select", lambda *a, **k: ([], [], []))
+
+    assert conn.wait_reconnect(timeout=0, backoff=False) is False
+    assert mock_ssh_client.connect.call_count == 10
+
+
+def test_wait_reconnect_backoff_schedule(mock_ssh_client, monkeypatch):
+    """The exponential backoff waits follow 2*(timeout + 5*count)."""
+    conn = Connection("h", "u", 22)
+    mock_ssh_client._transport.is_active.return_value = False
+    waits = []
+
+    def _select(rlist, wlist, xlist, timeout):
+        waits.append(timeout)
+        return ([], [], [])
+
+    monkeypatch.setattr("repose.connection.select.select", _select)
+
+    # Default timeout=10, backoff=True.
+    assert conn.wait_reconnect(retry=3) is False
+    assert waits == [10, 30, 40]
+
+
+# --- _recover_transport(): backoff select() args --------------------------
+
+
+def test_recover_transport_backoff_select_args(mock_ssh_client, monkeypatch):
+    """The inter-attempt backoff sleeps via select() with the bounded timeout."""
+    transport = MagicMock()
+    transport.is_active.return_value = True
+    mock_ssh_client._transport = transport
+    mock_ssh_client.get_transport.return_value = transport
+
+    recorded = {}
+
+    def _select(*args, **kwargs):
+        recorded["args"] = args
+        return ([], [], [])
+
+    monkeypatch.setattr("repose.connection.select.select", _select)
+
+    conn = Connection("h", "u", 22)
+    conn._recover_transport(1)
+
+    assert recorded["args"] == ([], [], [], repose.connection._RECONNECT_BACKOFF)

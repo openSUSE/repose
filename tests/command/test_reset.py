@@ -402,3 +402,255 @@ async def test_arun_one_aborts_on_partial_probe_drop(mock_args, caplog):
     assert ok is False
     target.run.assert_not_awaited()
     assert any("bad" in r.getMessage() for r in caplog.records)
+
+
+# ---------------------------------------------------------------------------
+# Behaviour pinning: _add / _run / _arun_one command + argument wiring
+# ---------------------------------------------------------------------------
+
+
+def _rr_orderings(*aliases):
+    """Both valid ``rr`` renderings (repoaliases come from an unordered set)."""
+    a, b = aliases
+    return {
+        f"zypper -n rr {a} {b}",
+        f"zypper -n rr {b} {a}",
+    }
+
+
+def test_add_solves_products_and_builds_add_cmds(monkeypatch, mock_args):
+    """``_add`` must solve the host's own products and render ``-ckn`` for a
+    non-refresh repo (pins the ``solve_product`` arg and the params literal)."""
+    mock_args.ssh_backend = "asyncssh"
+    reset = Reset(mock_args)
+
+    repo = MockRepo("prod-repo1", "http://prod-repo1.url", refresh=False)
+    products = [MockProduct("SLES", "15-SP4")]
+    mock_repoq = MagicMock()
+    mock_repoq.solve_product.return_value = {"product": [repo]}
+    monkeypatch.setattr(Reset, "repoq", mock_repoq)
+
+    target = MagicMock()
+    target.products = products
+    reset.targets = {"user@host1": target}
+    reset._filter_live_urls = MagicMock(return_value=[repo])
+
+    cmds, dropped = reset._add("user@host1")
+
+    # Products of the addressed host, not None, drive the solve.
+    mock_repoq.solve_product.assert_called_once_with(products)
+    assert dropped == []
+    expected = reset.addcmd.format(
+        name="prod-repo1", url="http://prod-repo1.url", params="-ckn"
+    )
+    assert cmds == {expected}
+
+
+def test_run_success_pins_updates_and_run_commands(mock_args):
+    """Sync ``_run`` success path: progress messages carry the real host and
+    exact text, ``rr`` joins aliases with a single space, and each add cmd is
+    executed verbatim."""
+    mock_args.ssh_backend = "asyncssh"
+    reset = Reset(mock_args)
+
+    target = MagicMock()
+    target.raw_repos = [MockRawRepo("existing-repo1"), MockRawRepo("existing-repo2")]
+    target.out = _ok_out()
+    reset.targets = {"user@host1": target}
+    reset._add = MagicMock(return_value=({"ar cmd1"}, []))
+    reset._report_target = MagicMock(return_value=True)
+
+    updates = []
+    ok = reset._run("user@host1", lambda host, msg: updates.append((host, msg)))
+
+    assert ok is True
+    assert ("user@host1", "clearing repos") in updates
+    assert ("user@host1", "resolving new repos") in updates
+    assert ("user@host1", "re-adding 1 repo(s)") in updates
+
+    run_calls = target.run.call_args_list
+    assert run_calls[0].args[0] in _rr_orderings("existing-repo1", "existing-repo2")
+    assert run_calls[1].args == ("ar cmd1",)
+
+
+def test_run_report_failure_sets_ok_false(mock_args):
+    """Sync ``_run``: a failed ``_report_target`` after a real run must flip the
+    aggregate result to ``False`` (pins the ``ok = False`` assignment)."""
+    mock_args.ssh_backend = "asyncssh"
+    reset = Reset(mock_args)
+
+    target = MagicMock()
+    target.raw_repos = [MockRawRepo("existing-repo1")]
+    target.out = _fail_out()
+    reset.targets = {"user@host1": target}
+    reset._add = MagicMock(return_value=({"ar cmd1"}, []))
+    reset._report_target = MagicMock(return_value=False)
+
+    ok = reset._run("user@host1", lambda host, msg: None)
+
+    assert ok is False
+
+
+def test_run_rr_report_failure_alone_sets_ok_false(mock_args):
+    """Sync ``_run``: when the post-``rr`` report FAILS but the add-cmd
+    report SUCCEEDS, the aggregate must still be ``False``. This isolates
+    the first ``ok = False`` (after the destructive removal) so it is the
+    sole determinant — a failed removal report must never be masked by a
+    later successful add report."""
+    mock_args.ssh_backend = "asyncssh"
+    reset = Reset(mock_args)
+
+    target = MagicMock()
+    target.raw_repos = [MockRawRepo("existing-repo1")]
+    reset.targets = {"user@host1": target}
+    reset._add = MagicMock(return_value=({"ar cmd1"}, []))
+    # rr report fails first, the add-cmd report then succeeds.
+    reset._report_target = MagicMock(side_effect=[False, True])
+
+    ok = reset._run("user@host1", lambda host, msg: None)
+
+    assert ok is False
+
+
+def test_run_dryrun_pins_console_dry_calls(mock_args):
+    """Sync ``_run`` dry path previews the exact ``rr`` (single-space join) and
+    each add cmd against the real host via ``console.dry``."""
+    mock_args.ssh_backend = "asyncssh"
+    mock_args.dry = True
+    reset = Reset(mock_args)
+
+    target = MagicMock()
+    target.raw_repos = [MockRawRepo("existing-repo1"), MockRawRepo("existing-repo2")]
+    reset.targets = {"user@host1": target}
+    reset._add = MagicMock(return_value=({"ar cmd1"}, []))
+    reset.console = MagicMock()
+
+    ok = reset._run("user@host1", lambda host, msg: None)
+
+    assert ok is True
+    target.run.assert_not_called()
+    dry_calls = reset.console.dry.call_args_list
+    assert dry_calls[0].args[0] == "user@host1"
+    assert dry_calls[0].args[1] in _rr_orderings("existing-repo1", "existing-repo2")
+    assert dry_calls[1].args == ("user@host1", "ar cmd1")
+
+
+async def test_arun_one_success_pins_updates_and_run_commands(mock_args):
+    """Async ``_arun_one`` success path mirrors ``_run``: correct progress
+    messages, ``_aadd`` addressed to the host, a single-space ``rr`` join,
+    each add cmd awaited verbatim, ``_report_target`` called with the host,
+    and a ``True`` result when every report succeeds."""
+    mock_args.ssh_backend = "asyncssh"
+    reset = Reset(mock_args)
+
+    target = MagicMock()
+    target.raw_repos = [MockRawRepo("existing-repo1"), MockRawRepo("existing-repo2")]
+    target.out = _ok_out()
+    target.run = AsyncMock()
+    reset.targets = {"user@host1": target}
+    reset._aadd = AsyncMock(return_value=({"ar cmd1"}, []))
+    reset._report_target = MagicMock(return_value=True)
+
+    updates = []
+    ok = await reset._arun_one(
+        "user@host1", lambda host, msg: updates.append((host, msg))
+    )
+
+    assert ok is True
+    assert ("user@host1", "clearing repos") in updates
+    assert ("user@host1", "resolving new repos") in updates
+    assert ("user@host1", "re-adding 1 repo(s)") in updates
+
+    reset._aadd.assert_awaited_once_with("user@host1")
+    reset._report_target.assert_any_call("user@host1")
+
+    await_calls = target.run.await_args_list
+    assert await_calls[0].args[0] in _rr_orderings("existing-repo1", "existing-repo2")
+    assert await_calls[1].args == ("ar cmd1",)
+
+
+async def test_arun_one_report_failure_sets_ok_false(mock_args):
+    """Async ``_arun_one``: a failed ``_report_target`` after a real run must
+    flip the aggregate result to ``False``."""
+    mock_args.ssh_backend = "asyncssh"
+    reset = Reset(mock_args)
+
+    target = MagicMock()
+    target.raw_repos = [MockRawRepo("existing-repo1")]
+    target.out = _fail_out()
+    target.run = AsyncMock()
+    reset.targets = {"user@host1": target}
+    reset._aadd = AsyncMock(return_value=({"ar cmd1"}, []))
+    reset._report_target = MagicMock(return_value=False)
+
+    ok = await reset._arun_one("user@host1", lambda host, msg: None)
+
+    assert ok is False
+
+
+async def test_arun_one_rr_report_failure_alone_sets_ok_false(mock_args):
+    """Async ``_arun_one``: when the post-``rr`` report FAILS but the
+    add-cmd report SUCCEEDS, the aggregate must still be ``False`` —
+    isolates the first ``ok = False`` after the destructive removal so it
+    is the sole determinant and cannot be masked by a later success."""
+    mock_args.ssh_backend = "asyncssh"
+    reset = Reset(mock_args)
+
+    target = MagicMock()
+    target.raw_repos = [MockRawRepo("existing-repo1")]
+    target.run = AsyncMock()
+    reset.targets = {"user@host1": target}
+    reset._aadd = AsyncMock(return_value=({"ar cmd1"}, []))
+    # rr report fails first, the add-cmd report then succeeds.
+    reset._report_target = MagicMock(side_effect=[False, True])
+
+    ok = await reset._arun_one("user@host1", lambda host, msg: None)
+
+    assert ok is False
+
+
+async def test_arun_one_unsupported_product_sets_ok_false(mock_args, caplog):
+    """Async ``_arun_one``: an ``UnsuportedProductMessage`` raised by
+    ``_aadd`` must be caught, logged, and flip the result to ``False`` —
+    the async sibling of ``test_reset_unsupported_product_logs_error``,
+    exercising the ``except`` branch on the async path."""
+    mock_args.ssh_backend = "asyncssh"
+    reset = Reset(mock_args)
+
+    unknown_prod = type("P", (), {"name": "X", "version": "1"})
+    target = MagicMock()
+    target.raw_repos = [MockRawRepo("existing-repo1")]
+    target.run = AsyncMock()
+    reset.targets = {"user@host1": target}
+    reset._aadd = AsyncMock(side_effect=UnsuportedProductMessage(unknown_prod()))
+
+    with caplog.at_level("ERROR", logger="repose.command.reset"):
+        ok = await reset._arun_one("user@host1", lambda host, msg: None)
+
+    assert ok is False
+    target.run.assert_not_awaited()
+    assert any("Refhost" in r.message for r in caplog.records)
+
+
+async def test_arun_one_dryrun_pins_console_dry_calls(mock_args):
+    """Async ``_arun_one`` dry path previews the exact ``rr`` and add cmds via
+    ``console.dry`` against the real host and does not touch the network."""
+    mock_args.ssh_backend = "asyncssh"
+    mock_args.dry = True
+    reset = Reset(mock_args)
+
+    target = MagicMock()
+    target.raw_repos = [MockRawRepo("existing-repo1"), MockRawRepo("existing-repo2")]
+    target.run = AsyncMock()
+    reset.targets = {"user@host1": target}
+    reset._aadd = AsyncMock(return_value=({"ar cmd1"}, []))
+    reset.console = MagicMock()
+
+    ok = await reset._arun_one("user@host1", lambda host, msg: None)
+
+    assert ok is True
+    target.run.assert_not_awaited()
+    dry_calls = reset.console.dry.call_args_list
+    assert dry_calls[0].args[0] == "user@host1"
+    assert dry_calls[0].args[1] in _rr_orderings("existing-repo1", "existing-repo2")
+    assert dry_calls[1].args == ("user@host1", "ar cmd1")
