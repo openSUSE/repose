@@ -190,6 +190,59 @@ def test_clear_command_mixed_hosts_skips_only_empty(monkeypatch, mock_ssh_client
     t2.run.assert_not_called()
 
 
+def test_clear_run_calls_update_with_host_and_message(mock_args):
+    """``_run`` must invoke the progress callback with the exact host and
+    the literal ``"clearing repos"`` message (pins host arg + message text)."""
+    clear = Clear(mock_args)
+
+    target = MagicMock()
+    target.raw_repos = [MockRawRepo("repo1")]
+    clear.targets = {"user@host1": target}
+
+    calls = []
+    clear._run("user@host1", lambda host, msg: calls.append((host, msg)))
+
+    assert calls == [("user@host1", "clearing repos")]
+
+
+async def test_clear_arun_one_calls_update_with_host_and_message(mock_args):
+    """Async sibling: ``_arun_one`` passes the exact host and message."""
+    mock_args.ssh_backend = "asyncssh"
+    clear = Clear(mock_args)
+
+    target = MagicMock()
+    target.raw_repos = [MockRawRepo("repo1")]
+    target.run = AsyncMock()
+    clear.targets = {"user@host1": target}
+
+    calls = []
+    await clear._arun_one("user@host1", lambda host, msg: calls.append((host, msg)))
+
+    assert calls == [("user@host1", "clearing repos")]
+
+
+async def test_clear_arun_one_dryrun_calls_console_dry_with_host(mock_args):
+    """In dry-run, ``_arun_one`` reports via ``console.dry`` with the host
+    as the first argument (pins the host arg of the dry call)."""
+    mock_args.dry = True
+    mock_args.ssh_backend = "asyncssh"
+    clear = Clear(mock_args)
+    clear.console = MagicMock()
+
+    target = MagicMock()
+    target.raw_repos = [MockRawRepo("repo1")]
+    target.run = AsyncMock()
+    clear.targets = {"user@host1": target}
+
+    ok = await clear._arun_one("user@host1", lambda host, msg: None)
+
+    assert ok is True
+    target.run.assert_not_awaited()
+    dry_call = clear.console.dry.call_args
+    assert dry_call[0][0] == "user@host1"
+    assert "repo1" in dry_call[0][1]
+
+
 async def test_clear_arun_one_empty_repos_skips_rr(mock_args, caplog):
     """Async ``_arun_one`` must mirror the sync no-repos no-op guard."""
     mock_args.ssh_backend = "asyncssh"

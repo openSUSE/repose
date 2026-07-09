@@ -10,14 +10,16 @@ SSH host-key transport globals. Where the old tests inspected an
 """
 
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
 from typer.testing import CliRunner
 
 from repose import __version__
-from repose.cli import app
+from repose.cli import _build_ns, _complete_repa, _target_parser, app
 from repose.command import Command
+from repose.host import ParseHosts
 
 runner = CliRunner()
 
@@ -639,3 +641,114 @@ def test_quiet_flag_sets_logger_level_warning(mock_registry):
         assert log.level == _logging.WARNING
     finally:
         log.setLevel(saved)
+
+
+# ---------------------------------------------------------------------------
+# _target_parser context resolution (direct unit tests)
+# ---------------------------------------------------------------------------
+
+
+def _push_fake_context(obj):
+    """Push a fake context onto the click stack ``_target_parser`` reads.
+
+    Returns a callable that pops it again; the caller must invoke it in a
+    ``finally`` so the global stack is left clean for later tests.
+    """
+    from typer._click.globals import pop_context, push_context
+
+    push_context(SimpleNamespace(obj=obj))
+    return pop_context
+
+
+def test_target_parser_ignores_context_without_cliglobals():
+    """When the active context's ``obj`` is not a ``CliGlobals`` the parser
+    must fall back to a default ``ConnectionConfig`` — never touch
+    ``ctx.obj.conn_config``.
+
+    Guards the ``and`` in ``ctx is not None and isinstance(..., CliGlobals)``:
+    flipping it to ``or`` makes the ``ctx.obj.conn_config`` branch run for a
+    non-CliGlobals ``obj`` and blow up with ``AttributeError``.
+    """
+    pop = _push_fake_context(None)
+    try:
+        result = _target_parser("h")
+    finally:
+        pop()
+    assert isinstance(result, ParseHosts)
+    assert list(result.keys()) == ["h"]
+
+
+# ---------------------------------------------------------------------------
+# _complete_repa (shell-completion callback) — direct unit tests
+# ---------------------------------------------------------------------------
+
+
+class _Bare:
+    """A stand-in context object that has no ``obj`` attribute."""
+
+
+def test_complete_repa_falls_back_to_default_config_path(monkeypatch):
+    """With no ``CliGlobals`` on the context, completion reads the default
+    ``/etc/repose/products.yml`` path.
+
+    Kills the string mutants on that literal and the ``getattr`` default:
+    dropping the default from ``getattr(ctx, "obj", None)`` raises
+    ``AttributeError`` on ``_Bare`` (no ``obj``) before ``load_template``
+    is ever reached.
+    """
+    seen: dict[str, Path] = {}
+
+    def fake_load(path):
+        seen["path"] = path
+        return {}
+
+    monkeypatch.setattr("repose.cli.load_template", fake_load)
+    result = _complete_repa(_Bare(), "")
+    assert result == []
+    assert seen["path"] == Path("/etc/repose/products.yml")
+
+
+def test_complete_repa_matches_prefix(monkeypatch):
+    monkeypatch.setattr(
+        "repose.cli.load_template",
+        lambda path: {"SLES": {}, "SLED": {}, "openSUSE": {}},
+    )
+    assert _complete_repa(_Bare(), "SL") == ["SLED", "SLES"]
+
+
+def test_complete_repa_returns_empty_after_colon(monkeypatch):
+    """Once the token carries a ``:`` the callback returns nothing, even if
+    a product name would otherwise prefix-match the whole token.
+
+    Kills the ``if ":" in incomplete`` mutant: replacing ``":"`` with a
+    literal that never occurs lets ``SLES:15`` slip through as a match.
+    """
+    monkeypatch.setattr(
+        "repose.cli.load_template",
+        lambda path: {"SLES:15": {}, "foo": {}},
+    )
+    assert _complete_repa(_Bare(), "SLES:") == []
+
+
+# ---------------------------------------------------------------------------
+# _build_ns guard + None-exit-code dispatch
+# ---------------------------------------------------------------------------
+
+
+def test_build_ns_requires_root_callback():
+    """``_build_ns`` asserts the root callback populated ``ctx.obj``; the
+    failure message is pinned exactly so mangled-string mutants die."""
+    with pytest.raises(AssertionError) as excinfo:
+        _build_ns(SimpleNamespace(obj=None))
+    assert str(excinfo.value) == "root callback must run first"
+
+
+def test_dispatch_returns_zero_when_run_returns_none(monkeypatch):
+    """A command whose ``run()`` returns ``None`` exits 0, not 1."""
+    instance = MagicMock()
+    instance.run.return_value = None
+    fake = MagicMock(return_value=instance)
+    monkeypatch.setitem(Command.registry, "known-products", fake)
+
+    result = runner.invoke(app, ["known-products"])
+    assert result.exit_code == 0, result.stderr
