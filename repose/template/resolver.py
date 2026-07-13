@@ -61,6 +61,7 @@ class Repoq:
             raise ValueError(
                 f"Unknow version: {repa.version} for product: {repa.product}"
             )
+        assert version is not None
         name = f"{repa.product}:{version}::"
 
         # used by for example QA:SLE projects
