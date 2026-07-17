@@ -20,3 +20,4 @@ repose-core = { path = "../repose-core", version = "0.1.0" }
 repose-ssh = { path = "../repose-ssh", version = "0.1.0" }
 clap = { version = "4", features = ["derive", "env"] }
 clap_complete = "4"
+tokio = { version = "1", features = ["rt-multi-thread", "macros"] }

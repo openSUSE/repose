@@ -12,6 +12,9 @@ publish = false
 workspace = true
 
 [dependencies]
-# version= required so cargo-deny wildcards=deny does not treat path deps as `*`.
 repose-core = { path = "../repose-core", version = "0.1.0" }
-# russh lands in later PRs; PR0 only establishes the dependency edge core ← ssh.
+async-trait = "0.1"
+# >=0.60.3 for GHSA-g9f8-wqj9-fjw5 (CryptoVec growth)
+russh = "0.61"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "time", "net", "io-util", "fs"] }
+log = "0.4"

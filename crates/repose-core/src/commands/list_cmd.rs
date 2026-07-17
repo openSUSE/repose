@@ -1,0 +1,107 @@
+//! list-products, list-repos, known-products.
+
+use crate::commands::CommandOptions;
+use crate::display::{CommandDisplay, JsonDisplay, TextDisplay};
+use crate::template::load_template;
+use crate::traits::HostGroup;
+use crate::types::ExitCode;
+use std::io::Write;
+use std::path::Path;
+
+pub async fn run_list_products<W: Write>(
+    opts: &CommandOptions,
+    group: &mut dyn HostGroup,
+    out: &mut W,
+) -> ExitCode {
+    group.connect_and_prune().await;
+    group.read_products().await;
+    let keys = group.keys();
+    for key in keys {
+        if let Some(host) = group.get(&key) {
+            // Port from key if present
+            let (hostname, port) = split_key(host.key());
+            if let Some(sys) = host.products() {
+                match opts.format {
+                    crate::console::OutputFormat::Json => {
+                        let mut d = JsonDisplay { output: &mut *out };
+                        let _ = d.list_products(hostname, port, sys);
+                    }
+                    crate::console::OutputFormat::Text => {
+                        let mut d = TextDisplay { output: &mut *out };
+                        let _ = d.list_products(hostname, port, sys);
+                    }
+                }
+            }
+        }
+    }
+    group.close().await;
+    ExitCode::Ok
+}
+
+pub async fn run_list_repos<W: Write>(
+    opts: &CommandOptions,
+    group: &mut dyn HostGroup,
+    out: &mut W,
+) -> ExitCode {
+    group.connect_and_prune().await;
+    group.read_repos().await;
+    let keys = group.keys();
+    for key in keys {
+        if let Some(host) = group.get(&key) {
+            let (hostname, port) = split_key(host.key());
+            let empty = vec![];
+            let repos = host.raw_repos().unwrap_or(&empty);
+            match opts.format {
+                crate::console::OutputFormat::Json => {
+                    let mut d = JsonDisplay { output: &mut *out };
+                    let _ = d.list_repos(hostname, port, repos);
+                }
+                crate::console::OutputFormat::Text => {
+                    let mut d = TextDisplay { output: &mut *out };
+                    let _ = d.list_repos(hostname, port, repos);
+                }
+            }
+        }
+    }
+    group.close().await;
+    ExitCode::Ok // always 0 even if some hosts failed earlier
+}
+
+pub fn run_known_products(
+    config: &Path,
+    out: &mut impl Write,
+) -> Result<ExitCode, crate::template::TemplateError> {
+    let tpl = load_template(config)?;
+    let mut names: Vec<String> = tpl
+        .as_object()
+        .map(|m| m.keys().cloned().collect())
+        .unwrap_or_default();
+    names.sort();
+    let mut d = TextDisplay { output: out };
+    let _ = d.list_known_products(&names);
+    Ok(ExitCode::Ok)
+}
+
+fn split_key(key: &str) -> (&str, u16) {
+    if let Some((h, p)) = key.rsplit_once(':') {
+        if let Ok(port) = p.parse() {
+            return (h, port);
+        }
+    }
+    (key, 22)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::console::Buffer;
+
+    #[test]
+    fn known_products_sorted() {
+        let path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../../tests/oracle/template/sample.yml");
+        let mut buf = Buffer::default();
+        run_known_products(&path, &mut buf).unwrap();
+        assert!(buf.0.contains("QA") && buf.0.contains("SLES"));
+    }
+}

@@ -1,22 +1,38 @@
-//! Rust `repose` CLI (PR15a: surface stubs; full wire-up later).
-//!
-//! Binary name is `repose`. No `--ssh-backend` (single SSH stack).
+//! Rust `repose` CLI — wired to command algorithms + russh HostGroup.
 
 #![forbid(unsafe_code)]
 
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
+use std::time::Duration;
 
 use clap::{CommandFactory, Parser, Subcommand, ValueEnum};
-use repose_core::{parse_host, template, ConnectionConfig, HostKeyPolicy, VERSION};
+use repose_core::commands::{
+    default_probe, run_add, run_clear, run_install, run_known_products, run_list_products,
+    run_list_repos, run_remove, run_reset, run_uninstall, CommandOptions,
+};
+use repose_core::console::{Console, OutputFormat as CoreFormat};
+use repose_core::host_parse::parse_host;
+use repose_core::repa::Repa;
+use repose_core::{ConnectionConfig, HostKeyPolicy, VERSION};
+use repose_ssh::RusshHostGroup;
 
-#[derive(Debug, Clone, ValueEnum)]
+#[derive(Debug, Clone, Copy, ValueEnum)]
 enum OutputFormat {
     Text,
     Json,
 }
 
-#[derive(Debug, Clone, ValueEnum)]
+impl From<OutputFormat> for CoreFormat {
+    fn from(f: OutputFormat) -> Self {
+        match f {
+            OutputFormat::Text => CoreFormat::Text,
+            OutputFormat::Json => CoreFormat::Json,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, ValueEnum)]
 enum HostKeyMode {
     Yes,
     #[value(name = "accept-new")]
@@ -41,20 +57,14 @@ impl From<HostKeyMode> for HostKeyPolicy {
     name = "repose",
     version = VERSION,
     about = "Repository manipulation tool for QAM",
-    long_about = None,
     disable_version_flag = true,
-    arg_required_else_help = false,
+    arg_required_else_help = false
 )]
 struct Cli {
-    /// Print commands for host and exit
     #[arg(short = 'n', long = "print", global = true)]
     dry: bool,
-
-    /// Show program version
     #[arg(short = 'V', long = "version", global = true)]
     version: bool,
-
-    /// Path to repose configuration
     #[arg(
         short = 'c',
         long = "config",
@@ -62,43 +72,24 @@ struct Cli {
         default_value = "/etc/repose/products.yml"
     )]
     config: PathBuf,
-
-    /// Enable debug logging
     #[arg(short = 'd', long = "debug", global = true)]
     debug: bool,
-
-    /// Suppress messages from repose
     #[arg(short = 'q', long = "quiet", global = true)]
     quiet: bool,
-
-    /// Disable ANSI color
     #[arg(long = "no-color", global = true)]
     no_color: bool,
-
-    /// Console output format
     #[arg(long = "format", global = true, value_enum, default_value_t = OutputFormat::Text)]
     format: OutputFormat,
-
-    /// Strict host key checking
-    #[arg(
-        long = "strict-host-key-checking",
-        global = true,
-        value_enum,
-        default_value_t = HostKeyMode::AcceptNew
-    )]
+    #[arg(long = "strict-host-key-checking", global = true, value_enum, default_value_t = HostKeyMode::AcceptNew)]
     strict_host_key_checking: HostKeyMode,
-
-    /// Custom known_hosts path
     #[arg(long = "known-hosts", global = true)]
     known_hosts: Option<PathBuf>,
-
     #[command(subcommand)]
     command: Option<Commands>,
 }
 
 #[derive(Subcommand, Debug)]
 enum Commands {
-    /// Add repository to target
     Add {
         #[arg(short = 't', long = "target", required = true)]
         targets: Vec<String>,
@@ -109,14 +100,12 @@ enum Commands {
         #[arg(long = "no-probe", default_value_t = false)]
         no_probe: bool,
     },
-    /// Remove repository from target
     Remove {
         #[arg(short = 't', long = "target", required = true)]
         targets: Vec<String>,
         #[arg(required = true)]
         repa: Vec<String>,
     },
-    /// Reset repos to installed products' repos
     Reset {
         #[arg(short = 't', long = "target", required = true)]
         targets: Vec<String>,
@@ -125,7 +114,6 @@ enum Commands {
         #[arg(long = "no-probe", default_value_t = false)]
         no_probe: bool,
     },
-    /// Add repos and install product
     Install {
         #[arg(short = 't', long = "target", required = true)]
         targets: Vec<String>,
@@ -138,12 +126,10 @@ enum Commands {
         #[arg(long = "no-reboot", default_value_t = false)]
         no_reboot: bool,
     },
-    /// Clear all repos
     Clear {
         #[arg(short = 't', long = "target", required = true)]
         targets: Vec<String>,
     },
-    /// Remove repos and uninstall product
     Uninstall {
         #[arg(short = 't', long = "target", required = true)]
         targets: Vec<String>,
@@ -152,7 +138,6 @@ enum Commands {
         #[arg(long = "no-reboot", default_value_t = false)]
         no_reboot: bool,
     },
-    /// List products on target
     #[command(name = "list-products")]
     ListProducts {
         #[arg(short = 't', long = "target", required = true)]
@@ -160,72 +145,62 @@ enum Commands {
         #[arg(long = "yaml", default_value_t = false)]
         yaml: bool,
     },
-    /// List repositories on target
     #[command(name = "list-repos")]
     ListRepos {
         #[arg(short = 't', long = "target", required = true)]
         targets: Vec<String>,
     },
-    /// List products known to config (no SSH)
     #[command(name = "known-products")]
     KnownProducts,
 }
 
 fn main() -> ExitCode {
-    let cli = Cli::parse();
+    let rt = match tokio::runtime::Runtime::new() {
+        Ok(rt) => rt,
+        Err(e) => {
+            eprintln!("error: tokio runtime: {e}");
+            return ExitCode::from(2);
+        }
+    };
+    rt.block_on(async_main())
+}
 
+async fn async_main() -> ExitCode {
+    let mut cli = Cli::parse();
     if cli.version {
         println!("repose version: {VERSION}");
         return ExitCode::SUCCESS;
     }
-
     if cli.debug && cli.quiet {
         eprintln!("error: --debug and --quiet are mutually exclusive");
         return ExitCode::from(2);
     }
 
-    // Build connection config early (validates host-key mode).
-    let _conn = ConnectionConfig {
+    let conn = ConnectionConfig {
         host_key_policy: cli.strict_host_key_checking.into(),
         known_hosts: cli.known_hosts.clone(),
         timeout: 120.0,
     };
 
-    let Some(cmd) = cli.command else {
-        // Bare `repose` → help, exit 0 (Python parity).
-        let mut app = Cli::command();
-        let _ = app.print_help();
-        println!();
-        return ExitCode::SUCCESS;
+    let cmd = match cli.command.take() {
+        None => {
+            let mut app = Cli::command();
+            let _ = app.print_help();
+            println!();
+            return ExitCode::SUCCESS;
+        }
+        Some(Commands::KnownProducts) => {
+            return known_products(&cli.config);
+        }
+        Some(other) => other,
     };
 
-    match cmd {
-        Commands::KnownProducts => known_products(&cli.config),
-        Commands::Add { targets, repa, .. } => stub("add", &targets, Some(&repa), cli.dry),
-        Commands::Remove { targets, repa } => stub("remove", &targets, Some(&repa), cli.dry),
-        Commands::Reset { targets, .. } => stub("reset", &targets, None, cli.dry),
-        Commands::Install { targets, repa, .. } => stub("install", &targets, Some(&repa), cli.dry),
-        Commands::Clear { targets } => stub("clear", &targets, None, cli.dry),
-        Commands::Uninstall { targets, repa, .. } => {
-            stub("uninstall", &targets, Some(&repa), cli.dry)
-        }
-        Commands::ListProducts { targets, .. } => stub("list-products", &targets, None, cli.dry),
-        Commands::ListRepos { targets } => stub("list-repos", &targets, None, cli.dry),
-    }
+    dispatch(cli, conn, cmd).await
 }
 
 fn known_products(config: &Path) -> ExitCode {
-    match template::load_template(config) {
-        Ok(tpl) => {
-            let mut names: Vec<String> = tpl
-                .as_object()
-                .map(|m| m.keys().cloned().collect())
-                .unwrap_or_default();
-            names.sort();
-            println!("Products known by 'repose':");
-            println!("{}", names.join(" "));
-            ExitCode::SUCCESS
-        }
+    match run_known_products(config, &mut std::io::stdout()) {
+        Ok(c) => exit_from(c),
         Err(e) => {
             eprintln!("error: {e}");
             ExitCode::from(2)
@@ -233,29 +208,127 @@ fn known_products(config: &Path) -> ExitCode {
     }
 }
 
-fn stub(name: &str, targets: &[String], repa: Option<&[String]>, dry: bool) -> ExitCode {
-    // Validate target parse early so bad -t fails fast.
-    for t in targets {
-        if let Err(e) = parse_host(t) {
-            eprintln!("error: {e}");
-            return ExitCode::from(2);
+async fn dispatch(cli: Cli, conn: ConnectionConfig, cmd: Commands) -> ExitCode {
+    let (targets, repa, probe_timeout, no_probe, no_reboot) = match &cmd {
+        Commands::Add {
+            targets,
+            repa,
+            probe_timeout,
+            no_probe,
+        } => (
+            targets.clone(),
+            repa.clone(),
+            *probe_timeout,
+            *no_probe,
+            false,
+        ),
+        Commands::Remove { targets, repa } => (targets.clone(), repa.clone(), 5.0, false, false),
+        Commands::Reset {
+            targets,
+            probe_timeout,
+            no_probe,
+        } => (targets.clone(), vec![], *probe_timeout, *no_probe, false),
+        Commands::Install {
+            targets,
+            repa,
+            probe_timeout,
+            no_probe,
+            no_reboot,
+        } => (
+            targets.clone(),
+            repa.clone(),
+            *probe_timeout,
+            *no_probe,
+            *no_reboot,
+        ),
+        Commands::Clear { targets } => (targets.clone(), vec![], 5.0, false, false),
+        Commands::Uninstall {
+            targets,
+            repa,
+            no_reboot,
+        } => (targets.clone(), repa.clone(), 5.0, false, *no_reboot),
+        Commands::ListProducts { targets, .. } => (targets.clone(), vec![], 5.0, false, false),
+        Commands::ListRepos { targets } => (targets.clone(), vec![], 5.0, false, false),
+        Commands::KnownProducts => unreachable!(),
+    };
+
+    let mut specs = Vec::new();
+    for t in &targets {
+        match parse_host(t) {
+            Ok(s) => specs.push(s),
+            Err(e) => {
+                eprintln!("error: {e}");
+                return ExitCode::from(2);
+            }
         }
     }
-    if let Some(rs) = repa {
-        for r in rs {
-            if let Err(e) = repose_core::Repa::parse(r) {
+    let mut repas = Vec::new();
+    for r in &repa {
+        match Repa::parse(r) {
+            Ok(p) => repas.push(p),
+            Err(e) => {
                 eprintln!("error: invalid REPA {r:?}: {e}");
                 return ExitCode::from(2);
             }
         }
     }
-    if dry {
-        eprintln!("repose {name}: dry-run accepted; command orchestration not implemented yet");
-        return ExitCode::SUCCESS;
+
+    let opts = CommandOptions {
+        dry: cli.dry,
+        config: cli.config.clone(),
+        repa: repas,
+        probe_timeout: Duration::from_secs_f64(probe_timeout),
+        no_probe,
+        no_reboot,
+        format: cli.format.into(),
+    };
+
+    let mut group = RusshHostGroup::from_targets(specs, conn);
+    let probe = default_probe();
+    let mut console = Console::new(std::io::stdout());
+    console.format = opts.format;
+    if cli.no_color {
+        console.color = repose_core::console::ColorMode::Never;
     }
-    eprintln!(
-        "repose {name}: not fully implemented yet (PR15a stub). \
-         See docs/design/rust-rewrite.md"
-    );
-    ExitCode::from(2)
+
+    let code = match cmd {
+        Commands::Add { .. } => match run_add(&opts, &mut group, &probe, &mut console).await {
+            Ok(c) => c,
+            Err(e) => {
+                eprintln!("error: {e}");
+                return ExitCode::from(2);
+            }
+        },
+        Commands::Remove { .. } => run_remove(&opts, &mut group, &mut console).await,
+        Commands::Reset { .. } => match run_reset(&opts, &mut group, &probe, &mut console).await {
+            Ok(c) => c,
+            Err(e) => {
+                eprintln!("error: {e}");
+                return ExitCode::from(2);
+            }
+        },
+        Commands::Install { .. } => {
+            match run_install(&opts, &mut group, &probe, &mut console).await {
+                Ok(c) => c,
+                Err(e) => {
+                    eprintln!("error: {e}");
+                    return ExitCode::from(2);
+                }
+            }
+        }
+        Commands::Clear { .. } => run_clear(&opts, &mut group, &mut console).await,
+        Commands::Uninstall { .. } => run_uninstall(&opts, &mut group, &mut console).await,
+        Commands::ListProducts { .. } => {
+            run_list_products(&opts, &mut group, &mut std::io::stdout()).await
+        }
+        Commands::ListRepos { .. } => {
+            run_list_repos(&opts, &mut group, &mut std::io::stdout()).await
+        }
+        Commands::KnownProducts => unreachable!(),
+    };
+    exit_from(code)
+}
+
+fn exit_from(c: repose_core::ExitCode) -> ExitCode {
+    ExitCode::from(c.as_i32() as u8)
 }

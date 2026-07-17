@@ -18,6 +18,13 @@ yanked = "deny"
 # Fail hard on unmaintained *workspace* crates; transitive noise can wait until
 # the graph grows (russh). Override with ignore + issue id if needed.
 unmaintained = "workspace"
+ignore = [
+    # Marvin Attack (RSA timing sidechannel). Pulled transitively by russh
+    # via rsa 0.10.0-rc.x / ssh-key. RustSec reports no safe upgrade yet.
+    # Revisit when russh/rsa ship a fixed release (RUSTSEC-2023-0071).
+    # https://rustsec.org/advisories/RUSTSEC-2023-0071
+    { id = "RUSTSEC-2023-0071", reason = "transitive via russh; no fixed rsa crate yet" },
+]
 
 [licenses]
 version = 2

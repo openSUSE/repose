@@ -36,6 +36,44 @@ impl System {
     pub fn get_base(&self) -> &Product {
         &self.base
     }
+
+    #[must_use]
+    pub fn get_addons(&self) -> &[Product] {
+        &self.addons
+    }
+
+    /// Base + addons (Python `System.flatten`).
+    #[must_use]
+    pub fn flatten(&self) -> Vec<Product> {
+        let mut v = Vec::with_capacity(1 + self.addons.len());
+        v.push(self.base.clone());
+        v.extend(self.addons.iter().cloned());
+        v
+    }
+}
+
+/// Parse zypper repo **name** `a:b:c:d` into a product (Python `Repositories`).
+#[must_use]
+pub fn product_from_repo_name(name: &str, host_arch: &str) -> Option<Product> {
+    let parts: Vec<&str> = name.split(':').collect();
+    if parts.len() != 4 {
+        return None;
+    }
+    Some(Product {
+        name: parts[0].to_string(),
+        version: parts[1].to_string(),
+        arch: host_arch.to_string(),
+    })
+}
+
+/// Build alias→product map from raw repos.
+#[must_use]
+pub fn repositories_from_raw(raw: &[Repository], host_arch: &str) -> Repositories {
+    let mut repos = Repositories::new();
+    for r in raw {
+        repos.insert(r.alias.clone(), product_from_repo_name(&r.name, host_arch));
+    }
+    repos
 }
 
 /// One zypper repository row (Python `Repository`).
@@ -73,6 +111,10 @@ impl Repositories {
 
     pub fn keys(&self) -> impl Iterator<Item = &String> {
         self.inner.keys()
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = (&String, &Option<Product>)> {
+        self.inner.iter()
     }
 
     #[must_use]
