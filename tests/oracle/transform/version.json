@@ -1,0 +1,40 @@
+[
+  {
+    "input": "15-SP3",
+    "output": {
+      "major": 15,
+      "minor": "SP3"
+    }
+  },
+  {
+    "input": "15.3",
+    "output": {
+      "major": 15,
+      "minor": 3
+    }
+  },
+  {
+    "input": "15",
+    "output": {
+      "major": 15
+    }
+  },
+  {
+    "input": "ALL",
+    "output": {
+      "major": "ALL"
+    }
+  },
+  {
+    "input": "tumbleweed",
+    "output": "tumbleweed"
+  },
+  {
+    "input": "3.19.1",
+    "output": "3.19.1"
+  },
+  {
+    "input": "",
+    "output": ""
+  }
+]

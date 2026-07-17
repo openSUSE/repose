@@ -12,9 +12,19 @@ publish = false
 workspace = true
 
 [dependencies]
-# Object-safe async Host/SshSession traits (design: &mut dyn Host for commands).
 async-trait = "0.1"
+# NDJSON / console
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# products.yml
+serde_yaml = "0.9"
 thiserror = "2"
+# URL probe (async path baseline)
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "http2"] }
+# XML parsers (zypper -x lr, .prod)
+quick-xml = { version = "0.41", features = ["serialize"] }
 
 [dev-dependencies]
-tokio = { version = "1", features = ["rt", "macros"] }
+tokio = { version = "1", features = ["rt", "macros", "rt-multi-thread"] }
+wiremock = "0.6"
+tempfile = "3"

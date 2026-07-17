@@ -1,0 +1,50 @@
+[
+  {
+    "input": "",
+    "quoted": "''"
+  },
+  {
+    "input": "simple",
+    "quoted": "simple"
+  },
+  {
+    "input": "evil repo's name",
+    "quoted": "'evil repo'\"'\"'s name'"
+  },
+  {
+    "input": "http://mirror.example.com/dist path/?foo=1&bar=2",
+    "quoted": "'http://mirror.example.com/dist path/?foo=1&bar=2'"
+  },
+  {
+    "input": "evil alias's",
+    "quoted": "'evil alias'\"'\"'s'"
+  },
+  {
+    "input": "prod uct's",
+    "quoted": "'prod uct'\"'\"'s'"
+  },
+  {
+    "input": "a b",
+    "quoted": "'a b'"
+  },
+  {
+    "input": "a'b",
+    "quoted": "'a'\"'\"'b'"
+  },
+  {
+    "input": "$HOME",
+    "quoted": "'$HOME'"
+  },
+  {
+    "input": "foo;bar",
+    "quoted": "'foo;bar'"
+  },
+  {
+    "input": "x\ny",
+    "quoted": "'x\ny'"
+  },
+  {
+    "input": "*",
+    "quoted": "'*'"
+  }
+]

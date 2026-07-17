@@ -1,0 +1,9 @@
+{
+  "add_ckn": "zypper -n ar -ckn 'evil repo'\"'\"'s name' 'http://mirror.example.com/dist path/?foo=1&bar=2' 'evil repo'\"'\"'s name'",
+  "add_cfkn": "zypper -n ar -cfkn 'evil repo'\"'\"'s name' 'http://mirror.example.com/dist path/?foo=1&bar=2' 'evil repo'\"'\"'s name'",
+  "rr": "zypper -n rr 'evil alias'\"'\"'s'",
+  "in": "zypper -n in -t product -l -f 'prod uct'\"'\"'s'",
+  "in_t": "transactional-update -n pkg in -t product -l -f 'prod uct'\"'\"'s'",
+  "rm": "zypper -n rm -t product 'prod uct'\"'\"'s'",
+  "rm_t": "transactional-update -n pkg rm -t product -l -f 'prod uct'\"'\"'s'"
+}

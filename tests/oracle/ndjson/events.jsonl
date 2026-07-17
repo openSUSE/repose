@@ -1,0 +1,3 @@
+{"event": "dry", "level": "info", "host": "h", "cmd": "zypper -n lr"}
+{"event": "report", "level": "error", "host": "h", "line": "fail", "ok": false}
+{"event": "known_product", "name": "SLES"}
