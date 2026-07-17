@@ -115,6 +115,9 @@ jobs:
         run: cargo fmt --all -- --check
       - name: Clippy
         run: cargo clippy --workspace --all-targets -- -D warnings
+      - name: Layering (core ↛ ssh/russh)
+        # Script lives at repo root; job working-directory is crates/.
+        run: bash ../scripts/check-rust-layering.sh
       - name: Test
         run: cargo test --workspace
       - name: Binary version line

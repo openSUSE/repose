@@ -12,4 +12,9 @@ publish = false
 workspace = true
 
 [dependencies]
-# Intentionally empty in PR0. No russh. No HTTP client yet.
+# Object-safe async Host/SshSession traits (design: &mut dyn Host for commands).
+async-trait = "0.1"
+thiserror = "2"
+
+[dev-dependencies]
+tokio = { version = "1", features = ["rt", "macros"] }
