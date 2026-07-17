@@ -1,0 +1,85 @@
+# cargo-deny config for the repose Rust workspace (cargo-deny >= 0.18.4 / 0.20.x).
+#
+# From crates/:
+#   cargo deny check
+# From repo root:
+#   cargo deny -c crates/deny.toml --manifest-path crates/Cargo.toml check
+#
+# CI: EmbarkStudios/cargo-deny-action@v2 with manifest-path=crates/Cargo.toml
+# (discovers this file next to the workspace Cargo.toml).
+
+[graph]
+all-features = false
+no-default-features = false
+
+[advisories]
+version = 2
+yanked = "deny"
+# Fail hard on unmaintained *workspace* crates; transitive noise can wait until
+# the graph grows (russh). Override with ignore + issue id if needed.
+unmaintained = "workspace"
+
+[licenses]
+version = 2
+confidence-threshold = 0.8
+# Pre-approve licenses we expect once real deps land (russh, tokio, clap, …).
+# unused-allowed-license=allow so an empty graph does not WARN-spam CI.
+unused-allowed-license = "allow"
+allow = [
+    # Project license
+    "GPL-3.0",
+    "GPL-3.0-only",
+    "GPL-3.0-or-later",
+    # Common permissive (tokio/clap/serde ecosystem)
+    "MIT",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Unicode-3.0",
+    "Unicode-DFS-2016",
+    "Zlib",
+    "BSL-1.0",
+    "CC0-1.0",
+    "CDLA-Permissive-2.0",
+    "MPL-2.0",
+    "0BSD",
+    # Occasional in crypto / OpenSSL-compat crates
+    "OpenSSL",
+    # LGPL family (some SSH/crypto transitive history; prefer MIT/Apache)
+    "LGPL-2.1",
+    "LGPL-2.1-only",
+    "LGPL-2.1-or-later",
+    "LGPL-3.0",
+    "LGPL-3.0-only",
+    "LGPL-3.0-or-later",
+    # Rare but seen in older graphs
+    "GPL-2.0",
+    "GPL-2.0-only",
+    "GPL-2.0-or-later",
+]
+exceptions = []
+
+[bans]
+multiple-versions = "warn"
+# Path deps must pin `version = "0.x"` (see crate Cargo.toml comments).
+wildcards = "deny"
+highlight = "all"
+workspace-default-features = "allow"
+external-default-features = "allow"
+# Single SSH backend policy (design: russh only).
+deny = [
+    { name = "ssh2", reason = "single SSH backend is russh only" },
+    { name = "libssh2-sys", reason = "single SSH backend is russh only" },
+    { name = "async-ssh2-lite", reason = "single SSH backend is russh only" },
+    { name = "async-ssh2-tokio", reason = "single SSH backend is russh only" },
+]
+skip = []
+skip-tree = []
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+allow-git = []

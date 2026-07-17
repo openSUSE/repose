@@ -89,3 +89,9 @@ env3*
 
 # pytest cache
 .pytest_cache
+
+# Rust / Cargo (rewrite workspace under crates/)
+/crates/target/
+/target/
+*.rs.bk
+Cargo.lock.bak

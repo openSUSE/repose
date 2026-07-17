@@ -1,0 +1,23 @@
+[workspace]
+resolver = "2"
+members = [
+    "repose-core",
+    "repose-ssh",
+    "repose-cli",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "GPL-3.0-or-later"
+repository = "https://github.com/openSUSE/repose"
+rust-version = "1.85"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+# Pedantic is informative locally; CI uses -D warnings on the default set only
+# (do not enable pedantic as warn-as-error — it blocks scaffolding with style nits).
+pedantic = { level = "allow", priority = -1 }

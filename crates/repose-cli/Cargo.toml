@@ -1,0 +1,21 @@
+[package]
+name = "repose-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+description = "repose command-line interface (Rust rewrite)"
+publish = false
+
+[[bin]]
+name = "repose"
+path = "src/main.rs"
+
+[lints]
+workspace = true
+
+[dependencies]
+# version= required so cargo-deny wildcards=deny does not treat path deps as `*`.
+repose-core = { path = "../repose-core", version = "0.1.0" }
+repose-ssh = { path = "../repose-ssh", version = "0.1.0" }

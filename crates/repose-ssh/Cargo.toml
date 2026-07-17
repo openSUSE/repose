@@ -1,0 +1,17 @@
+[package]
+name = "repose-ssh"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+description = "Single SSH backend (russh) implementing repose-core host traits"
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+# version= required so cargo-deny wildcards=deny does not treat path deps as `*`.
+repose-core = { path = "../repose-core", version = "0.1.0" }
+# russh lands in later PRs; PR0 only establishes the dependency edge core ← ssh.

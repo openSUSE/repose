@@ -1,0 +1,15 @@
+[package]
+name = "repose-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+description = "Pure logic, traits, and command algorithms for repose"
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+# Intentionally empty in PR0. No russh. No HTTP client yet.

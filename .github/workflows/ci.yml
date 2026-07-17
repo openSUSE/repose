@@ -91,3 +91,52 @@ jobs:
         run: uv run repose-mangen
       - name: Check for drift
         run: git diff --exit-code -- docs/man/
+
+  # --- Rust rewrite workspace (crates/) ---
+  # Python jobs above stay the oracle until cutover. This job only
+  # builds/tests the in-progress Rust rewrite (docs/design/rust-rewrite.md).
+  rust:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: crates
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32  # v2
+        with:
+          workspaces: crates -> target
+      - name: Format
+        run: cargo fmt --all -- --check
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+      - name: Test
+        run: cargo test --workspace
+      - name: Binary version line
+        # Shape matches Python: `repose version: X.Y.Z` (value is crate version).
+        # Do not hard-code 0.1.0 — that breaks every workspace version bump.
+        run: |
+          out="$(cargo run -q -p repose-cli)"
+          echo "got: $out"
+          echo "$out" | grep -E '^repose version: [0-9]+\.[0-9]+\.[0-9]+$'
+
+  rust-deny:
+    # Dependency policy for the Rust rewrite. Config: crates/deny.toml
+    # next to the workspace manifest (auto-discovered by cargo-deny).
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+      - name: cargo-deny
+        uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          manifest-path: crates/Cargo.toml
+          command: check
+          # Empty arguments: do not force --all-features on a empty graph.
+          arguments: ""
+
