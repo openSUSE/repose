@@ -78,6 +78,9 @@ async fn reset_one<W: Write>(
         .map(|r| cmd::zypper_ar(r.refresh, &r.name, &r.url))
         .collect();
     cmds.sort();
+    // Python `_add` collects into a set; dedup identical ar strings so a repo
+    // key listed twice in `default_repos` is not added (and run) twice.
+    cmds.dedup();
 
     // Guards BEFORE dry-run.
     if cmds.is_empty() {
@@ -137,47 +140,139 @@ async fn reset_one<W: Write>(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::commands::seq;
     use crate::console::Buffer;
-    use crate::mock::{ConstProbe, MockHost, MockHostGroup};
-    use crate::traits::Host;
+    use crate::mock::{ConstProbe, MapProbe, MockHost, MockHostGroup};
     use crate::types::{Product, Repository, System};
     use std::path::PathBuf;
 
-    #[tokio::test]
-    async fn abort_when_probe_drops() {
-        let mut g = MockHostGroup::new();
-        let mut h = MockHost::new("h1");
-        h.connect().await.unwrap();
-        h = h
-            .with_products(System {
-                base: Product {
-                    name: "SLES".into(),
-                    version: "15-SP3".into(),
-                    arch: "x86_64".into(),
-                },
-                addons: vec![],
-                transactional: false,
-            })
-            .with_raw_repos(vec![Repository {
-                alias: "old".into(),
-                name: "n".into(),
-                url: "http://x".into(),
-                state: true,
-            }]);
-        g.insert(h);
-        let opts = CommandOptions {
-            config: PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-                .join("../../tests/oracle/template/sample.yml"),
-            dry: true,
+    /// URL that `solve_product` derives for the SLES `pool` repo from sample.yml.
+    const POOL_URL: &str = "http://example.com/15-SP3/x86_64/pool/";
+
+    fn sample_config() -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tests/oracle/template/sample.yml")
+    }
+
+    fn sles_system() -> System {
+        System {
+            base: Product {
+                name: "SLES".into(),
+                version: "15-SP3".into(),
+                arch: "x86_64".into(),
+            },
+            addons: vec![],
+            transactional: false,
+        }
+    }
+
+    fn raw_repo(alias: &str) -> Repository {
+        Repository {
+            alias: alias.into(),
+            name: "n".into(),
+            url: "http://x".into(),
+            state: true,
+        }
+    }
+
+    fn opts(dry: bool) -> CommandOptions {
+        CommandOptions {
+            config: sample_config(),
+            dry,
             no_probe: false,
             ..Default::default()
-        };
+        }
+    }
+
+    async fn run(
+        host: MockHost,
+        opts: CommandOptions,
+        probe: &dyn Probe,
+    ) -> (ExitCode, Vec<String>, String) {
+        let mut g = MockHostGroup::new();
+        g.insert(host);
         let mut buf = Buffer::default();
         let mut c = Console::new(&mut buf);
-        // All dead → empty cmds → abort
-        let probe = ConstProbe { live: false };
-        let code = run_reset(&opts, &mut g, &probe, &mut c).await.unwrap();
-        assert_eq!(code, ExitCode::AllFailed);
-        assert!(buf.0.contains("abort") || buf.0.contains("no live"));
+        let code = run_reset(&opts, &mut g, probe, &mut c).await.unwrap();
+        let ran = g
+            .get_mock_mut("h1")
+            .map(|h| h.ran.clone())
+            .unwrap_or_default();
+        (code, ran, buf.0)
+    }
+
+    #[tokio::test]
+    async fn live_success() {
+        let c = seq::case("reset", "live_success");
+        let host = MockHost::new("h1")
+            .with_products(sles_system())
+            .with_raw_repos(vec![raw_repo("existing-repo2"), raw_repo("existing-repo1")]);
+        let (code, ran, _) = run(host, opts(false), &ConstProbe { live: true }).await;
+        assert_eq!(ran, c.ran);
+        assert_eq!(code, c.exit_code());
+    }
+
+    #[tokio::test]
+    async fn dry_success() {
+        let c = seq::case("reset", "dry_success");
+        let host = MockHost::new("h1")
+            .with_products(sles_system())
+            .with_raw_repos(vec![raw_repo("existing-repo2"), raw_repo("existing-repo1")]);
+        let (code, ran, buf) = run(host, opts(true), &ConstProbe { live: true }).await;
+        assert!(ran.is_empty());
+        assert_eq!(buf, c.dry_buffer("h1"));
+        assert_eq!(code, c.exit_code());
+    }
+
+    #[tokio::test]
+    async fn empty_aliases_skip_rr() {
+        let c = seq::case("reset", "empty_aliases_skip_rr");
+        let host = MockHost::new("h1").with_products(sles_system());
+        let (code, ran, _) = run(host, opts(false), &ConstProbe { live: true }).await;
+        assert_eq!(ran, c.ran);
+        assert!(!ran.iter().any(|cmd| cmd.starts_with("zypper -n rr")));
+        assert_eq!(code, c.exit_code());
+    }
+
+    #[tokio::test]
+    async fn abort_no_live() {
+        let c = seq::case("reset", "abort_no_live");
+        let host = MockHost::new("h1")
+            .with_products(sles_system())
+            .with_raw_repos(vec![raw_repo("existing-repo1")]);
+        let (code, ran, buf) = run(host, opts(false), &ConstProbe { live: false }).await;
+        assert!(ran.is_empty());
+        assert!(buf.contains("no live"));
+        assert!(!buf.contains("zypper"));
+        assert_eq!(code, c.exit_code());
+    }
+
+    #[tokio::test]
+    async fn abort_partial_drop() {
+        let c = seq::case("reset", "abort_partial_drop");
+        let host = MockHost::new("h1")
+            .with_products(sles_system())
+            .with_raw_repos(vec![raw_repo("existing-repo1")]);
+        let (code, ran, buf) = run(host, opts(false), &MapProbe::dead([POOL_URL])).await;
+        assert!(ran.is_empty());
+        assert!(buf.contains("probe dropped"));
+        assert!(buf.contains("SLES:15-SP3::pool"));
+        assert!(!buf.contains("zypper -n ar"));
+        assert!(!buf.contains("zypper -n rr"));
+        assert_eq!(code, c.exit_code());
+    }
+
+    #[tokio::test]
+    async fn abort_partial_drop_dry() {
+        // Guards run before the dry preview, so a dropped probe emits no dry lines.
+        let c = seq::case("reset", "abort_partial_drop_dry");
+        let host = MockHost::new("h1")
+            .with_products(sles_system())
+            .with_raw_repos(vec![raw_repo("existing-repo1")]);
+        let (code, ran, buf) = run(host, opts(true), &MapProbe::dead([POOL_URL])).await;
+        assert!(ran.is_empty());
+        assert!(buf.contains("probe dropped"));
+        assert!(!buf.contains("zypper -n ar"));
+        assert!(!buf.contains("zypper -n rr"));
+        assert_eq!(code, c.exit_code());
     }
 }

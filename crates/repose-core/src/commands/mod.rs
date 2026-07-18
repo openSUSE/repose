@@ -88,3 +88,56 @@ pub(crate) async fn filter_live(
 pub fn default_probe() -> HttpProbe {
     HttpProbe::default()
 }
+
+/// L2 sequence goldens under `tests/oracle/sequences/` (Python-oracle derived).
+#[cfg(test)]
+pub(crate) mod seq {
+    use crate::types::ExitCode;
+    use serde::Deserialize;
+    use std::path::PathBuf;
+
+    /// One expected command-sequence scenario for a mutation command.
+    #[derive(Debug, Deserialize)]
+    pub(crate) struct SeqCase {
+        pub name: String,
+        pub exit: String,
+        /// Remote commands issued in order (live path); empty for dry/abort.
+        #[serde(default)]
+        pub ran: Vec<String>,
+        /// Dry-run preview lines in order; empty for live/abort.
+        #[serde(default)]
+        pub dry: Vec<String>,
+    }
+
+    impl SeqCase {
+        pub(crate) fn exit_code(&self) -> ExitCode {
+            match self.exit.as_str() {
+                "ok" => ExitCode::Ok,
+                "partial" => ExitCode::Partial,
+                "allfailed" => ExitCode::AllFailed,
+                other => panic!("unknown exit code {other:?}"),
+            }
+        }
+
+        /// Expected text-mode console buffer for the `dry` lines against `host`.
+        pub(crate) fn dry_buffer(&self, host: &str) -> String {
+            self.dry.iter().map(|c| format!("{host} - {c}\n")).collect()
+        }
+    }
+
+    fn load(cmd: &str) -> Vec<SeqCase> {
+        let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join(format!("../../tests/oracle/sequences/{cmd}.json"));
+        let raw = std::fs::read_to_string(&path)
+            .unwrap_or_else(|e| panic!("read {}: {e}", path.display()));
+        serde_json::from_str(&raw).unwrap_or_else(|e| panic!("parse {}: {e}", path.display()))
+    }
+
+    /// Load the named scenario from `tests/oracle/sequences/{cmd}.json`.
+    pub(crate) fn case(cmd: &str, name: &str) -> SeqCase {
+        load(cmd)
+            .into_iter()
+            .find(|c| c.name == name)
+            .unwrap_or_else(|| panic!("no sequence case {cmd}/{name}"))
+    }
+}

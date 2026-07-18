@@ -1,0 +1,84 @@
+[
+  {
+    "name": "basic_two_repos",
+    "description": "Two matching repos removed, then non-transactional product remove. Python preserves Repositories insertion order for the rr aliases; Rust emits them sorted (Repositories is a BTreeMap + the stable-sort delta). zypper rr is order-irrelevant.",
+    "exit": "ok",
+    "ran": [
+      "zypper -n rr SLES:15-SP4::repo1 SLES:15-SP4::repo2",
+      "zypper -n rm -t product SLES"
+    ],
+    "dry": []
+  },
+  {
+    "name": "dry_basic",
+    "description": "Dry-run: rr and product-remove previewed, nothing executed.",
+    "exit": "ok",
+    "ran": [],
+    "dry": [
+      "zypper -n rr SLES:15-SP4::repo1",
+      "zypper -n rm -t product SLES"
+    ]
+  },
+  {
+    "name": "sentinel_skip",
+    "description": "Alias whose repo name is not a 4-part product string (sentinel None) is skipped from rr.",
+    "exit": "ok",
+    "ran": [
+      "zypper -n rr SLES:15-SP4::repo1",
+      "zypper -n rm -t product SLES"
+    ],
+    "dry": []
+  },
+  {
+    "name": "duplicate_product_names",
+    "description": "Two patterns sharing a product name (SP4 + SP5) keep the duplicate in the product-remove argv.",
+    "exit": "ok",
+    "ran": [
+      "zypper -n rr SLES:15-SP4::repo1",
+      "zypper -n rm -t product SLES SLES"
+    ],
+    "dry": []
+  },
+  {
+    "name": "no_matching_repos_only_pd",
+    "description": "Patterns match a product but no repos: skip rr, only product-remove.",
+    "exit": "ok",
+    "ran": [
+      "zypper -n rm -t product SLES"
+    ],
+    "dry": []
+  },
+  {
+    "name": "transactional_verify_fails",
+    "description": "Transactional host, product still present after reboot: rr, transactional product remove, reboot; verify fails.",
+    "exit": "allfailed",
+    "ran": [
+      "zypper -n rr qa:6.0::repo1",
+      "transactional-update -n pkg rm -t product -l -f qa",
+      "systemctl reboot"
+    ],
+    "dry": []
+  },
+  {
+    "name": "transactional_verify_passes",
+    "description": "Transactional host, product gone after reboot: same sequence, verify passes.",
+    "exit": "ok",
+    "ran": [
+      "zypper -n rr qa:6.0::repo1",
+      "transactional-update -n pkg rm -t product -l -f qa",
+      "systemctl reboot"
+    ],
+    "dry": []
+  },
+  {
+    "name": "dry_transactional",
+    "description": "Dry transactional: rr, transactional product remove, then reboot (because !no_reboot).",
+    "exit": "ok",
+    "ran": [],
+    "dry": [
+      "zypper -n rr qa:6.0::repo1",
+      "transactional-update -n pkg rm -t product -l -f qa",
+      "systemctl reboot"
+    ]
+  }
+]

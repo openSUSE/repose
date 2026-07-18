@@ -55,6 +55,9 @@ pub struct MockHost {
     products: Option<System>,
     raw_repos: Option<Vec<Repository>>,
     repos: Option<Repositories>,
+    /// System swapped into `products` by `reboot` (models the post-reboot
+    /// re-read used by transactional install/uninstall verify).
+    post_reboot_products: Option<System>,
     out: Vec<OutEntry>,
     /// FIFO outcomes for successive `run` calls. Empty → default exit 0.
     run_queue: Vec<MockRunOutcome>,
@@ -88,6 +91,14 @@ impl MockHost {
     #[must_use]
     pub fn with_repos(mut self, repos: Repositories) -> Self {
         self.repos = Some(repos);
+        self
+    }
+
+    /// System that `reboot` swaps into `products`, modelling the post-reboot
+    /// product re-read that transactional install/uninstall verify against.
+    #[must_use]
+    pub fn with_post_reboot_products(mut self, system: System) -> Self {
+        self.post_reboot_products = Some(system);
         self
     }
 
@@ -214,6 +225,10 @@ impl Host for MockHost {
         // Mock: record reboot command via run semantics, then "reconnect".
         self.run(command).await?;
         self.connected = true;
+        // Model the post-reboot product change (e.g. product now removed).
+        if let Some(sys) = self.post_reboot_products.take() {
+            self.products = Some(sys);
+        }
         Ok(true)
     }
 }
@@ -311,6 +326,32 @@ pub struct ConstProbe {
 impl Probe for ConstProbe {
     async fn is_live(&self, _url: &str, _timeout: Duration) -> bool {
         self.live
+    }
+}
+
+/// Per-URL probe: every listed URL is dead, everything else is live.
+///
+/// Needed to exercise reset's safety-critical *partial-drop* guard, which
+/// [`ConstProbe`] (all-or-nothing) cannot reach.
+#[derive(Debug, Clone, Default)]
+pub struct MapProbe {
+    dead_urls: std::collections::HashSet<String>,
+}
+
+impl MapProbe {
+    /// Mark the given exact URLs as dead (all others live).
+    #[must_use]
+    pub fn dead(urls: impl IntoIterator<Item = impl Into<String>>) -> Self {
+        Self {
+            dead_urls: urls.into_iter().map(Into::into).collect(),
+        }
+    }
+}
+
+#[async_trait]
+impl Probe for MapProbe {
+    async fn is_live(&self, url: &str, _timeout: Duration) -> bool {
+        !self.dead_urls.contains(url)
     }
 }
 
