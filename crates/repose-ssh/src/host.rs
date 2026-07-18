@@ -7,12 +7,10 @@ use async_trait::async_trait;
 use repose_core::config::ConnectionConfig;
 use repose_core::error::SshError;
 use repose_core::host_parse::HostSpec;
-use repose_core::product_parse::{parse_os_release, parse_prod_xml, TRANSACTIONAL_CONF_PATHS};
+use repose_core::product_parse::{parse_system, ProdFile, TRANSACTIONAL_CONF_PATHS};
 use repose_core::repo_parse::parse_repositories;
 use repose_core::traits::{Host, HostGroup, SshSession};
-use repose_core::types::{
-    repositories_from_raw, OutEntry, Product, Repositories, Repository, System,
-};
+use repose_core::types::{repositories_from_raw, OutEntry, Repositories, Repository, System};
 
 use crate::session::RusshSession;
 
@@ -199,102 +197,82 @@ impl Host for RusshHost {
     }
 }
 
-async fn discover_system(session: &mut RusshSession, hostname: &str) -> Result<System, SshError> {
-    // transactional detect
-    let mut transactional = false;
-    for path in TRANSACTIONAL_CONF_PATHS {
-        if session.read_file(path).await.is_ok() {
-            transactional = true;
-            break;
-        }
-    }
-
-    // Try products.d
+/// Fetch the inputs `parse_system` needs over SSH, then decide purely.
+///
+/// All SSH lives here; all parsing/branching is in `repose_core::parse_system`,
+/// which is the behavioral oracle for the products.d / os-release / rhel6
+/// discovery. `listdir` succeeding (even empty) is the SUSE path; an
+/// unresolved `baseproduct` symlink is an error (matching Python), not a
+/// silent os-release fallback.
+async fn discover_system(session: &mut RusshSession, _hostname: &str) -> Result<System, SshError> {
     match session.listdir("/etc/products.d").await {
-        Ok(files) => {
-            let mut prods: Vec<String> =
-                files.into_iter().filter(|f| f.ends_with(".prod")).collect();
+        Ok(listing) => {
+            let prod_names: Vec<String> = listing
+                .into_iter()
+                .filter(|f| f.ends_with(".prod"))
+                .collect();
+
             let base_link = session
                 .readlink("/etc/products.d/baseproduct")
                 .await
                 .ok()
                 .flatten();
-            let base_name = base_link.as_deref().and_then(|p| {
-                Path::new(p)
-                    .file_name()
-                    .and_then(|s| s.to_str())
-                    .map(str::to_string)
-            });
-            if let Some(ref bn) = base_name {
-                prods.retain(|p| p != bn);
-            }
-            let base_file = base_name.unwrap_or_else(|| prods.first().cloned().unwrap_or_default());
-            if base_file.is_empty() {
-                return fallback_os_release(session, hostname, transactional).await;
-            }
-            let base_path = format!("/etc/products.d/{base_file}");
-            let data = session.read_file(&base_path).await?;
-            let xml = String::from_utf8_lossy(&data);
-            let base = parse_prod_xml(&xml, &base_file)
-                .ok_or_else(|| SshError::Other(format!("malformed base product {base_file}")))?;
-            let mut addons = Vec::new();
-            for f in prods {
-                if f.ends_with("-migration.prod") || f.contains("-migration.") {
-                    continue;
+            let base_file = base_link
+                .as_deref()
+                .map(|raw| raw.rsplit_once('/').map_or(raw, |(_, t)| t).to_string());
+
+            // Read the base via the symlink target, even if absent from the listing.
+            let base_xml = match &base_file {
+                Some(bf) => session
+                    .read_file(&format!("/etc/products.d/{bf}"))
+                    .await
+                    .ok()
+                    .map(|b| String::from_utf8_lossy(&b).into_owned()),
+                None => None,
+            };
+
+            let mut prod_files = Vec::new();
+            for f in prod_names {
+                if base_file.as_deref() == Some(f.as_str()) {
+                    continue; // base already read; not an addon candidate
                 }
-                // skip *-migration product names
-                let path = format!("/etc/products.d/{f}");
-                if let Ok(bytes) = session.read_file(&path).await {
-                    let x = String::from_utf8_lossy(&bytes);
-                    if let Some(p) = parse_prod_xml(&x, &f) {
-                        if !p.name.ends_with("-migration") {
-                            addons.push(p);
-                        }
-                    }
+                let xml = session
+                    .read_file(&format!("/etc/products.d/{f}"))
+                    .await
+                    .ok()
+                    .map(|b| String::from_utf8_lossy(&b).into_owned());
+                prod_files.push(ProdFile { filename: f, xml });
+            }
+
+            // Transactional is probed only on the SUSE path (Python parity).
+            let mut transactional = false;
+            for path in TRANSACTIONAL_CONF_PATHS {
+                if session.read_file(path).await.is_ok() {
+                    transactional = true;
+                    break;
                 }
             }
-            Ok(System {
-                base,
-                addons,
+
+            parse_system(
+                Some(&prod_files),
+                base_link.as_deref(),
+                base_xml.as_deref(),
+                None,
                 transactional,
-            })
+            )
+            .map_err(|e| SshError::Other(e.to_string()))
         }
-        Err(_) => fallback_os_release(session, hostname, transactional).await,
+        Err(_) => {
+            let os = session
+                .read_file("/etc/os-release")
+                .await
+                .ok()
+                .map(|b| String::from_utf8_lossy(&b).into_owned());
+            parse_system(None, None, None, os.as_deref(), false)
+                .map_err(|e| SshError::Other(e.to_string()))
+        }
     }
 }
-
-async fn fallback_os_release(
-    session: &mut RusshSession,
-    _hostname: &str,
-    transactional: bool,
-) -> Result<System, SshError> {
-    match session.read_file("/etc/os-release").await {
-        Ok(bytes) => {
-            let text = String::from_utf8_lossy(&bytes);
-            let (name, version, arch) = parse_os_release(&text);
-            Ok(System {
-                base: Product {
-                    name,
-                    version,
-                    arch,
-                },
-                addons: vec![],
-                transactional,
-            })
-        }
-        Err(_) => Ok(System {
-            base: Product {
-                name: "rhel".into(),
-                version: "6".into(),
-                arch: "x86_64".into(),
-            },
-            addons: vec![],
-            transactional,
-        }),
-    }
-}
-
-use std::path::Path;
 
 /// Multi-host group.
 pub struct RusshHostGroup {

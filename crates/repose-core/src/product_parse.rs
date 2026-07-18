@@ -3,7 +3,7 @@
 use quick_xml::events::Event;
 use quick_xml::Reader;
 
-use crate::types::Product;
+use crate::types::{Product, System};
 
 /// Parse one `.prod` XML document into a product, or `None` if malformed.
 pub fn parse_prod_xml(xml: &str, _filename: &str) -> Option<Product> {
@@ -105,6 +105,126 @@ pub const TRANSACTIONAL_CONF_PATHS: &[&str] = &[
     "/etc/transactional-update.conf",
 ];
 
+/// One `/etc/products.d/*.prod` addon candidate the caller already fetched.
+#[derive(Debug, Clone)]
+pub struct ProdFile {
+    /// Basename, e.g. `sle-module-basesystem.prod`.
+    pub filename: String,
+    /// File contents, or `None` if the read failed (candidate is skipped).
+    pub xml: Option<String>,
+}
+
+/// Failure modes of [`parse_system`], mirroring Python `UnknownSystemError`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ParseSystemError {
+    /// `/etc/products.d/baseproduct` symlink did not resolve.
+    NoBaseproductTarget,
+    /// The base `.prod` file could not be read.
+    BaseproductUnreadable { filename: String },
+    /// The base `.prod` file parsed to no product.
+    BaseproductMalformed { filename: String },
+}
+
+impl std::fmt::Display for ParseSystemError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::NoBaseproductTarget => write!(f, "baseproduct symlink did not resolve"),
+            Self::BaseproductUnreadable { filename } => {
+                write!(f, "base product {filename} could not be read")
+            }
+            Self::BaseproductMalformed { filename } => {
+                write!(f, "base product {filename} is malformed")
+            }
+        }
+    }
+}
+
+impl std::error::Error for ParseSystemError {}
+
+/// Python `name.rpartition("-")[-1] == "migration"`.
+fn is_migration_name(name: &str) -> bool {
+    name.rsplit_once('-').map_or(name, |(_, tail)| tail) == "migration"
+}
+
+/// Pure port of Python `parse_system` (target/parsers/product.py). No SSH.
+///
+/// `products_d` is `Some` when `listdir("/etc/products.d")` succeeded (the
+/// SUSE path — even an empty listing) and `None` when it failed (os-release /
+/// rhel6 fallback). On the SUSE path the base is chosen by the `baseproduct`
+/// symlink (`baseproduct_link`, path-stripped), read via `base_xml`; addons
+/// are the other `.prod` files, deduped, with `*-migration` products skipped
+/// by parsed **name**. `transactional` is honored only on the SUSE path —
+/// Python never computes it in a fallback, so it is forced `false` there.
+pub fn parse_system(
+    products_d: Option<&[ProdFile]>,
+    baseproduct_link: Option<&str>,
+    base_xml: Option<&str>,
+    os_release: Option<&str>,
+    transactional: bool,
+) -> Result<System, ParseSystemError> {
+    let files = match products_d {
+        None => {
+            let base = match os_release {
+                Some(text) => {
+                    let (name, version, arch) = parse_os_release(text);
+                    Product {
+                        name,
+                        version,
+                        arch,
+                    }
+                }
+                None => Product {
+                    name: "rhel".into(),
+                    version: "6".into(),
+                    arch: "x86_64".into(),
+                },
+            };
+            return Ok(System {
+                base,
+                addons: vec![],
+                transactional: false,
+            });
+        }
+        Some(files) => files,
+    };
+
+    let raw = baseproduct_link.ok_or(ParseSystemError::NoBaseproductTarget)?;
+    let base_file = raw.rsplit_once('/').map_or(raw, |(_, tail)| tail);
+
+    let bx = base_xml.ok_or_else(|| ParseSystemError::BaseproductUnreadable {
+        filename: base_file.to_string(),
+    })?;
+    let base =
+        parse_prod_xml(bx, base_file).ok_or_else(|| ParseSystemError::BaseproductMalformed {
+            filename: base_file.to_string(),
+        })?;
+
+    let mut addons: Vec<Product> = Vec::new();
+    for pf in files {
+        if pf.filename == base_file {
+            continue;
+        }
+        let Some(xml) = pf.xml.as_deref() else {
+            continue;
+        };
+        let Some(p) = parse_prod_xml(xml, &pf.filename) else {
+            continue;
+        };
+        if is_migration_name(&p.name) {
+            continue;
+        }
+        if !addons.contains(&p) {
+            addons.push(p);
+        }
+    }
+
+    Ok(System {
+        base,
+        addons,
+        transactional,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -170,6 +290,215 @@ ARCHITECTURE="x86_64"
                 (got, exp) => panic!("case {name}: got {got:?} expected {exp}"),
             }
         }
+    }
+
+    fn sles_xml() -> String {
+        "<product><name>SLES</name><baseversion>15</baseversion><patchlevel>6</patchlevel><arch>x86_64</arch></product>".into()
+    }
+
+    fn simple_xml(name: &str) -> String {
+        format!("<product><name>{name}</name><version>1</version><arch>x86_64</arch></product>")
+    }
+
+    fn pf(filename: &str, xml: String) -> ProdFile {
+        ProdFile {
+            filename: filename.into(),
+            xml: Some(xml),
+        }
+    }
+
+    fn sles(v: &str) -> Product {
+        Product {
+            name: "SLES".into(),
+            version: v.into(),
+            arch: "x86_64".into(),
+        }
+    }
+
+    #[test]
+    fn parse_system_normal_base_and_addons() {
+        let files = vec![
+            pf("SLES.prod", sles_xml()),
+            pf(
+                "sle-module-basesystem.prod",
+                simple_xml("sle-module-basesystem"),
+            ),
+            pf(
+                "sle-module-server-applications.prod",
+                simple_xml("sle-module-server-applications"),
+            ),
+        ];
+        let sys = parse_system(
+            Some(&files),
+            Some("SLES.prod"),
+            Some(&sles_xml()),
+            None,
+            false,
+        )
+        .unwrap();
+        assert_eq!(sys.base, sles("15-SP6"));
+        let mut names: Vec<&str> = sys.addons.iter().map(|p| p.name.as_str()).collect();
+        names.sort_unstable();
+        assert_eq!(
+            names,
+            ["sle-module-basesystem", "sle-module-server-applications"]
+        );
+        assert!(!sys.transactional);
+    }
+
+    #[test]
+    fn parse_system_path_prefixed_symlink_and_migration_by_name() {
+        let files = vec![
+            pf(
+                "sle-module-foo-migration.prod",
+                simple_xml("sle-module-foo-migration"),
+            ),
+            pf(
+                "sle-module-basesystem.prod",
+                simple_xml("sle-module-basesystem"),
+            ),
+        ];
+        let sys = parse_system(
+            Some(&files),
+            Some("/etc/products.d/SLES.prod"),
+            Some(&sles_xml()),
+            None,
+            false,
+        )
+        .unwrap();
+        assert_eq!(sys.base, sles("15-SP6"));
+        assert_eq!(sys.addons.len(), 1);
+        assert_eq!(sys.addons[0].name, "sle-module-basesystem");
+    }
+
+    #[test]
+    fn parse_system_migration_skip_is_by_name_not_filename() {
+        // Filename contains `-migration.` but the product name is a real addon.
+        let files = vec![pf("foo-migration.prod", simple_xml("sle-module-foo"))];
+        let sys = parse_system(
+            Some(&files),
+            Some("SLES.prod"),
+            Some(&sles_xml()),
+            None,
+            false,
+        )
+        .unwrap();
+        assert_eq!(sys.addons.len(), 1);
+        assert_eq!(sys.addons[0].name, "sle-module-foo");
+    }
+
+    #[test]
+    fn parse_system_product_named_exactly_migration_is_skipped() {
+        let files = vec![pf("migration.prod", simple_xml("migration"))];
+        let sys = parse_system(
+            Some(&files),
+            Some("SLES.prod"),
+            Some(&sles_xml()),
+            None,
+            false,
+        )
+        .unwrap();
+        assert!(sys.addons.is_empty());
+    }
+
+    #[test]
+    fn parse_system_transactional_only_on_suse_path() {
+        let sys = parse_system(
+            Some(&[pf("SLES.prod", sles_xml())]),
+            Some("SLES.prod"),
+            Some(&sles_xml()),
+            None,
+            true,
+        )
+        .unwrap();
+        assert!(sys.transactional);
+        assert!(sys.addons.is_empty());
+    }
+
+    #[test]
+    fn parse_system_non_suse_fallback_forces_transactional_false() {
+        // transactional=true is deliberately passed; the fallback must ignore it.
+        let sys = parse_system(None, None, None, Some("ID=rhel\nVERSION_ID=9.3\n"), true).unwrap();
+        assert_eq!(sys.base.name, "rhel");
+        assert_eq!(sys.base.version, "9.3");
+        assert!(!sys.transactional);
+    }
+
+    #[test]
+    fn parse_system_rhel6_synthetic_fallback() {
+        let sys = parse_system(None, None, None, None, true).unwrap();
+        assert_eq!(
+            sys.base,
+            Product {
+                name: "rhel".into(),
+                version: "6".into(),
+                arch: "x86_64".into()
+            }
+        );
+        assert!(!sys.transactional);
+    }
+
+    #[test]
+    fn parse_system_unresolved_baseproduct_symlink_errors() {
+        let err = parse_system(
+            Some(&[pf("sle-module-basesystem.prod", simple_xml("x"))]),
+            None,
+            None,
+            None,
+            false,
+        )
+        .unwrap_err();
+        assert_eq!(err, ParseSystemError::NoBaseproductTarget);
+    }
+
+    #[test]
+    fn parse_system_base_read_via_symlink_even_if_absent_from_listing() {
+        let files = vec![pf(
+            "sle-module-basesystem.prod",
+            simple_xml("sle-module-basesystem"),
+        )];
+        let sys = parse_system(
+            Some(&files),
+            Some("SLES.prod"),
+            Some(&sles_xml()),
+            None,
+            false,
+        )
+        .unwrap();
+        assert_eq!(sys.base, sles("15-SP6"));
+        assert_eq!(sys.addons.len(), 1);
+    }
+
+    #[test]
+    fn parse_system_malformed_and_unreadable_base_error() {
+        let malformed =
+            parse_system(Some(&[]), Some("SLES.prod"), Some("<nope/>"), None, false).unwrap_err();
+        assert!(matches!(
+            malformed,
+            ParseSystemError::BaseproductMalformed { .. }
+        ));
+        let unreadable = parse_system(Some(&[]), Some("SLES.prod"), None, None, false).unwrap_err();
+        assert!(matches!(
+            unreadable,
+            ParseSystemError::BaseproductUnreadable { .. }
+        ));
+    }
+
+    #[test]
+    fn parse_system_dedups_identical_addons() {
+        let files = vec![
+            pf("a.prod", simple_xml("dup")),
+            pf("b.prod", simple_xml("dup")),
+        ];
+        let sys = parse_system(
+            Some(&files),
+            Some("SLES.prod"),
+            Some(&sles_xml()),
+            None,
+            false,
+        )
+        .unwrap();
+        assert_eq!(sys.addons.len(), 1);
     }
 
     #[test]
