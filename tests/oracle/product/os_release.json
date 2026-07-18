@@ -1,0 +1,68 @@
+[
+  {
+    "name": "ubuntu",
+    "input": {
+      "text": "NAME=\"Ubuntu\"\nVERSION_ID=\"22.04\"\nID=ubuntu\nID_LIKE=debian\n"
+    },
+    "expected": {
+      "name": "ubuntu",
+      "version": "22.04",
+      "arch": "unknown"
+    }
+  },
+  {
+    "name": "fedora_arch",
+    "input": {
+      "text": "ID=fedora\nVERSION_ID=40\nARCHITECTURE=aarch64\n"
+    },
+    "expected": {
+      "name": "fedora",
+      "version": "40",
+      "arch": "aarch64"
+    }
+  },
+  {
+    "name": "bare_line_skipped",
+    "input": {
+      "text": "ID=fedora\nVERSION_ID=40\nARCHITECTURE\n"
+    },
+    "expected": {
+      "name": "fedora",
+      "version": "40",
+      "arch": "unknown"
+    }
+  },
+  {
+    "name": "no_id_defaults_linux",
+    "input": {
+      "text": "PRETTY_NAME=\"Mystery OS\"\n"
+    },
+    "expected": {
+      "name": "linux",
+      "version": "",
+      "arch": "unknown"
+    }
+  },
+  {
+    "name": "quote_strip_keeps_value",
+    "input": {
+      "text": "ID=Xubuntu\nVERSION_ID=22.04\n"
+    },
+    "expected": {
+      "name": "Xubuntu",
+      "version": "22.04",
+      "arch": "unknown"
+    }
+  },
+  {
+    "name": "sles_full",
+    "input": {
+      "text": "ID=\"sles\"\nVERSION_ID=\"15-SP6\"\nARCHITECTURE=\"x86_64\"\n"
+    },
+    "expected": {
+      "name": "sles",
+      "version": "15-SP6",
+      "arch": "x86_64"
+    }
+  }
+]

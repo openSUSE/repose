@@ -1,0 +1,102 @@
+[
+  {
+    "name": "base_sp",
+    "input": {
+      "filename": "SLES.prod",
+      "xml": "<product><name>SLES</name><arch>x86_64</arch><baseversion>15</baseversion><patchlevel>3</patchlevel></product>"
+    },
+    "expected": {
+      "name": "SLES",
+      "version": "15-SP3",
+      "arch": "x86_64"
+    }
+  },
+  {
+    "name": "patchlevel_0",
+    "input": {
+      "filename": "X.prod",
+      "xml": "<product><name>SLES</name><arch>x86_64</arch><baseversion>15</baseversion><patchlevel>0</patchlevel></product>"
+    },
+    "expected": {
+      "name": "SLES",
+      "version": "15",
+      "arch": "x86_64"
+    }
+  },
+  {
+    "name": "simple_version",
+    "input": {
+      "filename": "os.prod",
+      "xml": "<product><name>openSUSE</name><arch>x86_64</arch><version>15.5</version></product>"
+    },
+    "expected": {
+      "name": "openSUSE",
+      "version": "15.5",
+      "arch": "x86_64"
+    }
+  },
+  {
+    "name": "caasp_all",
+    "input": {
+      "filename": "CAASP.prod",
+      "xml": "<product><name>CAASP</name><arch>x86_64</arch><version>4.0</version></product>"
+    },
+    "expected": {
+      "name": "CAASP",
+      "version": "ALL",
+      "arch": "x86_64"
+    }
+  },
+  {
+    "name": "addon_module",
+    "input": {
+      "filename": "m.prod",
+      "xml": "<product><name>sle-module-basesystem</name><arch>x86_64</arch><baseversion>15</baseversion><patchlevel>3</patchlevel></product>"
+    },
+    "expected": {
+      "name": "sle-module-basesystem",
+      "version": "15-SP3",
+      "arch": "x86_64"
+    }
+  },
+  {
+    "name": "missing_name",
+    "input": {
+      "filename": "b.prod",
+      "xml": "<product><arch>x86_64</arch><version>1.0</version></product>"
+    },
+    "expected": null
+  },
+  {
+    "name": "missing_arch",
+    "input": {
+      "filename": "b.prod",
+      "xml": "<product><name>bad</name><version>1.0</version></product>"
+    },
+    "expected": null
+  },
+  {
+    "name": "empty_name",
+    "input": {
+      "filename": "b.prod",
+      "xml": "<product><name/><arch>x86_64</arch><version>1.0</version></product>"
+    },
+    "expected": null
+  },
+  {
+    "name": "missing_version",
+    "input": {
+      "filename": "b.prod",
+      "xml": "<product><name>bad</name><arch>x86_64</arch></product>"
+    },
+    "expected": null
+  },
+  {
+    "name": "empty_baseversion",
+    "input": {
+      "filename": "b.prod",
+      "xml": "<product><name>bad</name><arch>x86_64</arch><baseversion/><patchlevel>3</patchlevel></product>"
+    },
+    "expected": null
+  }
+]

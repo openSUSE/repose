@@ -141,4 +141,38 @@ mod tests {
         let p = calculate_patterns(&repas, &products);
         assert!(p.iter().any(|x| x == "SLES:15-SP3::"));
     }
+
+    #[test]
+    fn matches_oracle_repolist() {
+        let raw = std::fs::read_to_string(
+            std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                .join("../../tests/oracle/remove_match/repolist.json"),
+        )
+        .expect("oracle remove_match/repolist.json");
+        for case in serde_json::from_str::<Vec<serde_json::Value>>(&raw).unwrap() {
+            let name = case["name"].as_str().unwrap();
+            let patterns: BTreeSet<String> = case["patterns"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|v| v.as_str().unwrap().to_string())
+                .collect();
+            let aliases: Vec<String> = case["aliases"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|v| v.as_str().unwrap().to_string())
+                .collect();
+            let expected: Vec<String> = case["expected"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|v| v.as_str().unwrap().to_string())
+                .collect();
+            let got: Vec<String> = calculate_repolist(aliases.into_iter(), &patterns)
+                .into_iter()
+                .collect();
+            assert_eq!(got, expected, "case {name}");
+        }
+    }
 }

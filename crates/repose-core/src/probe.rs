@@ -30,13 +30,19 @@ impl HttpProbe {
             let target = format!("{url}{suffix}");
             match self.client.head(&target).timeout(timeout).send().await {
                 Ok(resp) if resp.status().as_u16() < 400 => return true,
-                Ok(_) | Err(_) => {
-                    // Any non-success HEAD (or transport error) retries with GET.
+                Ok(_) => {
+                    // Non-success HEAD *status* (>=400) retries with GET.
                     if let Ok(resp) = self.client.get(&target).timeout(timeout).send().await {
                         if resp.status().as_u16() < 400 {
                             return true;
                         }
                     }
+                }
+                Err(_) => {
+                    // HEAD transport error/timeout: Python probes HEAD and GET in
+                    // one try/except, so the exception skips GET for this suffix.
+                    // Match that — a mirror that fails HEAD at the transport layer
+                    // will fail GET too, so the extra request is pure waste.
                 }
             }
         }
@@ -128,5 +134,88 @@ mod tests {
         let probe = HttpProbe::new().unwrap();
         let base = format!("{}/", server.uri());
         assert!(probe.check_url(&base, Duration::from_secs(2)).await);
+    }
+
+    #[tokio::test]
+    async fn http_probe_head_status_matrix_falls_back_to_get() {
+        for status in [400u16, 401, 403, 404, 500] {
+            let server = MockServer::start().await;
+            Mock::given(method("HEAD"))
+                .and(path("/repodata/repomd.xml"))
+                .respond_with(ResponseTemplate::new(status))
+                .mount(&server)
+                .await;
+            Mock::given(method("GET"))
+                .and(path("/repodata/repomd.xml"))
+                .respond_with(ResponseTemplate::new(200))
+                .mount(&server)
+                .await;
+            let probe = HttpProbe::new().unwrap();
+            let base = format!("{}/", server.uri());
+            assert!(
+                probe.check_url(&base, Duration::from_secs(2)).await,
+                "HEAD {status} should fall back to GET 200"
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn http_probe_both_suffixes_fail_dead() {
+        let server = MockServer::start().await;
+        Mock::given(method("HEAD"))
+            .respond_with(ResponseTemplate::new(404))
+            .mount(&server)
+            .await;
+        Mock::given(method("GET"))
+            .respond_with(ResponseTemplate::new(404))
+            .mount(&server)
+            .await;
+        let probe = HttpProbe::new().unwrap();
+        let base = format!("{}/", server.uri());
+        assert!(!probe.check_url(&base, Duration::from_secs(2)).await);
+    }
+
+    #[tokio::test]
+    async fn http_probe_second_suffix_fallback() {
+        let server = MockServer::start().await;
+        // Primary suffix dead (HEAD + GET 404); second suffix HEAD 200.
+        Mock::given(method("HEAD"))
+            .and(path("/repodata/repomd.xml"))
+            .respond_with(ResponseTemplate::new(404))
+            .mount(&server)
+            .await;
+        Mock::given(method("GET"))
+            .and(path("/repodata/repomd.xml"))
+            .respond_with(ResponseTemplate::new(404))
+            .mount(&server)
+            .await;
+        Mock::given(method("HEAD"))
+            .and(path("/suse/repodata/repomd.xml"))
+            .respond_with(ResponseTemplate::new(200))
+            .mount(&server)
+            .await;
+        let probe = HttpProbe::new().unwrap();
+        let base = format!("{}/", server.uri());
+        assert!(probe.check_url(&base, Duration::from_secs(2)).await);
+    }
+
+    #[tokio::test]
+    async fn http_probe_head_transport_error_skips_get() {
+        // HEAD hangs far past the client timeout → transport error; GET would
+        // succeed. Python (and the fixed Rust) must NOT fall back to GET after a
+        // HEAD transport error, so the host stays dead.
+        let server = MockServer::start().await;
+        Mock::given(method("HEAD"))
+            .respond_with(ResponseTemplate::new(200).set_delay(Duration::from_secs(30)))
+            .mount(&server)
+            .await;
+        Mock::given(method("GET"))
+            .respond_with(ResponseTemplate::new(200))
+            .mount(&server)
+            .await;
+        let probe = HttpProbe::new().unwrap();
+        let base = format!("{}/", server.uri());
+        let live = probe.check_url(&base, Duration::from_millis(150)).await;
+        assert!(!live, "HEAD transport error must not fall back to GET");
     }
 }

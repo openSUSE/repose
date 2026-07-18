@@ -43,6 +43,11 @@ pub fn parse_prod_xml(xml: &str, _filename: &str) -> Option<Product> {
 
     let name = name.filter(|s| !s.is_empty())?;
     let arch = arch.filter(|s| !s.is_empty())?;
+    // Intentional delta: with `<baseversion>` present but `<patchlevel>` entirely
+    // absent, Python's fragile `find("./patchlevel").text` raises and discards the
+    // baseversion (falling back to `<version>`, else None). Rust keeps the
+    // baseversion as the version. Real `.prod` files always pair the two, so this
+    // only differs on malformed input (excluded from the oracle golden).
     let mut ver = if let Some(bv) = baseversion.filter(|s| !s.is_empty()) {
         let mut v = bv;
         if let Some(sp) = patchlevel {
@@ -138,5 +143,49 @@ ARCHITECTURE="x86_64"
         assert_eq!(n, "sles");
         assert_eq!(v, "15-SP6");
         assert_eq!(a, "x86_64");
+    }
+
+    #[test]
+    fn matches_oracle_parse_prod() {
+        let raw = std::fs::read_to_string(
+            std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                .join("../../tests/oracle/product/parse_prod.json"),
+        )
+        .expect("oracle product/parse_prod.json");
+        for case in serde_json::from_str::<Vec<serde_json::Value>>(&raw).unwrap() {
+            let name = case["name"].as_str().unwrap();
+            let xml = case["input"]["xml"].as_str().unwrap();
+            let fname = case["input"]["filename"].as_str().unwrap();
+            match (parse_prod_xml(xml, fname), &case["expected"]) {
+                (None, serde_json::Value::Null) => {}
+                (Some(p), exp) => {
+                    assert_eq!(p.name, exp["name"].as_str().unwrap(), "case {name} name");
+                    assert_eq!(
+                        p.version,
+                        exp["version"].as_str().unwrap(),
+                        "case {name} version"
+                    );
+                    assert_eq!(p.arch, exp["arch"].as_str().unwrap(), "case {name} arch");
+                }
+                (got, exp) => panic!("case {name}: got {got:?} expected {exp}"),
+            }
+        }
+    }
+
+    #[test]
+    fn matches_oracle_os_release() {
+        let raw = std::fs::read_to_string(
+            std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                .join("../../tests/oracle/product/os_release.json"),
+        )
+        .expect("oracle product/os_release.json");
+        for case in serde_json::from_str::<Vec<serde_json::Value>>(&raw).unwrap() {
+            let name = case["name"].as_str().unwrap();
+            let (n, v, a) = parse_os_release(case["input"]["text"].as_str().unwrap());
+            let exp = &case["expected"];
+            assert_eq!(n, exp["name"].as_str().unwrap(), "case {name} name");
+            assert_eq!(v, exp["version"].as_str().unwrap(), "case {name} version");
+            assert_eq!(a, exp["arch"].as_str().unwrap(), "case {name} arch");
+        }
     }
 }

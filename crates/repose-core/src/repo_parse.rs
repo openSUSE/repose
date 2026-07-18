@@ -52,6 +52,13 @@ pub fn parse_repositories(xml: &str) -> Vec<Repository> {
                     in_url = false;
                 } else if tag == "repo" && in_repo {
                     in_repo = false;
+                    // Python skips a repo only when a required field is *absent*.
+                    // Combined with `trim_text` (above), this non-empty check is a
+                    // documented delta on pathological input: it (a) drops
+                    // present-but-empty/whitespace-only fields Python keeps (e.g.
+                    // `enabled=""`, `<url> </url>`), and (b) strips surrounding
+                    // whitespace Python preserves in a padded `<url>`. Real
+                    // `zypper -x lr` emits neither.
                     if !alias.is_empty()
                         && !name.is_empty()
                         && !enabled.is_empty()
@@ -96,5 +103,46 @@ mod tests {
         assert_eq!(repos.len(), 1);
         assert_eq!(repos[0].alias, "A");
         assert!(repos[0].state);
+    }
+
+    #[test]
+    fn matches_oracle_parse() {
+        let raw = std::fs::read_to_string(
+            std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                .join("../../tests/oracle/zypper_lr/parse.json"),
+        )
+        .expect("oracle zypper_lr/parse.json");
+        for case in serde_json::from_str::<Vec<serde_json::Value>>(&raw).unwrap() {
+            let name = case["name"].as_str().unwrap();
+            let xml = case["xml"].as_str().unwrap();
+            // Malformed XML: Python raises ParseError; Rust tolerates → empty (delta).
+            if case.get("raises").and_then(serde_json::Value::as_bool) == Some(true) {
+                assert!(
+                    parse_repositories(xml).is_empty(),
+                    "case {name}: rust tolerates malformed XML"
+                );
+                continue;
+            }
+            let mut got: Vec<(String, String, String, bool)> = parse_repositories(xml)
+                .into_iter()
+                .map(|r| (r.alias, r.name, r.url, r.state))
+                .collect();
+            got.sort();
+            let mut want: Vec<(String, String, String, bool)> = case["expected"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|e| {
+                    (
+                        e["alias"].as_str().unwrap().to_string(),
+                        e["name"].as_str().unwrap().to_string(),
+                        e["url"].as_str().unwrap().to_string(),
+                        e["state"].as_bool().unwrap(),
+                    )
+                })
+                .collect();
+            want.sort();
+            assert_eq!(got, want, "case {name}");
+        }
     }
 }

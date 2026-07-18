@@ -14,6 +14,10 @@ Regenerate with: `python3 scripts/gen-oracle.py` (when present) or the generator
 | `transform/version.json` | `tests/types/test_transformations.py` | `repose_core::transform` |
 | `hostparse/hosts.json` | `repose/host.py` | `repose_core::host_parse` |
 | `ndjson/events.jsonl` | `tests/test_console.py` shapes | `repose_core::console` |
+| `product/parse_prod.json` | `repose/target/parsers/product.py` `__parse_product` | `repose_core::product_parse` |
+| `product/os_release.json` | `repose/target/parsers/product.py` `__parse_os_release` | `repose_core::product_parse` |
+| `zypper_lr/parse.json` | `repose/target/parsers/repository.py` | `repose_core::repo_parse` |
+| `remove_match/repolist.json` | `repose/command/remove.py` `_calculate_repolist` | `repose_core::commands::remove` |
 | `sequences/reset.json` | `tests/command/test_reset.py` + `repose/command/reset.py` | `repose_core::commands::reset` tests |
 | `sequences/install.json` | `tests/command/test_install.py` + `repose/command/install.py` | `repose_core::commands::install` tests |
 | `sequences/uninstall.json` | `tests/command/test_uninstall.py` + `repose/command/uninstall.py` | `repose_core::commands::uninstall` tests |
