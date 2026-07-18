@@ -1,0 +1,62 @@
+.ie \n(.g .ds Aq \(aq
+.el .ds Aq '
+.TH repose-list-repos 1  "list-repos " 
+.SH NAME
+repose\-list\-repos
+.SH SYNOPSIS
+\fBrepose list\-repos\fR [\fB\-n\fR|\fB\-\-print\fR] <\fB\-t\fR|\fB\-\-target\fR> [\fB\-V\fR|\fB\-\-version\fR] [\fB\-c\fR|\fB\-\-config\fR] [\fB\-d\fR|\fB\-\-debug\fR] [\fB\-q\fR|\fB\-\-quiet\fR] [\fB\-\-no\-color\fR] [\fB\-\-format\fR] [\fB\-\-strict\-host\-key\-checking\fR] [\fB\-\-known\-hosts\fR] [\fB\-h\fR|\fB\-\-help\fR] 
+.SH DESCRIPTION
+.SH OPTIONS
+.TP
+\fB\-n\fR, \fB\-\-print\fR
+
+.TP
+\fB\-t\fR, \fB\-\-target\fR \fI<TARGETS>\fR
+
+.TP
+\fB\-V\fR, \fB\-\-version\fR
+
+.TP
+\fB\-c\fR, \fB\-\-config\fR \fI<CONFIG>\fR [default: /etc/repose/products.yml]
+
+.TP
+\fB\-d\fR, \fB\-\-debug\fR
+
+.TP
+\fB\-q\fR, \fB\-\-quiet\fR
+
+.TP
+\fB\-\-no\-color\fR
+
+.TP
+\fB\-\-format\fR \fI<FORMAT>\fR [default: text]
+
+.br
+\fIPossible values:\fR
+.RS 14
+.IP \(bu 2
+text
+.IP \(bu 2
+json
+.RE
+.TP
+\fB\-\-strict\-host\-key\-checking\fR \fI<STRICT_HOST_KEY_CHECKING>\fR [default: accept\-new]
+
+.br
+\fIPossible values:\fR
+.RS 14
+.IP \(bu 2
+yes
+.IP \(bu 2
+accept\-new
+.IP \(bu 2
+no
+.IP \(bu 2
+off
+.RE
+.TP
+\fB\-\-known\-hosts\fR \fI<KNOWN_HOSTS>\fR
+
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Print help

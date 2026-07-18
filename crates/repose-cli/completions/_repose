@@ -1,0 +1,445 @@
+#compdef repose
+
+autoload -U is-at-least
+
+_repose() {
+    typeset -A opt_args
+    typeset -a _arguments_options
+    local ret=1
+
+    if is-at-least 5.2; then
+        _arguments_options=(-s -S -C)
+    else
+        _arguments_options=(-s -C)
+    fi
+
+    local context curcontext="$curcontext" state line
+    _arguments "${_arguments_options[@]}" : \
+'-c+[]:CONFIG:_files' \
+'--config=[]:CONFIG:_files' \
+'--format=[]:FORMAT:(text json)' \
+'--strict-host-key-checking=[]:STRICT_HOST_KEY_CHECKING:(yes accept-new no off)' \
+'--known-hosts=[]:KNOWN_HOSTS:_files' \
+'-n[]' \
+'--print[]' \
+'-V[]' \
+'--version[]' \
+'-d[]' \
+'--debug[]' \
+'-q[]' \
+'--quiet[]' \
+'--no-color[]' \
+'-h[Print help]' \
+'--help[Print help]' \
+":: :_repose_commands" \
+"*::: :->repose" \
+&& ret=0
+    case $state in
+    (repose)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:repose-command-$line[1]:"
+        case $line[1] in
+            (add)
+_arguments "${_arguments_options[@]}" : \
+'*-t+[]:TARGETS:_default' \
+'*--target=[]:TARGETS:_default' \
+'--probe-timeout=[]:PROBE_TIMEOUT:_default' \
+'-c+[]:CONFIG:_files' \
+'--config=[]:CONFIG:_files' \
+'--format=[]:FORMAT:(text json)' \
+'--strict-host-key-checking=[]:STRICT_HOST_KEY_CHECKING:(yes accept-new no off)' \
+'--known-hosts=[]:KNOWN_HOSTS:_files' \
+'--no-probe[]' \
+'-n[]' \
+'--print[]' \
+'-V[]' \
+'--version[]' \
+'-d[]' \
+'--debug[]' \
+'-q[]' \
+'--quiet[]' \
+'--no-color[]' \
+'-h[Print help]' \
+'--help[Print help]' \
+'*::repa:_default' \
+&& ret=0
+;;
+(remove)
+_arguments "${_arguments_options[@]}" : \
+'*-t+[]:TARGETS:_default' \
+'*--target=[]:TARGETS:_default' \
+'-c+[]:CONFIG:_files' \
+'--config=[]:CONFIG:_files' \
+'--format=[]:FORMAT:(text json)' \
+'--strict-host-key-checking=[]:STRICT_HOST_KEY_CHECKING:(yes accept-new no off)' \
+'--known-hosts=[]:KNOWN_HOSTS:_files' \
+'-n[]' \
+'--print[]' \
+'-V[]' \
+'--version[]' \
+'-d[]' \
+'--debug[]' \
+'-q[]' \
+'--quiet[]' \
+'--no-color[]' \
+'-h[Print help]' \
+'--help[Print help]' \
+'*::repa:_default' \
+&& ret=0
+;;
+(reset)
+_arguments "${_arguments_options[@]}" : \
+'*-t+[]:TARGETS:_default' \
+'*--target=[]:TARGETS:_default' \
+'--probe-timeout=[]:PROBE_TIMEOUT:_default' \
+'-c+[]:CONFIG:_files' \
+'--config=[]:CONFIG:_files' \
+'--format=[]:FORMAT:(text json)' \
+'--strict-host-key-checking=[]:STRICT_HOST_KEY_CHECKING:(yes accept-new no off)' \
+'--known-hosts=[]:KNOWN_HOSTS:_files' \
+'--no-probe[]' \
+'-n[]' \
+'--print[]' \
+'-V[]' \
+'--version[]' \
+'-d[]' \
+'--debug[]' \
+'-q[]' \
+'--quiet[]' \
+'--no-color[]' \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
+(install)
+_arguments "${_arguments_options[@]}" : \
+'*-t+[]:TARGETS:_default' \
+'*--target=[]:TARGETS:_default' \
+'--probe-timeout=[]:PROBE_TIMEOUT:_default' \
+'-c+[]:CONFIG:_files' \
+'--config=[]:CONFIG:_files' \
+'--format=[]:FORMAT:(text json)' \
+'--strict-host-key-checking=[]:STRICT_HOST_KEY_CHECKING:(yes accept-new no off)' \
+'--known-hosts=[]:KNOWN_HOSTS:_files' \
+'--no-probe[]' \
+'--no-reboot[]' \
+'-n[]' \
+'--print[]' \
+'-V[]' \
+'--version[]' \
+'-d[]' \
+'--debug[]' \
+'-q[]' \
+'--quiet[]' \
+'--no-color[]' \
+'-h[Print help]' \
+'--help[Print help]' \
+'*::repa:_default' \
+&& ret=0
+;;
+(clear)
+_arguments "${_arguments_options[@]}" : \
+'*-t+[]:TARGETS:_default' \
+'*--target=[]:TARGETS:_default' \
+'-c+[]:CONFIG:_files' \
+'--config=[]:CONFIG:_files' \
+'--format=[]:FORMAT:(text json)' \
+'--strict-host-key-checking=[]:STRICT_HOST_KEY_CHECKING:(yes accept-new no off)' \
+'--known-hosts=[]:KNOWN_HOSTS:_files' \
+'-n[]' \
+'--print[]' \
+'-V[]' \
+'--version[]' \
+'-d[]' \
+'--debug[]' \
+'-q[]' \
+'--quiet[]' \
+'--no-color[]' \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
+(uninstall)
+_arguments "${_arguments_options[@]}" : \
+'*-t+[]:TARGETS:_default' \
+'*--target=[]:TARGETS:_default' \
+'-c+[]:CONFIG:_files' \
+'--config=[]:CONFIG:_files' \
+'--format=[]:FORMAT:(text json)' \
+'--strict-host-key-checking=[]:STRICT_HOST_KEY_CHECKING:(yes accept-new no off)' \
+'--known-hosts=[]:KNOWN_HOSTS:_files' \
+'--no-reboot[]' \
+'-n[]' \
+'--print[]' \
+'-V[]' \
+'--version[]' \
+'-d[]' \
+'--debug[]' \
+'-q[]' \
+'--quiet[]' \
+'--no-color[]' \
+'-h[Print help]' \
+'--help[Print help]' \
+'*::repa:_default' \
+&& ret=0
+;;
+(list-products)
+_arguments "${_arguments_options[@]}" : \
+'*-t+[]:TARGETS:_default' \
+'*--target=[]:TARGETS:_default' \
+'-c+[]:CONFIG:_files' \
+'--config=[]:CONFIG:_files' \
+'--format=[]:FORMAT:(text json)' \
+'--strict-host-key-checking=[]:STRICT_HOST_KEY_CHECKING:(yes accept-new no off)' \
+'--known-hosts=[]:KNOWN_HOSTS:_files' \
+'--yaml[]' \
+'-n[]' \
+'--print[]' \
+'-V[]' \
+'--version[]' \
+'-d[]' \
+'--debug[]' \
+'-q[]' \
+'--quiet[]' \
+'--no-color[]' \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
+(list-repos)
+_arguments "${_arguments_options[@]}" : \
+'*-t+[]:TARGETS:_default' \
+'*--target=[]:TARGETS:_default' \
+'-c+[]:CONFIG:_files' \
+'--config=[]:CONFIG:_files' \
+'--format=[]:FORMAT:(text json)' \
+'--strict-host-key-checking=[]:STRICT_HOST_KEY_CHECKING:(yes accept-new no off)' \
+'--known-hosts=[]:KNOWN_HOSTS:_files' \
+'-n[]' \
+'--print[]' \
+'-V[]' \
+'--version[]' \
+'-d[]' \
+'--debug[]' \
+'-q[]' \
+'--quiet[]' \
+'--no-color[]' \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
+(known-products)
+_arguments "${_arguments_options[@]}" : \
+'-c+[]:CONFIG:_files' \
+'--config=[]:CONFIG:_files' \
+'--format=[]:FORMAT:(text json)' \
+'--strict-host-key-checking=[]:STRICT_HOST_KEY_CHECKING:(yes accept-new no off)' \
+'--known-hosts=[]:KNOWN_HOSTS:_files' \
+'-n[]' \
+'--print[]' \
+'-V[]' \
+'--version[]' \
+'-d[]' \
+'--debug[]' \
+'-q[]' \
+'--quiet[]' \
+'--no-color[]' \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
+(help)
+_arguments "${_arguments_options[@]}" : \
+":: :_repose__subcmd__help_commands" \
+"*::: :->help" \
+&& ret=0
+
+    case $state in
+    (help)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:repose-help-command-$line[1]:"
+        case $line[1] in
+            (add)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(remove)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(reset)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(install)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(clear)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(uninstall)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(list-products)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(list-repos)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(known-products)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(help)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+        esac
+    ;;
+esac
+;;
+        esac
+    ;;
+esac
+}
+
+(( $+functions[_repose_commands] )) ||
+_repose_commands() {
+    local commands; commands=(
+'add:' \
+'remove:' \
+'reset:' \
+'install:' \
+'clear:' \
+'uninstall:' \
+'list-products:' \
+'list-repos:' \
+'known-products:' \
+'help:Print this message or the help of the given subcommand(s)' \
+    )
+    _describe -t commands 'repose commands' commands "$@"
+}
+(( $+functions[_repose__subcmd__add_commands] )) ||
+_repose__subcmd__add_commands() {
+    local commands; commands=()
+    _describe -t commands 'repose add commands' commands "$@"
+}
+(( $+functions[_repose__subcmd__clear_commands] )) ||
+_repose__subcmd__clear_commands() {
+    local commands; commands=()
+    _describe -t commands 'repose clear commands' commands "$@"
+}
+(( $+functions[_repose__subcmd__help_commands] )) ||
+_repose__subcmd__help_commands() {
+    local commands; commands=(
+'add:' \
+'remove:' \
+'reset:' \
+'install:' \
+'clear:' \
+'uninstall:' \
+'list-products:' \
+'list-repos:' \
+'known-products:' \
+'help:Print this message or the help of the given subcommand(s)' \
+    )
+    _describe -t commands 'repose help commands' commands "$@"
+}
+(( $+functions[_repose__subcmd__help__subcmd__add_commands] )) ||
+_repose__subcmd__help__subcmd__add_commands() {
+    local commands; commands=()
+    _describe -t commands 'repose help add commands' commands "$@"
+}
+(( $+functions[_repose__subcmd__help__subcmd__clear_commands] )) ||
+_repose__subcmd__help__subcmd__clear_commands() {
+    local commands; commands=()
+    _describe -t commands 'repose help clear commands' commands "$@"
+}
+(( $+functions[_repose__subcmd__help__subcmd__help_commands] )) ||
+_repose__subcmd__help__subcmd__help_commands() {
+    local commands; commands=()
+    _describe -t commands 'repose help help commands' commands "$@"
+}
+(( $+functions[_repose__subcmd__help__subcmd__install_commands] )) ||
+_repose__subcmd__help__subcmd__install_commands() {
+    local commands; commands=()
+    _describe -t commands 'repose help install commands' commands "$@"
+}
+(( $+functions[_repose__subcmd__help__subcmd__known-products_commands] )) ||
+_repose__subcmd__help__subcmd__known-products_commands() {
+    local commands; commands=()
+    _describe -t commands 'repose help known-products commands' commands "$@"
+}
+(( $+functions[_repose__subcmd__help__subcmd__list-products_commands] )) ||
+_repose__subcmd__help__subcmd__list-products_commands() {
+    local commands; commands=()
+    _describe -t commands 'repose help list-products commands' commands "$@"
+}
+(( $+functions[_repose__subcmd__help__subcmd__list-repos_commands] )) ||
+_repose__subcmd__help__subcmd__list-repos_commands() {
+    local commands; commands=()
+    _describe -t commands 'repose help list-repos commands' commands "$@"
+}
+(( $+functions[_repose__subcmd__help__subcmd__remove_commands] )) ||
+_repose__subcmd__help__subcmd__remove_commands() {
+    local commands; commands=()
+    _describe -t commands 'repose help remove commands' commands "$@"
+}
+(( $+functions[_repose__subcmd__help__subcmd__reset_commands] )) ||
+_repose__subcmd__help__subcmd__reset_commands() {
+    local commands; commands=()
+    _describe -t commands 'repose help reset commands' commands "$@"
+}
+(( $+functions[_repose__subcmd__help__subcmd__uninstall_commands] )) ||
+_repose__subcmd__help__subcmd__uninstall_commands() {
+    local commands; commands=()
+    _describe -t commands 'repose help uninstall commands' commands "$@"
+}
+(( $+functions[_repose__subcmd__install_commands] )) ||
+_repose__subcmd__install_commands() {
+    local commands; commands=()
+    _describe -t commands 'repose install commands' commands "$@"
+}
+(( $+functions[_repose__subcmd__known-products_commands] )) ||
+_repose__subcmd__known-products_commands() {
+    local commands; commands=()
+    _describe -t commands 'repose known-products commands' commands "$@"
+}
+(( $+functions[_repose__subcmd__list-products_commands] )) ||
+_repose__subcmd__list-products_commands() {
+    local commands; commands=()
+    _describe -t commands 'repose list-products commands' commands "$@"
+}
+(( $+functions[_repose__subcmd__list-repos_commands] )) ||
+_repose__subcmd__list-repos_commands() {
+    local commands; commands=()
+    _describe -t commands 'repose list-repos commands' commands "$@"
+}
+(( $+functions[_repose__subcmd__remove_commands] )) ||
+_repose__subcmd__remove_commands() {
+    local commands; commands=()
+    _describe -t commands 'repose remove commands' commands "$@"
+}
+(( $+functions[_repose__subcmd__reset_commands] )) ||
+_repose__subcmd__reset_commands() {
+    local commands; commands=()
+    _describe -t commands 'repose reset commands' commands "$@"
+}
+(( $+functions[_repose__subcmd__uninstall_commands] )) ||
+_repose__subcmd__uninstall_commands() {
+    local commands; commands=()
+    _describe -t commands 'repose uninstall commands' commands "$@"
+}
+
+if [ "$funcstack[1]" = "_repose" ]; then
+    _repose "$@"
+else
+    compdef _repose repose
+fi

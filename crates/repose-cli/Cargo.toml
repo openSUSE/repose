@@ -12,6 +12,16 @@ publish = false
 name = "repose"
 path = "src/main.rs"
 
+# Dev/packaging asset generator; built only with `--features gen` so the
+# shipped `repose` binary never drags in clap_complete/clap_mangen.
+[[bin]]
+name = "repose-gen"
+path = "src/bin/repose-gen.rs"
+required-features = ["gen"]
+
+[features]
+gen = ["dep:clap_complete", "dep:clap_mangen"]
+
 [lints]
 workspace = true
 
@@ -19,7 +29,8 @@ workspace = true
 repose-core = { path = "../repose-core", version = "0.1.0" }
 repose-ssh = { path = "../repose-ssh", version = "0.1.0" }
 clap = { version = "4", features = ["derive", "env"] }
-clap_complete = "4"
+clap_complete = { version = "4", optional = true }
+clap_mangen = { version = "0.2", optional = true }
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "signal"] }
 tracing = "0.1"
 # Bridges repose-ssh's `log` events into the subscriber (tracing-log feature,

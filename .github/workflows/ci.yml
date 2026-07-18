@@ -174,3 +174,24 @@ jobs:
           PARITY_REQUIRE_PY: '1'
         run: bash scripts/parity-check.sh
 
+  rust-assets-drift:
+    # Regenerate the committed man pages + shell completions from the clap CLI
+    # and fail if they drift (the Rust analogue of the Python man-drift job).
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: crates
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32  # v2
+        with:
+          workspaces: crates -> target
+      - name: Regenerate man pages + completions
+        run: cargo run -p repose-cli --features gen --bin repose-gen -- repose-cli
+      - name: Check for drift
+        run: git diff --exit-code -- repose-cli/man repose-cli/completions
+
