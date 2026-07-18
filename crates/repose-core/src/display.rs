@@ -6,6 +6,54 @@ use serde_json::json;
 
 use crate::types::{Repositories, Repository, System};
 
+/// YAML refhost-spec output for `list-products --yaml` (Python
+/// `list_products_yaml` → `System.to_refhost_dict_partially_normalized`).
+/// Versions run through `transform_version_partialy` (so a numeric version
+/// serializes as a YAML number). Structurally faithful to the Python dict;
+/// ruamel's exact byte formatting (`---`/`...`, indent) is not matched.
+pub fn list_products_yaml<W: Write>(
+    out: &mut W,
+    hostname: &str,
+    system: &System,
+) -> io::Result<()> {
+    use crate::transform::transform_version_partialy;
+
+    #[derive(serde::Serialize)]
+    struct Prod {
+        name: String,
+        version: serde_json::Value,
+    }
+    #[derive(serde::Serialize)]
+    struct Spec {
+        location: Vec<&'static str>,
+        arch: String,
+        product: Prod,
+        addons: Vec<Prod>,
+        name: String,
+    }
+
+    let base = system.get_base();
+    let spec = Spec {
+        location: vec!["some location"],
+        arch: system.arch().to_string(),
+        product: Prod {
+            name: base.name.clone(),
+            version: transform_version_partialy(&base.version),
+        },
+        addons: system
+            .get_addons()
+            .iter()
+            .map(|a| Prod {
+                name: a.name.clone(),
+                version: transform_version_partialy(&a.version),
+            })
+            .collect(),
+        name: hostname.to_string(),
+    };
+    let yaml = serde_yaml::to_string(&spec).map_err(io::Error::other)?;
+    out.write_all(yaml.as_bytes())
+}
+
 pub trait CommandDisplay {
     fn list_products(&mut self, hostname: &str, port: u16, system: &System) -> io::Result<()>;
     fn list_repos(&mut self, hostname: &str, port: u16, repos: &[Repository]) -> io::Result<()>;

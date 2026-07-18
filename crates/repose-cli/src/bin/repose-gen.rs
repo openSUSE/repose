@@ -51,7 +51,11 @@ fn render_man(cmd: &clap::Command, dir: &Path) -> std::io::Result<()> {
         }
         let sub_name = format!("{}-{}", cmd.get_name(), sub.get_name());
         let mut buf = Vec::new();
-        clap_mangen::Man::new(sub.clone()).render(&mut buf)?;
+        // Title the page `repose-<sub>` so the .TH matches the file basename.
+        // clap's `Command::name` wants `&'static str`; leak it (the generator is
+        // a short-lived process).
+        let titled: &'static str = Box::leak(sub_name.clone().into_boxed_str());
+        clap_mangen::Man::new(sub.clone().name(titled)).render(&mut buf)?;
         std::fs::write(dir.join(format!("{sub_name}.1")), buf)?;
     }
     Ok(())

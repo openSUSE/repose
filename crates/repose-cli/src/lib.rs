@@ -325,6 +325,7 @@ async fn dispatch(cli: Cli, conn: ConnectionConfig, cmd: Commands) -> ExitCode {
         no_probe,
         no_reboot,
         format: cli.format.into(),
+        yaml: matches!(&cmd, Commands::ListProducts { yaml: true, .. }),
     };
 
     let mut group = RusshHostGroup::from_targets(specs, conn);

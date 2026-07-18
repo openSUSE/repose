@@ -36,6 +36,8 @@ pub struct CommandOptions {
     pub no_probe: bool,
     pub no_reboot: bool,
     pub format: OutputFormat,
+    /// `list-products --yaml`: emit a YAML refhost spec instead of text/json.
+    pub yaml: bool,
 }
 
 impl Default for CommandOptions {
@@ -48,6 +50,7 @@ impl Default for CommandOptions {
             no_probe: false,
             no_reboot: false,
             format: OutputFormat::Text,
+            yaml: false,
         }
     }
 }

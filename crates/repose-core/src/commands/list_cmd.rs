@@ -21,14 +21,18 @@ pub async fn run_list_products<W: Write>(
             // Port from key if present
             let (hostname, port) = split_key(host.key());
             if let Some(sys) = host.products() {
-                match opts.format {
-                    crate::console::OutputFormat::Json => {
-                        let mut d = JsonDisplay { output: &mut *out };
-                        let _ = d.list_products(hostname, port, sys);
-                    }
-                    crate::console::OutputFormat::Text => {
-                        let mut d = TextDisplay { output: &mut *out };
-                        let _ = d.list_products(hostname, port, sys);
+                if opts.yaml {
+                    let _ = crate::display::list_products_yaml(&mut *out, hostname, sys);
+                } else {
+                    match opts.format {
+                        crate::console::OutputFormat::Json => {
+                            let mut d = JsonDisplay { output: &mut *out };
+                            let _ = d.list_products(hostname, port, sys);
+                        }
+                        crate::console::OutputFormat::Text => {
+                            let mut d = TextDisplay { output: &mut *out };
+                            let _ = d.list_products(hostname, port, sys);
+                        }
                     }
                 }
             }
@@ -103,5 +107,35 @@ mod tests {
         let mut buf = Buffer::default();
         run_known_products(&path, &mut buf).unwrap();
         assert!(buf.0.contains("QA") && buf.0.contains("SLES"));
+    }
+
+    #[tokio::test]
+    async fn list_products_yaml_emits_refhost_spec() {
+        use crate::mock::{MockHost, MockHostGroup};
+        use crate::types::{Product, System};
+        let mut g = MockHostGroup::new();
+        g.insert(MockHost::new("h1").with_products(System {
+            base: Product {
+                name: "SLES".into(),
+                version: "15-SP3".into(),
+                arch: "x86_64".into(),
+            },
+            addons: vec![Product {
+                name: "sle-module-basesystem".into(),
+                version: "15-SP3".into(),
+                arch: "x86_64".into(),
+            }],
+            transactional: false,
+        }));
+        let opts = CommandOptions {
+            yaml: true,
+            ..Default::default()
+        };
+        let mut buf = Buffer::default();
+        run_list_products(&opts, &mut g, &mut buf).await;
+        assert!(buf.0.contains("location"), "{}", buf.0);
+        assert!(buf.0.contains("arch: x86_64"), "{}", buf.0);
+        assert!(buf.0.contains("sle-module-basesystem"), "{}", buf.0);
+        assert!(buf.0.contains("name: h1"), "{}", buf.0);
     }
 }
