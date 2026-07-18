@@ -1938,6 +1938,7 @@ name = "repose-core"
 version = "0.1.0"
 dependencies = [
  "async-trait",
+ "futures-util",
  "quick-xml",
  "reqwest",
  "serde",

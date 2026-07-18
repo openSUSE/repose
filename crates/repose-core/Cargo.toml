@@ -21,6 +21,8 @@ serde_yaml = "0.9"
 thiserror = "2"
 # URL probe (async path baseline)
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "http2"] }
+# Bounded-concurrency probe fan-out (StreamExt::buffered)
+futures-util = { version = "0.3", default-features = false, features = ["std", "async-await"] }
 # XML parsers (zypper -x lr, .prod)
 quick-xml = { version = "0.41", features = ["serialize"] }
 

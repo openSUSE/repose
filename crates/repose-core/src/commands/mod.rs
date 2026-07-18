@@ -71,22 +71,71 @@ pub(crate) async fn filter_live(
     timeout: Duration,
     no_probe: bool,
 ) -> Vec<crate::repoq::Repos> {
+    use futures_util::StreamExt;
     if no_probe || repos.is_empty() {
         return repos;
     }
-    let mut out = Vec::new();
-    for r in repos {
-        if probe.is_live(&r.url, timeout).await {
-            out.push(r);
-        }
-    }
-    out
+    // Probe concurrently, bounded to 16 in-flight (Python `_afilter_live_urls`
+    // uses `asyncio.Semaphore(min(16, n))`); `buffered` preserves input order.
+    let cap = std::cmp::min(16, repos.len());
+    let alive: Vec<bool> = futures_util::stream::iter(repos.iter())
+        .map(|r| probe.is_live(&r.url, timeout))
+        .buffered(cap)
+        .collect()
+        .await;
+    repos
+        .into_iter()
+        .zip(alive)
+        .filter_map(|(r, live)| live.then_some(r))
+        .collect()
 }
 
 /// Default HTTP probe; tests inject [`crate::mock::ConstProbe`].
 #[must_use]
 pub fn default_probe() -> HttpProbe {
     HttpProbe::default()
+}
+
+#[cfg(test)]
+mod filter_tests {
+    use super::*;
+    use crate::mock::{ConstProbe, MapProbe};
+    use crate::repoq::Repos;
+
+    fn repo(name: &str, url: &str) -> Repos {
+        Repos {
+            name: name.into(),
+            url: url.into(),
+            refresh: false,
+        }
+    }
+
+    #[tokio::test]
+    async fn filter_live_preserves_order_and_drops_dead() {
+        let repos = vec![
+            repo("a", "http://a/"),
+            repo("b", "http://b/"),
+            repo("c", "http://c/"),
+        ];
+        let probe = MapProbe::dead(["http://b/"]);
+        let live = filter_live(&probe, repos, Duration::from_secs(1), false).await;
+        let urls: Vec<&str> = live.iter().map(|r| r.url.as_str()).collect();
+        assert_eq!(urls, ["http://a/", "http://c/"]);
+    }
+
+    #[tokio::test]
+    async fn filter_live_no_probe_returns_all_unprobed() {
+        let repos = vec![repo("a", "http://a/"), repo("b", "http://b/")];
+        // no_probe=true short-circuits even a dead probe.
+        let live = filter_live(
+            &ConstProbe { live: false },
+            repos,
+            Duration::from_secs(1),
+            true,
+        )
+        .await;
+        assert_eq!(live.len(), 2);
+    }
 }
 
 /// L2 sequence goldens under `tests/oracle/sequences/` (Python-oracle derived).
