@@ -25,4 +25,11 @@ be emitted by `gen-oracle.py`, which only drives pure functions) and are asserte
 `#[cfg(test)]` modules in `repose-core::commands::{reset,install,uninstall}` via
 `commands::seq`. Set-sourced alias/command order follows the Rust stable-sort delta.
 
+L3 process parity (`parity/known_products.txt`) is the committed `known-products` output
+for `template/sample.yml`. `scripts/parity-check.sh` asserts the Rust binary matches this
+golden, matches the Python `repose` oracle byte-for-byte (when available), and upholds the
+Rust CLI-surface invariants (no `--ssh-backend`, `repose version: X.Y.Z` shape, all nine
+subcommands). Run in CI by the `rust-parity` job. Dry-run mutation + connect/accept-new
+parity need a containerized sshd and are deferred to the pre-cutover gate.
+
 Normative rule: goldens beat design doc; Python async path is oracle until cutover.
