@@ -16,5 +16,11 @@ repose-core = { path = "../repose-core", version = "0.1.0" }
 async-trait = "0.1"
 # >=0.60.3 for GHSA-g9f8-wqj9-fjw5 (CryptoVec growth)
 russh = "0.61"
-tokio = { version = "1", features = ["rt-multi-thread", "macros", "time", "net", "io-util", "fs"] }
+russh-sftp = "2.3"
+rpassword = "7.5"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "time", "net", "io-util", "fs", "process"] }
 log = "0.4"
+zeroize = "1.8"
+
+[dev-dependencies]
+tempfile = "3"

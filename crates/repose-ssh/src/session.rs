@@ -1,20 +1,94 @@
 //! russh-backed [`SshSession`] (single SSH backend).
 
+use std::io::IsTerminal;
 use std::path::{Path, PathBuf};
+use std::pin::Pin;
+use std::process::Stdio;
 use std::sync::Arc;
+use std::task::{Context, Poll};
 use std::time::Duration;
 
 use async_trait::async_trait;
-use repose_core::config::{ConnectionConfig, HostKeyPolicy};
+use repose_core::config::ConnectionConfig;
 use repose_core::error::SshError;
-use repose_core::shell::quote;
 use repose_core::traits::SshSession;
 use russh::client::{self, Handler};
 use russh::keys::{load_secret_key, PrivateKeyWithHashAlg};
 use russh::{ChannelMsg, Disconnect, Preferred};
+use russh_sftp::client::SftpSession;
+use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
+use tokio::process::{Child, ChildStdin, ChildStdout, Command};
+use zeroize::Zeroize;
+
+use crate::hostkey::HostKeyVerifier;
+use crate::openssh_config::OpenSshOptions;
 
 struct ClientHandler {
-    policy: HostKeyPolicy,
+    verifier: HostKeyVerifier,
+}
+
+/// Bidirectional stdio stream supplied by an OpenSSH `ProxyCommand` process.
+struct ProxyStream {
+    _child: Child,
+    reader: ChildStdout,
+    writer: ChildStdin,
+}
+
+impl ProxyStream {
+    fn spawn(command: &str) -> Result<Self, SshError> {
+        let mut process = Command::new("sh");
+        process
+            .arg("-c")
+            .arg(command)
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::inherit())
+            .kill_on_drop(true);
+        let mut child = process.spawn().map_err(|error| {
+            SshError::Transport(format!("ProxyCommand failed to start: {error}"))
+        })?;
+        let reader = child
+            .stdout
+            .take()
+            .ok_or_else(|| SshError::Transport("ProxyCommand stdout was unavailable".into()))?;
+        let writer = child
+            .stdin
+            .take()
+            .ok_or_else(|| SshError::Transport("ProxyCommand stdin was unavailable".into()))?;
+        Ok(Self {
+            _child: child,
+            reader,
+            writer,
+        })
+    }
+}
+
+impl AsyncRead for ProxyStream {
+    fn poll_read(
+        self: Pin<&mut Self>,
+        context: &mut Context<'_>,
+        buffer: &mut ReadBuf<'_>,
+    ) -> Poll<std::io::Result<()>> {
+        Pin::new(&mut self.get_mut().reader).poll_read(context, buffer)
+    }
+}
+
+impl AsyncWrite for ProxyStream {
+    fn poll_write(
+        self: Pin<&mut Self>,
+        context: &mut Context<'_>,
+        buffer: &[u8],
+    ) -> Poll<std::io::Result<usize>> {
+        Pin::new(&mut self.get_mut().writer).poll_write(context, buffer)
+    }
+
+    fn poll_flush(self: Pin<&mut Self>, context: &mut Context<'_>) -> Poll<std::io::Result<()>> {
+        Pin::new(&mut self.get_mut().writer).poll_flush(context)
+    }
+
+    fn poll_shutdown(self: Pin<&mut Self>, context: &mut Context<'_>) -> Poll<std::io::Result<()>> {
+        Pin::new(&mut self.get_mut().writer).poll_shutdown(context)
+    }
 }
 
 impl Handler for ClientHandler {
@@ -22,17 +96,9 @@ impl Handler for ClientHandler {
 
     async fn check_server_key(
         &mut self,
-        _server_public_key: &russh::keys::ssh_key::PublicKey,
+        server_public_key: &russh::keys::ssh_key::PublicKey,
     ) -> Result<bool, Self::Error> {
-        // Full accept-new known_hosts matrix is PR9; v1:
-        // yes/accept-new → accept (caller may still pin via custom known_hosts later)
-        // no/off → accept all
-        match self.policy {
-            HostKeyPolicy::Yes
-            | HostKeyPolicy::AcceptNew
-            | HostKeyPolicy::No
-            | HostKeyPolicy::Off => Ok(true),
-        }
+        Ok(self.verifier.verify_public_key(server_public_key))
     }
 }
 
@@ -43,6 +109,7 @@ pub struct RusshSession {
     username: String,
     config: ConnectionConfig,
     handle: Option<client::Handle<ClientHandler>>,
+    sftp: Option<SftpSession>,
     identity: Option<PathBuf>,
 }
 
@@ -60,6 +127,7 @@ impl RusshSession {
             username: username.into(),
             config,
             handle: None,
+            sftp: None,
             identity: None,
         }
     }
@@ -71,9 +139,12 @@ impl RusshSession {
         self
     }
 
-    fn candidate_keys(&self) -> Vec<PathBuf> {
+    fn candidate_keys(&self, configured_keys: &[PathBuf]) -> Vec<PathBuf> {
         if let Some(p) = &self.identity {
             return vec![p.clone()];
+        }
+        if !configured_keys.is_empty() {
+            return configured_keys.to_vec();
         }
         let mut keys = Vec::new();
         if let Some(home) = std::env::var_os("HOME") {
@@ -89,29 +160,50 @@ impl RusshSession {
     }
 
     async fn connect_inner(&mut self) -> Result<(), SshError> {
+        let options = OpenSshOptions::lookup(&self.hostname);
+        let target_host = if options.proxy_command.is_some() {
+            self.hostname.clone()
+        } else {
+            options
+                .hostname
+                .clone()
+                .unwrap_or_else(|| self.hostname.clone())
+        };
+        let target_port = options.port.unwrap_or(self.port);
+        let target_user = options
+            .user
+            .clone()
+            .unwrap_or_else(|| self.username.clone());
         let conf = client::Config {
             inactivity_timeout: Some(Duration::from_secs_f64(self.config.timeout.max(5.0))),
             preferred: Preferred::default(),
             ..Default::default()
         };
         let conf = Arc::new(conf);
-        let handler = ClientHandler {
-            policy: self.config.host_key_policy,
+        let verifier = HostKeyVerifier::new(
+            self.config.host_key_policy,
+            self.config.known_hosts.clone(),
+            target_host.clone(),
+            target_port,
+        )
+        .map(|verifier| verifier.with_alias(self.hostname.clone()))?;
+        let handler = ClientHandler { verifier };
+        let mut session = if let Some(proxy_command) = options.proxy_command.as_deref() {
+            let command =
+                expand_proxy_command(proxy_command, &self.hostname, target_port, &target_user);
+            let stream = ProxyStream::spawn(&command)?;
+            client::connect_stream(conf, stream, handler)
+                .await
+                .map_err(|e| SshError::Transport(e.to_string()))?
+        } else {
+            let addrs = (target_host.as_str(), target_port);
+            client::connect(conf, addrs, handler)
+                .await
+                .map_err(|e| SshError::Transport(e.to_string()))?
         };
-        let addrs = (self.hostname.as_str(), self.port);
-        let mut session = client::connect(conf, addrs, handler)
-            .await
-            .map_err(|e| SshError::Transport(e.to_string()))?;
 
-        let keys = self.candidate_keys();
-        if keys.is_empty() {
-            return Err(SshError::Transport(
-                "no SSH private key found (~/.ssh/id_ed25519|id_rsa)".into(),
-            ));
-        }
-
-        let mut last_err = String::new();
-        for key_path in keys {
+        let mut last_err = "no SSH private key found (~/.ssh/id_ed25519|id_rsa)".to_string();
+        for key_path in self.candidate_keys(&options.identity_files) {
             let key_pair = match load_secret_key(&key_path, None) {
                 Ok(k) => k,
                 Err(e) => {
@@ -126,7 +218,7 @@ impl RusshSession {
                 .flatten();
             let auth = session
                 .authenticate_publickey(
-                    self.username.clone(),
+                    target_user.clone(),
                     PrivateKeyWithHashAlg::new(Arc::new(key_pair), hash),
                 )
                 .await
@@ -139,9 +231,29 @@ impl RusshSession {
         }
 
         // Non-TTY: fail closed for password (design decision).
+        if !std::io::stdin().is_terminal() {
+            return Err(SshError::Transport(format!(
+                "authentication failed for {}@{}:{} ({last_err}; password authentication requires a TTY)",
+                target_user, target_host, target_port
+            )));
+        }
+
+        let mut password =
+            rpassword::prompt_password(format!("Password for {}@{}: ", target_user, target_host))
+                .map_err(|e| SshError::Transport(format!("could not read SSH password: {e}")))?;
+        let auth = session
+            .authenticate_password(target_user.clone(), &password)
+            .await;
+        password.zeroize();
+        let auth = auth.map_err(|e| SshError::Transport(e.to_string()))?;
+        if auth.success() {
+            self.handle = Some(session);
+            return Ok(());
+        }
+
         Err(SshError::Transport(format!(
             "authentication failed for {}@{}:{} ({last_err})",
-            self.username, self.hostname, self.port
+            target_user, target_host, target_port
         )))
     }
 
@@ -193,6 +305,63 @@ impl RusshSession {
             ))),
         }
     }
+
+    fn sftp_timeout_secs(&self) -> u64 {
+        if self.config.timeout.is_finite() && self.config.timeout > 0.0 {
+            self.config.timeout.ceil() as u64
+        } else {
+            1
+        }
+    }
+
+    async fn sftp_session(&mut self) -> Result<&SftpSession, SshError> {
+        if self.sftp.is_none() {
+            let handle = self
+                .handle
+                .as_mut()
+                .ok_or_else(|| SshError::NotConnected(self.hostname.clone()))?;
+            let channel = handle
+                .channel_open_session()
+                .await
+                .map_err(|e| SshError::Transport(e.to_string()))?;
+            channel
+                .request_subsystem(true, "sftp")
+                .await
+                .map_err(|e| SshError::Transport(e.to_string()))?;
+            let sftp = SftpSession::new(channel.into_stream())
+                .await
+                .map_err(|e| SshError::Transport(format!("SFTP initialization failed: {e}")))?;
+            sftp.set_timeout(self.sftp_timeout_secs());
+            self.sftp = Some(sftp);
+        }
+
+        self.sftp
+            .as_ref()
+            .ok_or_else(|| SshError::Other("SFTP session was not initialized".into()))
+    }
+}
+
+fn expand_proxy_command(command: &str, host: &str, port: u16, user: &str) -> String {
+    let mut expanded = String::with_capacity(command.len());
+    let mut characters = command.chars();
+    while let Some(character) = characters.next() {
+        if character != '%' {
+            expanded.push(character);
+            continue;
+        }
+        match characters.next() {
+            Some('h') => expanded.push_str(host),
+            Some('p') => expanded.push_str(&port.to_string()),
+            Some('r') => expanded.push_str(user),
+            Some('%') => expanded.push('%'),
+            Some(other) => {
+                expanded.push('%');
+                expanded.push(other);
+            }
+            None => expanded.push('%'),
+        }
+    }
+    expanded
 }
 
 #[async_trait]
@@ -209,42 +378,36 @@ impl SshSession for RusshSession {
     }
 
     async fn listdir(&mut self, path: &str) -> Result<Vec<String>, SshError> {
-        let cmd = format!("ls -1A {}", quote(path));
-        let (stdout, _, code) = self.run_inner(&cmd).await?;
-        if code != 0 {
-            return Err(SshError::Other(format!("listdir {path} exit {code}")));
-        }
-        Ok(stdout
-            .lines()
-            .filter(|l| !l.is_empty() && *l != "." && *l != "..")
-            .map(str::to_string)
-            .collect())
+        let entries = self
+            .sftp_session()
+            .await?
+            .read_dir(path)
+            .await
+            .map_err(|e| SshError::Other(format!("SFTP listdir {path}: {e}")))?;
+        Ok(entries.map(|entry| entry.file_name()).collect())
     }
 
     async fn readlink(&mut self, path: &str) -> Result<Option<String>, SshError> {
-        let cmd = format!("readlink {}", quote(path));
-        let (stdout, _, code) = self.run_inner(&cmd).await?;
-        if code != 0 {
-            return Ok(None);
-        }
-        let s = stdout.trim();
-        if s.is_empty() {
-            Ok(None)
-        } else {
-            Ok(Some(s.to_string()))
-        }
+        self.sftp_session()
+            .await?
+            .read_link(path)
+            .await
+            .map(Some)
+            .map_err(|e| SshError::Other(format!("SFTP readlink {path}: {e}")))
     }
 
     async fn read_file(&mut self, path: &str) -> Result<Vec<u8>, SshError> {
-        let cmd = format!("cat {}", quote(path));
-        let (stdout, _, code) = self.run_inner(&cmd).await?;
-        if code != 0 {
-            return Err(SshError::Other(format!("read_file {path} exit {code}")));
-        }
-        Ok(stdout.into_bytes())
+        self.sftp_session()
+            .await?
+            .read(path)
+            .await
+            .map_err(|e| SshError::Other(format!("SFTP read_file {path}: {e}")))
     }
 
     async fn close(&mut self) -> Result<(), SshError> {
+        if let Some(sftp) = self.sftp.take() {
+            let _ = sftp.close().await;
+        }
         if let Some(handle) = self.handle.take() {
             let _ = handle
                 .disconnect(Disconnect::ByApplication, "", "English")
@@ -297,5 +460,37 @@ impl SshSession for RusshSession {
             }
         }
         self.is_active()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use repose_core::ConnectionConfig;
+
+    use super::RusshSession;
+
+    #[test]
+    fn sftp_timeout_rounds_up_and_has_a_safe_minimum() {
+        let config = ConnectionConfig {
+            timeout: 1.2,
+            ..ConnectionConfig::default()
+        };
+        let session = RusshSession::new("host", 22, "root", config);
+        assert_eq!(session.sftp_timeout_secs(), 2);
+
+        let config = ConnectionConfig {
+            timeout: 0.0,
+            ..ConnectionConfig::default()
+        };
+        let session = RusshSession::new("host", 22, "root", config);
+        assert_eq!(session.sftp_timeout_secs(), 1);
+    }
+
+    #[test]
+    fn proxy_command_expands_openssh_tokens() {
+        assert_eq!(
+            super::expand_proxy_command("nc %h %p as-%r %% %x", "host", 2200, "root"),
+            "nc host 2200 as-root % %x"
+        );
     }
 }

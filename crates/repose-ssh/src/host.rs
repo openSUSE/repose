@@ -153,8 +153,6 @@ impl Host for RusshHost {
         if !self.connected {
             return Ok(()); // Python: debug return without raise
         }
-        let _ = self.session.run("zypper -x lr").await;
-        // Prefer structured: run via Host::run to populate out, or session directly.
         match self.session.run("zypper -x lr").await {
             Ok((stdout, _, 0 | 106 | 6)) => {
                 self.raw_repos = Some(parse_repositories(&stdout));

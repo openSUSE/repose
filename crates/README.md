@@ -2,6 +2,23 @@
 
 In-progress rewrite of openSUSE/repose (see `docs/design/rust-rewrite.md`).
 
+## SSH configuration compatibility
+
+The Rust transport reads `~/.ssh/config` and supports `Host` patterns,
+`Hostname`, `Port`, `User`, multiple `IdentityFile` entries, and
+`ProxyCommand`. A `ProxyCommand` is executed through the local shell with the
+standard `%h`, `%p`, `%r`, and `%%` substitutions.
+
+`ProxyJump`, `Match`, and `Include` are not supported. Define an equivalent
+`ProxyCommand` for jump-only hosts. Host certificates use trust-on-first-use
+under `accept-new`; CA pinning is out of scope for this rewrite milestone.
+
+Host-key policies are `yes` (known keys only), `accept-new` (persist first
+contact and reject changed/revoked keys), and `no`/`off` (disable validation).
+`accept-new` writes `~/.ssh/known_hosts`, or the path passed through
+`--known-hosts`, using `[host]:port` entries for non-default ports. Keep that
+file protected from untrusted writers.
+
 ## Layout
 
 | Crate | Role |

@@ -3,6 +3,8 @@
 #![forbid(unsafe_code)]
 
 pub mod host;
+mod hostkey;
+mod openssh_config;
 pub mod session;
 
 pub use host::{RusshHost, RusshHostGroup};
