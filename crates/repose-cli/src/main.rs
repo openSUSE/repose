@@ -16,6 +16,7 @@ use repose_core::host_parse::parse_host;
 use repose_core::repa::Repa;
 use repose_core::{ConnectionConfig, HostKeyPolicy, VERSION};
 use repose_ssh::RusshHostGroup;
+use tracing::Level;
 
 #[derive(Debug, Clone, Copy, ValueEnum)]
 enum OutputFormat {
@@ -175,6 +176,7 @@ async fn async_main() -> ExitCode {
         eprintln!("error: --debug and --quiet are mutually exclusive");
         return ExitCode::from(2);
     }
+    init_logging(cli.debug, cli.quiet, cli.no_color);
 
     let conn = ConnectionConfig {
         host_key_policy: cli.strict_host_key_checking.into(),
@@ -195,7 +197,41 @@ async fn async_main() -> ExitCode {
         Some(other) => other,
     };
 
-    dispatch(cli, conn, cmd).await
+    // SIGINT → 130 (Python KeyboardInterrupt path). Racing the command future
+    // means Ctrl-C drops the in-flight SSH work and returns immediately.
+    tokio::select! {
+        code = dispatch(cli, conn, cmd) => code,
+        _ = tokio::signal::ctrl_c() => {
+            tracing::error!("interrupted");
+            ExitCode::from(130)
+        }
+    }
+}
+
+/// Map `-d`/`-q` to a tracing level (default INFO), matching Python
+/// `create_logger` (INFO) + `-d`→DEBUG / `-q`→WARNING.
+fn log_level(debug: bool, quiet: bool) -> Level {
+    if debug {
+        Level::DEBUG
+    } else if quiet {
+        Level::WARN
+    } else {
+        Level::INFO
+    }
+}
+
+/// Install the stderr tracing subscriber (also captures repose-ssh `log`
+/// events via the tracing-log bridge). ANSI is disabled for `--no-color`
+/// or a non-empty `NO_COLOR`, matching Python's `log_no_color`.
+fn init_logging(debug: bool, quiet: bool, no_color: bool) {
+    let ansi = !no_color && std::env::var_os("NO_COLOR").is_none_or(|v| v.is_empty());
+    let _ = tracing_subscriber::fmt()
+        .with_max_level(log_level(debug, quiet))
+        .with_writer(std::io::stderr)
+        .with_target(false)
+        .without_time()
+        .with_ansi(ansi)
+        .try_init();
 }
 
 fn known_products(config: &Path) -> ExitCode {
@@ -331,4 +367,18 @@ async fn dispatch(cli: Cli, conn: ConnectionConfig, cmd: Commands) -> ExitCode {
 
 fn exit_from(c: repose_core::ExitCode) -> ExitCode {
     ExitCode::from(c.as_i32() as u8)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn log_level_maps_flags() {
+        assert_eq!(log_level(false, false), Level::INFO);
+        assert_eq!(log_level(true, false), Level::DEBUG);
+        assert_eq!(log_level(false, true), Level::WARN);
+        // -d wins if both slip through (mutex is enforced separately).
+        assert_eq!(log_level(true, true), Level::DEBUG);
+    }
 }

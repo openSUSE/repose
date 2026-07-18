@@ -20,4 +20,8 @@ repose-core = { path = "../repose-core", version = "0.1.0" }
 repose-ssh = { path = "../repose-ssh", version = "0.1.0" }
 clap = { version = "4", features = ["derive", "env"] }
 clap_complete = "4"
-tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "signal"] }
+tracing = "0.1"
+# Bridges repose-ssh's `log` events into the subscriber (tracing-log feature,
+# on by default) and honours -d/-q verbosity + NO_COLOR.
+tracing-subscriber = "0.3"
