@@ -33,7 +33,7 @@ repose-core = { path = "../repose-core", version = "3.0.0" }
 repose-ssh = { path = "../repose-ssh", version = "3.0.0" }
 clap = { version = "4", features = ["derive"] }
 clap_complete = { version = "4", optional = true }
-clap_mangen = { version = "0.2", optional = true }
+clap_mangen = { version = "0.3", optional = true }
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "signal"] }
 tracing = "0.1"
 # Bridges repose-ssh's `log` events into the subscriber (tracing-log feature,
