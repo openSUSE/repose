@@ -158,7 +158,7 @@ fn ssh_fixture_exercises_query_and_dry_run_commands() {
 
     let dry = repose_with(&common, &["--print", "clear", "-t", &target]);
     assert!(dry.status.success(), "{}", stderr(&dry));
-    assert!(stdout(&dry).contains("zypper rr"));
+    assert!(stdout(&dry).contains("zypper -n rr"));
 
     let dry_json = repose_with(
         &common,
