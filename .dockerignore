@@ -1,0 +1,8 @@
+*
+!tests/
+!tests/vectors/
+!tests/vectors/refhosts/
+!tests/vectors/refhosts/sles-16-0/
+!tests/vectors/refhosts/sles-16-0/products.d/
+!tests/vectors/refhosts/sles-16-0/products.d/*.prod
+!tests/vectors/refhosts/sles-16-0/zypper-x-lr.xml
