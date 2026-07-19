@@ -1,0 +1,20 @@
+Host: sles-sap-12-sp5:22
+  Base product: SLES_SAP-12-SP5-x86_64
+  Installed Extensions and Modules:
+      Addon: sle-module-public-cloud                               - version: 12
+      Addon: sle-module-legacy                                     - version: 12
+      Addon: sle-live-patching                                     - version: 12-SP5
+      Addon: SUSE-Linux-Enterprise-RT                              - version: 12-SP5
+      Addon: SLES-LTSS                                             - version: 12-SP5
+      Addon: PackageHub                                            - version: 12-SP5
+      Addon: sle-module-toolchain                                  - version: 12
+      Addon: sle-sdk                                               - version: 12-SP5
+      Addon: qa                                                    - version: 12-SP5
+      Addon: sle-ha                                                - version: 12-SP5
+      Addon: sle-ha-geo                                            - version: 12-SP5
+      Addon: sle-we                                                - version: 12-SP5
+      Addon: sle-module-adv-systems-management                     - version: 12
+      Addon: sle-module-web-scripting                              - version: 12
+      Addon: sle-module-containers                                 - version: 12
+      Addon: sle-module-hpc                                        - version: 12
+

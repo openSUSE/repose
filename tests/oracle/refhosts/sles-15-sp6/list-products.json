@@ -1,0 +1,17 @@
+{"event": "product", "host": "sles-15-sp6", "port": 22, "kind": "base", "name": "SLES", "version": "15-SP6", "arch": "x86_64"}
+{"event": "product", "host": "sles-15-sp6", "port": 22, "kind": "addon", "name": "sle-module-web-scripting", "version": "15-SP6", "arch": "x86_64"}
+{"event": "product", "host": "sles-15-sp6", "port": 22, "kind": "addon", "name": "sle-we", "version": "15-SP6", "arch": "x86_64"}
+{"event": "product", "host": "sles-15-sp6", "port": 22, "kind": "addon", "name": "qa", "version": "15-SP6", "arch": "x86_64"}
+{"event": "product", "host": "sles-15-sp6", "port": 22, "kind": "addon", "name": "sle-module-public-cloud", "version": "15-SP6", "arch": "x86_64"}
+{"event": "product", "host": "sles-15-sp6", "port": 22, "kind": "addon", "name": "sle-module-development-tools-obs", "version": "15-SP6", "arch": "x86_64"}
+{"event": "product", "host": "sles-15-sp6", "port": 22, "kind": "addon", "name": "sle-module-development-tools", "version": "15-SP6", "arch": "x86_64"}
+{"event": "product", "host": "sles-15-sp6", "port": 22, "kind": "addon", "name": "sle-module-server-applications", "version": "15-SP6", "arch": "x86_64"}
+{"event": "product", "host": "sles-15-sp6", "port": 22, "kind": "addon", "name": "sle-module-basesystem", "version": "15-SP6", "arch": "x86_64"}
+{"event": "product", "host": "sles-15-sp6", "port": 22, "kind": "addon", "name": "sle-ha", "version": "15-SP6", "arch": "x86_64"}
+{"event": "product", "host": "sles-15-sp6", "port": 22, "kind": "addon", "name": "sle-module-desktop-applications", "version": "15-SP6", "arch": "x86_64"}
+{"event": "product", "host": "sles-15-sp6", "port": 22, "kind": "addon", "name": "sle-module-legacy", "version": "15-SP6", "arch": "x86_64"}
+{"event": "product", "host": "sles-15-sp6", "port": 22, "kind": "addon", "name": "SLES-LTSS", "version": "15-SP6", "arch": "x86_64"}
+{"event": "product", "host": "sles-15-sp6", "port": 22, "kind": "addon", "name": "sle-module-python3", "version": "15-SP6", "arch": "x86_64"}
+{"event": "product", "host": "sles-15-sp6", "port": 22, "kind": "addon", "name": "PackageHub", "version": "15-SP6", "arch": "x86_64"}
+{"event": "product", "host": "sles-15-sp6", "port": 22, "kind": "addon", "name": "sle-module-containers", "version": "15-SP6", "arch": "x86_64"}
+{"event": "product", "host": "sles-15-sp6", "port": 22, "kind": "addon", "name": "sle-module-hpc", "version": "15-SP6", "arch": "x86_64"}

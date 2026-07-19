@@ -1,0 +1,2 @@
+{"event": "product", "host": "sl-micro-6-1", "port": 22, "kind": "base", "name": "SL-Micro", "version": "6.1", "arch": "x86_64"}
+{"event": "product", "host": "sl-micro-6-1", "port": 22, "kind": "addon", "name": "SL-Micro-Extras", "version": "6.1", "arch": "x86_64"}

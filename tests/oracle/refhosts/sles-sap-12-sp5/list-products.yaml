@@ -1,0 +1,69 @@
+---
+addons:
+- name: sle-ha
+  version:
+    major: 12
+    minor: SP5
+- name: PackageHub
+  version:
+    major: 12
+    minor: SP5
+- name: sle-module-containers
+  version:
+    major: 12
+- name: SLES-LTSS
+  version:
+    major: 12
+    minor: SP5
+- name: sle-module-web-scripting
+  version:
+    major: 12
+- name: SUSE-Linux-Enterprise-RT
+  version:
+    major: 12
+    minor: SP5
+- name: sle-ha-geo
+  version:
+    major: 12
+    minor: SP5
+- name: sle-module-legacy
+  version:
+    major: 12
+- name: sle-module-adv-systems-management
+  version:
+    major: 12
+- name: sle-live-patching
+  version:
+    major: 12
+    minor: SP5
+- name: qa
+  version:
+    major: 12
+    minor: SP5
+- name: sle-module-hpc
+  version:
+    major: 12
+- name: sle-module-toolchain
+  version:
+    major: 12
+- name: sle-sdk
+  version:
+    major: 12
+    minor: SP5
+- name: sle-module-public-cloud
+  version:
+    major: 12
+- name: sle-we
+  version:
+    major: 12
+    minor: SP5
+arch: x86_64
+location:
+- some location
+name: sles-sap-12-sp5
+product:
+  name: SLES_SAP
+  version:
+    major: 12
+    minor: SP5
+...

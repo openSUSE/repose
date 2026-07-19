@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<product schemeversion="0">
+  <vendor>SUSE</vendor>
+  <name>sle-ha</name>
+  <version>15.6</version>
+  <baseversion>15</baseversion>
+  <patchlevel>6</patchlevel>
+  <release>0</release>
+  <endoflife></endoflife>
+  <arch>x86_64</arch>
+  <cpeid>cpe:/o:suse:sle-ha:15:sp6</cpeid>
+  <productline>sle-ha</productline>
+  <codestream>
+    <name>SUSE Linux Enterprise High Availability Extension 15</name>
+    <endoflife>2028-07-31</endoflife>
+  </codestream>
+  <register>
+      <target>sle-15-x86_64</target>
+    <flavor>extension</flavor>
+  </register>
+  <repositories>
+      <repository type="update" repoid="obsrepository://example.invalid/scrubbed" />
+      <repository type="update" repoid="obsrepository://example.invalid/scrubbed" />
+      <repository type="pool" repoid="obsproduct://example.invalid/scrubbed" />
+  </repositories>
+  <summary>SUSE Linux Enterprise High Availability Extension 15 SP6</summary>
+  <shortsummary>SLEHA15-SP6</shortsummary>
+  <description>SUSE Linux High Availability Extension
+          provides mature, industry-leading open-source
+          high-availability clustering technologies that
+          are easy to set up and use. It can be deployed
+          in physical and/or virtual environments, and
+          can cluster physical servers, virtual servers,
+          or any combination of the two to suit your
+          business’ needs.</description>
+  <linguas>
+    <language>cs</language>
+    <language>da</language>
+    <language>de</language>
+    <language>en</language>
+    <language>en_GB</language>
+    <language>en_US</language>
+    <language>es</language>
+    <language>fi</language>
+    <language>fr</language>
+    <language>hu</language>
+    <language>it</language>
+    <language>ja</language>
+    <language>nb</language>
+    <language>nl</language>
+    <language>pl</language>
+    <language>pt</language>
+    <language>pt_BR</language>
+    <language>ru</language>
+    <language>sv</language>
+    <language>zh</language>
+    <language>zh_CN</language>
+    <language>zh_TW</language>
+  </linguas>
+  <urls>
+    <url name="releasenotes">https://example.invalid/scrubbed</url>
+    <url name="releasenotes">https://example.invalid/scrubbed</url>
+  </urls>
+  <buildconfig>
+    <producttheme>SLES</producttheme>
+  </buildconfig>
+  <installconfig>
+    <defaultlang>en_US</defaultlang>
+    <releasepackage name="sle-ha-release" flag="EQ" version="15.6" release="150600.37.2"/>
+    <distribution>SUSE_SLE</distribution>
+  </installconfig>
+  <runtimeconfig/>
+  <productdependency relationship="requires" name="SUSE_SLE" baseversion="15" patchlevel="6" flag="EQ"/>
+  <productdependency relationship="requires" name="sle-module-server-applications" baseversion="15" patchlevel="0" flag="GE"/>
+</product>
+
