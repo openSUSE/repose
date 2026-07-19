@@ -1,14 +1,15 @@
 #!/usr/bin/env bash
 #
-# L3 process-parity harness: Python `repose` (oracle) vs the Rust binary.
-#
-# Scope (PR16 initial): known-products byte-identity + Rust CLI-surface
-# invariants. Dry-run mutation and connect/accept-new parity require a
-# containerized sshd and are deferred to the pre-cutover gate.
+# Parity harness for the Rust `repose` binary. Since the Python cutover the
+# checks are golden-first: Rust known-products must byte-match the committed
+# golden (tests/oracle/parity/known_products.txt), plus CLI-surface invariants
+# (no --ssh-backend, version-line shape, all nine subcommands). If a `repose`
+# command still happens to be on PATH it is compared too, but the Python oracle
+# is no longer part of the tree or CI.
 #
 # Env:
-#   REPOSE_PY   command for the Python oracle (default: repose). May contain
-#               spaces, e.g. "uv run repose".
+#   REPOSE_PY   optional reference `repose` to cross-check against (default:
+#               repose). Compared only if present — the Python oracle is gone.
 #   REPOSE_RS   command for the Rust binary (default: crates/target/debug/repose).
 #   FIXTURE     products.yml used for known-products (default: the committed
 #               sample fixture).

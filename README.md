@@ -1,4 +1,3 @@
-[![CodeQL](https://github.com/openSUSE/repose/actions/workflows/codeql-analysis.yml/badge.svg)](https://github.com/openSUSE/repose/actions/workflows/codeql-analysis.yml)
 # repose
 
 Manipulate repositories in QAM refhosts
@@ -19,30 +18,28 @@ After install, `man repose` shows the full command reference.
 
 ## Shell completion
 
-Repose ships shell-completion support for bash, zsh, and fish via Typer's
-built-in machinery. Install once into your shell's rc file:
+Repose ships pre-generated shell completions for bash, zsh, and fish
+(`crates/repose-cli/completions/`, also installed by the package). Load the
+one for your shell, for example:
 
 ```
-repose --install-completion bash   # or: zsh, fish
+# bash
+source crates/repose-cli/completions/repose.bash
+# zsh: put the `_repose` file on your $fpath
+# fish: copy repose.fish into ~/.config/fish/completions/
 ```
 
-Then in a new shell, tab-complete subcommands, flags, and REPA product
-prefixes:
+Then in a new shell, tab-complete subcommands and flags:
 
 ```
 repose <TAB>           # add remove reset install clear uninstall ...
-repose add -t host <TAB>  # SLES sle-sdk sle-module-... (from products.yml)
 ```
 
-To preview the completion script without installing it:
+Regenerate the committed completions (and man pages) from the CLI with:
 
 ```
-repose --show-completion zsh
+cargo run -p repose-cli --features gen --bin repose-gen -- repose-cli
 ```
-
-REPA-prefix completion reads `/etc/repose/products.yml` (or the path passed
-to `-c/--config`). If the file is unreadable, completion silently returns no
-suggestions rather than erroring in your shell.
 
 ## Internal Functionality
 
@@ -274,26 +271,18 @@ repose --strict-host-key-checking=yes \
 
 ## SSH Backend
 
-Repose ships two SSH implementations selectable with `--ssh-backend`:
+Repose uses a single SSH stack ([russh](https://crates.io/crates/russh)); there
+is no `--ssh-backend` flag. It honours the same `--strict-host-key-checking`,
+`--known-hosts`, and `~/.ssh/config` directives described above.
 
-- `asyncssh` (default) — structured concurrency on top of `asyncio`. No
-  threadpool, so it scales to hundreds of refhosts without thread
-  pressure. Ctrl-C cancels every in-flight host coroutine cleanly.
-- `paramiko` — the legacy threaded backend. Available for one release
-  as a safety net while `asyncssh` settles in real-world deployments;
-  scheduled for removal in the following release.
+## Building
 
-Both backends honour the same `--strict-host-key-checking`,
-`--known-hosts`, and `~/.ssh/config` directives, so the only
-user-visible difference should be runtime characteristics. If you hit
-a behaviour regression after upgrading, switch back temporarily:
+Repose is a Rust workspace under `crates/`. Build the binary with:
 
 ```
-repose --ssh-backend=paramiko reset -t fubar.suse.cz
+cargo build --release -p repose-cli --manifest-path crates/Cargo.toml
+# binary at crates/target/release/repose
 ```
-
-…and please file a bug so the parity gap can be closed before the
-paramiko backend is removed.
 
 ## License
 

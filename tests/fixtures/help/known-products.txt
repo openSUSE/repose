@@ -1,6 +1,0 @@
-Usage: repose known-products [OPTIONS]
-
-  list known products by 'repose'
-
-Options:
-  -h, --help  Show this message and exit.

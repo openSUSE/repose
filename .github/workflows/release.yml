@@ -4,8 +4,8 @@ name: release
 on:
   push:
     tags:
-      # Version tags: 2.0.2, 2.1.0, optionally with a pre-release suffix
-      # (2.1.0rc1). The project tags without a "v" prefix.
+      # Version tags: 3.0.0, optionally with a pre-release suffix (3.0.0rc1).
+      # The project tags without a "v" prefix.
       - '[0-9]+.[0-9]+.[0-9]+'
       - '[0-9]+.[0-9]+.[0-9]+*'
 
@@ -15,27 +15,29 @@ permissions:
 jobs:
   release:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     permissions:
       # required for `gh release create`
       contents: write
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
-      - uses: astral-sh/setup-uv@d31148d669074a8d0a63714ba94f3201e7020bc3  # v8.3.0
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32  # v2
         with:
-          python-version: '3.13'
-          cache-suffix: release
+          workspaces: crates -> target
 
-      - name: Verify tag matches package version
+      - name: Verify tag matches workspace version
         run: |
-          pkg="$(sed -n 's/^__version__ = "\(.*\)"/\1/p' repose/__init__.py)"
+          pkg="$(sed -n 's/^version = "\(.*\)"/\1/p' crates/Cargo.toml | head -1)"
           if [ "$pkg" != "$GITHUB_REF_NAME" ]; then
-            echo "::error::tag '$GITHUB_REF_NAME' != repose.__version__ '$pkg'"
+            echo "::error::tag '$GITHUB_REF_NAME' != workspace version '$pkg'"
             exit 1
           fi
 
-      - name: Build sdist and wheel
-        run: uv build
+      - name: Build release binary
+        run: cargo build --release -p repose-cli --manifest-path crates/Cargo.toml
 
       - name: Create GitHub release
         env:
@@ -44,4 +46,4 @@ jobs:
           gh release create "$GITHUB_REF_NAME"
           --title "$GITHUB_REF_NAME"
           --generate-notes
-          dist/*
+          crates/target/release/repose

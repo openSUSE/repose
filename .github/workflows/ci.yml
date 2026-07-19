@@ -15,86 +15,8 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  lint:
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
-      - uses: astral-sh/ruff-action@278981a28ce3188b1e39527901f38254bf3aac89  # v4.1.0
-        with:
-          args: "--version"
-      - name: Check style
-        run: ruff format --diff .
-      - name: Lint - ruff
-        run: ruff check .
-  typecheck:
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
-      - uses: astral-sh/setup-uv@d31148d669074a8d0a63714ba94f3201e7020bc3  # v8.3.0
-        with:
-          python-version: '3.13'
-          cache-suffix: typecheck
-      - name: Install dependencies
-        run: uv sync --locked
-      - name: Type check - ty
-        run: uv run ty check repose
-  test:
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    strategy:
-      matrix:
-        python-version: ['3.13', '3.14']
-    steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
-      - uses: astral-sh/setup-uv@d31148d669074a8d0a63714ba94f3201e7020bc3  # v8.3.0
-        with:
-          python-version: ${{ matrix.python-version }}
-          cache-suffix: test-${{ matrix.python-version }}
-      - name: Install dependencies
-        run: uv sync --locked
-      - name: Test with pytest
-        run: uv run pytest --cov=repose --cov-fail-under=80
-  docs:
-    # Builds the Sphinx HTML docs with warnings-as-errors so a broken
-    # .rst reference or config warning fails the PR instead of merging
-    # silently. Previously only man-page drift was checked.
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
-      - uses: astral-sh/setup-uv@d31148d669074a8d0a63714ba94f3201e7020bc3  # v8.3.0
-        with:
-          python-version: '3.13'
-          cache-suffix: docs
-      - name: Build docs
-        run: >-
-          uv run --locked --group doc
-          sphinx-build -b html -W --keep-going docs docs/_build/html
-  man-drift:
-    # Regenerates docs/man/*.1 from the Typer CLI and fails if the
-    # committed pages drift from what `uv run repose-mangen` produces.
-    # Catches the case where a contributor edits a subcommand's help
-    # text or flags but forgets to refresh the man pages.
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
-      - uses: astral-sh/setup-uv@d31148d669074a8d0a63714ba94f3201e7020bc3  # v8.3.0
-        with:
-          python-version: '3.13'
-          cache-suffix: man-drift
-      - name: Install dependencies
-        run: uv sync --locked
-      - name: Regenerate man pages
-        run: uv run repose-mangen
-      - name: Check for drift
-        run: git diff --exit-code -- docs/man/
-
-  # --- Rust rewrite workspace (crates/) ---
-  # Python jobs above stay the oracle until cutover. This job only
-  # builds/tests the in-progress Rust rewrite (docs/design/rust-rewrite.md).
+  # Rust workspace (crates/) — the sole implementation since the Python
+  # cutover (docs/design/rust-rewrite.md). Python and its jobs were removed.
   rust:
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -121,15 +43,15 @@ jobs:
       - name: Test
         run: cargo test --workspace
       - name: Binary version line
-        # Shape matches Python: `repose version: X.Y.Z` (value is crate version).
-        # Do not hard-code 0.1.0 — that breaks every workspace version bump.
+        # Shape matches the historical Python line: `repose version: X.Y.Z`
+        # (value is the crate version). Do not hard-code a version.
         run: |
           out="$(cargo run -q -p repose-cli)"
           echo "got: $out"
           echo "$out" | grep -E '^repose version: [0-9]+\.[0-9]+\.[0-9]+$'
 
   rust-deny:
-    # Dependency policy for the Rust rewrite. Config: crates/deny.toml
+    # Dependency policy for the Rust workspace. Config: crates/deny.toml
     # next to the workspace manifest (auto-discovered by cargo-deny).
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -140,25 +62,18 @@ jobs:
         with:
           manifest-path: crates/Cargo.toml
           command: check
-          # Empty arguments: do not force --all-features on a empty graph.
+          # Empty arguments: do not force --all-features on an empty graph.
           arguments: ""
 
   rust-parity:
-    # L3 process parity: the Python `repose` oracle vs the Rust binary.
-    # Scope: known-products byte-identity + Rust CLI-surface invariants
-    # (no --ssh-backend, version-line shape, all nine subcommands). Dry-run
-    # mutation and connect/accept-new parity need a containerized sshd and are
-    # deferred to the pre-cutover gate (see scripts/parity-check.sh).
+    # Golden parity: Rust known-products byte-identity vs the committed golden
+    # (tests/oracle/parity/known_products.txt) + Rust CLI-surface invariants
+    # (no --ssh-backend, version-line shape, all nine subcommands). The Python
+    # oracle was removed at cutover, so this runs golden-only.
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
-      - uses: astral-sh/setup-uv@d31148d669074a8d0a63714ba94f3201e7020bc3  # v8.3.0
-        with:
-          python-version: '3.13'
-          cache-suffix: parity
-      - name: Install Python repose (oracle)
-        run: uv sync --locked
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
       - name: Cache cargo
@@ -167,16 +82,14 @@ jobs:
           workspaces: crates -> target
       - name: Build Rust binary
         run: cargo build -p repose-cli --manifest-path crates/Cargo.toml
-      - name: Process parity (Python oracle vs Rust)
+      - name: Golden parity (Rust vs committed goldens)
         env:
-          REPOSE_PY: uv run repose
           REPOSE_RS: crates/target/debug/repose
-          PARITY_REQUIRE_PY: '1'
         run: bash scripts/parity-check.sh
 
   rust-assets-drift:
     # Regenerate the committed man pages + shell completions from the clap CLI
-    # and fail if they drift (the Rust analogue of the Python man-drift job).
+    # and fail if they drift.
     runs-on: ubuntu-latest
     timeout-minutes: 15
     defaults:
@@ -194,4 +107,3 @@ jobs:
         run: cargo run -p repose-cli --features gen --bin repose-gen -- repose-cli
       - name: Check for drift
         run: git diff --exit-code -- repose-cli/man repose-cli/completions
-

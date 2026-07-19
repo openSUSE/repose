@@ -6,7 +6,7 @@
 | **Project** | openSUSE/repose |
 | **Author** | TBD |
 | **Date** | 2026-07-17 |
-| **Status** | Draft (rev 4 — replace strategy; no dual-ship coexistence) |
+| **Status** | **CUTOVER COMPLETE (2026-07-19)** — Python removed; Rust under `crates/` is the sole implementation at version 3.0.0. Sections below are the historical design record. |
 | **Python baseline** | repose 2.1.0 (`repose/__init__.py`) |
 | **License** | GPL-3.0-or-later (unchanged) |
 | **End-state binary** | `repose` (Rust only; Python removed at cutover) |

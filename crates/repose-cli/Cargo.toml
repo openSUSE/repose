@@ -26,8 +26,8 @@ gen = ["dep:clap_complete", "dep:clap_mangen"]
 workspace = true
 
 [dependencies]
-repose-core = { path = "../repose-core", version = "0.1.0" }
-repose-ssh = { path = "../repose-ssh", version = "0.1.0" }
+repose-core = { path = "../repose-core", version = "3.0.0" }
+repose-ssh = { path = "../repose-ssh", version = "3.0.0" }
 clap = { version = "4", features = ["derive", "env"] }
 clap_complete = { version = "4", optional = true }
 clap_mangen = { version = "0.2", optional = true }
