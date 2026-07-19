@@ -135,7 +135,7 @@ pub fn parse_prod_xml(xml: &str, _filename: &str) -> Option<Product> {
     // absent, Python's fragile `find("./patchlevel").text` raises and discards the
     // baseversion (falling back to `<version>`, else None). Rust keeps the
     // baseversion as the version. Real `.prod` files always pair the two, so this
-    // only differs on malformed input (excluded from the oracle golden).
+    // only differs on malformed input (excluded from the golden vectors).
     let mut ver = if let Some(bv) = baseversion.filter(|s| !s.is_empty()) {
         let mut v = bv;
         if let Some(sp) = patchlevel {
@@ -451,12 +451,12 @@ ARCHITECTURE="x86_64"
     }
 
     #[test]
-    fn matches_oracle_parse_prod() {
+    fn matches_vector_parse_prod() {
         let raw = std::fs::read_to_string(
             std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-                .join("../../tests/oracle/product/parse_prod.json"),
+                .join("../../tests/vectors/product/parse_prod.json"),
         )
-        .expect("oracle product/parse_prod.json");
+        .expect("vector product/parse_prod.json");
         for case in serde_json::from_str::<Vec<serde_json::Value>>(&raw).unwrap() {
             let name = case["name"].as_str().unwrap();
             let xml = case["input"]["xml"].as_str().unwrap();
@@ -709,12 +709,12 @@ ARCHITECTURE="x86_64"
     }
 
     #[test]
-    fn matches_oracle_os_release() {
+    fn matches_vector_os_release() {
         let raw = std::fs::read_to_string(
             std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-                .join("../../tests/oracle/product/os_release.json"),
+                .join("../../tests/vectors/product/os_release.json"),
         )
-        .expect("oracle product/os_release.json");
+        .expect("vector product/os_release.json");
         for case in serde_json::from_str::<Vec<serde_json::Value>>(&raw).unwrap() {
             let name = case["name"].as_str().unwrap();
             let (n, v, a) = parse_os_release(case["input"]["text"].as_str().unwrap());

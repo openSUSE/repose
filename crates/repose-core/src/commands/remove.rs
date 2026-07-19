@@ -187,12 +187,12 @@ mod tests {
     }
 
     #[test]
-    fn matches_oracle_repolist() {
+    fn matches_vector_repolist() {
         let raw = std::fs::read_to_string(
             std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-                .join("../../tests/oracle/remove_match/repolist.json"),
+                .join("../../tests/vectors/remove_match/repolist.json"),
         )
-        .expect("oracle remove_match/repolist.json");
+        .expect("vector remove_match/repolist.json");
         for case in serde_json::from_str::<Vec<serde_json::Value>>(&raw).unwrap() {
             let name = case["name"].as_str().unwrap();
             let patterns: BTreeSet<String> = case["patterns"]

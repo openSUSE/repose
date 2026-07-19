@@ -50,7 +50,8 @@ Or `cd crates` and run the same commands without `--manifest-path`.
 - **Binary name:** `repose` (replace strategy; no `repose-rs`).
 
 The Python implementation was removed at cutover; behavior is pinned by the
-frozen goldens under `tests/oracle/` (see `scripts/parity-check.sh`).
+committed expected-output vectors under `tests/vectors/` (see
+`scripts/check-cli.sh`).
 
 ## Packaging (Rust)
 

@@ -1,12 +1,12 @@
-# Refhost `list-products` record/replay parity corpus
+# Refhost `list-products` record/replay corpus
 
-Offline byte-parity fixtures for `repose list-products`. Each `<label>/`
+Offline regression fixtures for `repose list-products`. Each `<label>/`
 directory is a **recorded** real reference host: its raw discovery inputs plus
-the goldens captured from the Python `repose` oracle. The Rust test
+the expected `repose` outputs. The Rust test
 [`crates/repose-core/tests/refhost_parity.rs`](../../../crates/repose-core/tests/refhost_parity.rs)
 replays every case **with no network** and asserts the rendered output matches.
 
-This locks in the list-products byte-parity — in particular the nested
+This locks in the exact list-products byte output — in particular the nested
 `<codestream><name>` fix, where the friendly codestream name must not clobber
 the canonical product `<name>` — so that regression is caught in CI.
 
@@ -18,9 +18,9 @@ the canonical product `<name>` — so that regression is caught in CI.
   baseproduct-target     # basename the /etc/products.d/baseproduct symlink resolves to
   os-release             # sanitized /etc/os-release
   transactional          # "true" / "false" (transactional-update.conf probe)
-  list-products.text     # Python oracle: `repose list-products`
-  list-products.json     # Python oracle: `repose --format json list-products`
-  list-products.yaml     # Python oracle: `repose list-products --yaml`
+  list-products.text     # expected output: `repose list-products`
+  list-products.json     # expected output: `repose --format json list-products`
+  list-products.yaml     # expected output: `repose list-products --yaml`
 ```
 
 The replay feeds the inputs through `repose_core::parse_system` (products.d
@@ -33,7 +33,7 @@ The inputs are **real** refhost data, scrubbed so no internal infrastructure
 leaks:
 
 - Every refhost hostname is replaced by the neutral `<label>` (the `:22` port is
-  kept). The label is the only host identity in the goldens.
+  kept). The label is the only host identity in the expected outputs.
 - No `zypper -x lr` data is committed — it carries internal IBS URLs. This
   corpus is scoped to `list-products` only.
 - Every `http(s)://` URL and internal host (the QA refhost domains, the
@@ -50,11 +50,12 @@ A grep for those internal-infrastructure identifiers (the QA/build domains and
 build-service paths the sanitizer strips) must find nothing under this
 directory.
 
-## Addon-order caveat (frozenset)
+## Addon-order caveat
 
-Python stores addons in a `frozenset`, so its addon **ordering** is not
-reproducible (it varies with `PYTHONHASHSEED`); Rust emits a deterministic
-sorted order. The test therefore:
+The historical Python 2.1.0 implementation stored addons in a `frozenset`, so
+the addon **ordering** in vectors recorded from it is not reproducible (it
+varied with `PYTHONHASHSEED`); Rust emits a deterministic sorted order. The
+test therefore:
 
 - compares **single-addon** cases (`<= 1` addon) byte-for-byte, and
 - compares **multi-addon** cases order-**insensitively** (sort the lines),
@@ -62,17 +63,17 @@ sorted order. The test therefore:
   `Base product:`, json `"kind": "base"`, yaml `product:` block) verbatim and
   in place — that is the specific line the codestream bug corrupted.
 
-The committed goldens keep whatever addon order the Python run emitted; only the
-comparison is order-insensitive.
+The committed vectors keep whatever addon order the original recording run
+emitted; only the comparison is order-insensitive.
 
 ## How to add a new case
 
 Every future dogfood finding should become a recorded case:
 
-1. Create `tests/oracle/refhosts/<label>/` with `products.d/*.prod`,
+1. Create `tests/vectors/refhosts/<label>/` with `products.d/*.prod`,
    `baseproduct-target`, `os-release`, and `transactional` captured from the
    host (read-only; see `capture_fixtures.sh` in the original snapshot).
-2. Capture the three Python goldens and substitute the real hostname with
+2. Record the three expected outputs and substitute the real hostname with
    `<label>` (keep `:22`):
    - `list-products.text`  = `repose list-products`
    - `list-products.json`  = `repose --format json list-products`

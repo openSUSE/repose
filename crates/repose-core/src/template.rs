@@ -168,7 +168,7 @@ mod tests {
     #[test]
     fn loads_sample_products_yml() {
         let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("../../tests/oracle/template/sample.yml");
+            .join("../../tests/vectors/template/sample.yml");
         let t = load_template(&path).unwrap();
         assert!(t.get("SLES").is_some());
         assert!(t["SLES"].get("15-SP3").is_some());

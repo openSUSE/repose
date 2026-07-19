@@ -157,7 +157,7 @@ mod tests {
     use std::path::PathBuf;
 
     fn sample_config() -> PathBuf {
-        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tests/oracle/template/sample.yml")
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tests/vectors/template/sample.yml")
     }
 
     fn system(name: &str, transactional: bool) -> System {

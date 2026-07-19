@@ -375,7 +375,7 @@ mod report_tests {
     }
 }
 
-/// L2 sequence goldens under `tests/oracle/sequences/` (Python-oracle derived).
+/// L2 sequence vectors under `tests/vectors/sequences/` (expected command sequences).
 #[cfg(test)]
 pub(crate) mod seq {
     use crate::types::ExitCode;
@@ -413,13 +413,13 @@ pub(crate) mod seq {
 
     fn load(cmd: &str) -> Vec<SeqCase> {
         let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join(format!("../../tests/oracle/sequences/{cmd}.json"));
+            .join(format!("../../tests/vectors/sequences/{cmd}.json"));
         let raw = std::fs::read_to_string(&path)
             .unwrap_or_else(|e| panic!("read {}: {e}", path.display()));
         serde_json::from_str(&raw).unwrap_or_else(|e| panic!("parse {}: {e}", path.display()))
     }
 
-    /// Load the named scenario from `tests/oracle/sequences/{cmd}.json`.
+    /// Load the named scenario from `tests/vectors/sequences/{cmd}.json`.
     pub(crate) fn case(cmd: &str, name: &str) -> SeqCase {
         load(cmd)
             .into_iter()

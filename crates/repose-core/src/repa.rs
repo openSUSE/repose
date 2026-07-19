@@ -84,13 +84,13 @@ mod tests {
     use super::*;
     use std::path::PathBuf;
 
-    fn oracle_path() -> PathBuf {
-        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tests/oracle/repa/parse.json")
+    fn vector_path() -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tests/vectors/repa/parse.json")
     }
 
     #[test]
-    fn matches_oracle_parse_json() {
-        let raw = std::fs::read_to_string(oracle_path()).expect("oracle repa/parse.json");
+    fn matches_vector_parse_json() {
+        let raw = std::fs::read_to_string(vector_path()).expect("vector repa/parse.json");
         let cases: Vec<serde_json::Value> = serde_json::from_str(&raw).unwrap();
         for case in cases {
             let input = case["input"].as_str().unwrap();

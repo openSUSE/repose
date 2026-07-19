@@ -308,9 +308,9 @@ mod tests {
     use std::path::PathBuf;
 
     #[test]
-    fn solve_repa_oracle() {
+    fn solve_repa_vector() {
         let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("../../tests/oracle/repoq/solve_repa.json");
+            .join("../../tests/vectors/repoq/solve_repa.json");
         let raw = std::fs::read_to_string(path).unwrap();
         let doc: serde_json::Value = serde_json::from_str(&raw).unwrap();
         let yaml = doc["template"].as_str().unwrap();

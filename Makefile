@@ -1,6 +1,6 @@
 # repose — Rust workspace under crates/. Convenience targets; CI runs the
 # same commands (see .github/workflows/ci.yml).
-.PHONY: build release test fmt fmt-fix clippy deny layer parity assets check install clean
+.PHONY: build release test fmt fmt-fix clippy deny layer cli assets check install clean
 
 build:        ## debug build (locked)
 	cd crates && cargo build --locked
@@ -19,11 +19,11 @@ deny:         ## dependency policy
 	cd crates && cargo deny check
 layer:        ## enforce core -/-> ssh layering
 	bash scripts/check-rust-layering.sh
-parity:       ## golden parity (Rust vs committed goldens)
-	bash scripts/parity-check.sh
+cli:          ## CLI consistency self-check vs committed expected output
+	bash scripts/check-cli.sh
 assets:       ## regenerate committed man pages + shell completions
 	cd crates && cargo run --locked -p repose-cli --features gen --bin repose-gen -- repose-cli
-check: fmt clippy test deny layer parity  ## everything CI runs
+check: fmt clippy test deny layer cli  ## everything CI runs
 install:      ## install `repose` into ~/.cargo/bin
 	cd crates && cargo install --path repose-cli --locked
 clean:

@@ -1,10 +1,10 @@
 //! Offline record/replay parity corpus for `list-products`.
 //!
-//! Each `tests/oracle/refhosts/<label>/` directory holds sanitized real
+//! Each `tests/vectors/refhosts/<label>/` directory holds sanitized real
 //! refhost discovery inputs (`products.d/*.prod`, `baseproduct-target`,
-//! `os-release`, `transactional`) plus the byte goldens captured from the
-//! Python `repose` oracle (`list-products.{text,json,yaml}`), with the real
-//! hostname neutralized to `<label>`.
+//! `os-release`, `transactional`) plus the expected byte outputs
+//! (`list-products.{text,json,yaml}`), with the real hostname neutralized
+//! to `<label>`.
 //!
 //! The test replays each case fully offline: it feeds the recorded inputs
 //! through the exact same pipeline the CLI uses — [`parse_system`] to build the
@@ -31,7 +31,7 @@ use repose_core::product_parse::{parse_system, ProdFile};
 use repose_core::types::System;
 
 fn corpus_root() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tests/oracle/refhosts")
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tests/vectors/refhosts")
 }
 
 /// Replicates `commands::list_cmd::split_key`: `host:port`, defaulting to 22.

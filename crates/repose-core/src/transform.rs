@@ -35,9 +35,9 @@ mod tests {
     use std::path::PathBuf;
 
     #[test]
-    fn matches_oracle() {
+    fn matches_vector() {
         let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("../../tests/oracle/transform/version.json");
+            .join("../../tests/vectors/transform/version.json");
         let raw = std::fs::read_to_string(path).unwrap();
         let cases: Vec<serde_json::Value> = serde_json::from_str(&raw).unwrap();
         for case in cases {

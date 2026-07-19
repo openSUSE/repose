@@ -123,7 +123,7 @@ mod tests {
     #[test]
     fn known_products_sorted() {
         let path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("../../tests/oracle/template/sample.yml");
+            .join("../../tests/vectors/template/sample.yml");
         let mut buf = Buffer::default();
         run_known_products(&path, crate::console::OutputFormat::Text, &mut buf).unwrap();
         assert!(buf.0.contains("QA") && buf.0.contains("SLES"));

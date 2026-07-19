@@ -156,7 +156,7 @@ mod tests {
     fn opts(repa: &[&str], dry: bool, no_reboot: bool) -> CommandOptions {
         CommandOptions {
             config: PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-                .join("../../tests/oracle/template/sample.yml"),
+                .join("../../tests/vectors/template/sample.yml"),
             repa: repa.iter().map(|r| Repa::parse(r).unwrap()).collect(),
             dry,
             no_reboot,

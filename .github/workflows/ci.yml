@@ -65,11 +65,10 @@ jobs:
           # Empty arguments: do not force --all-features on an empty graph.
           arguments: ""
 
-  rust-parity:
-    # Golden parity: Rust known-products byte-identity vs the committed golden
-    # (tests/oracle/parity/known_products.txt) + Rust CLI-surface invariants
-    # (no --ssh-backend, version-line shape, all nine subcommands). The Python
-    # oracle was removed at cutover, so this runs golden-only.
+  rust-cli:
+    # CLI consistency self-check: known-products byte-identity vs the committed
+    # expected output (tests/vectors/cli/known_products.txt) + CLI-surface
+    # invariants (no --ssh-backend, version-line shape, all nine subcommands).
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -82,10 +81,10 @@ jobs:
           workspaces: crates -> target
       - name: Build Rust binary
         run: cargo build --locked -p repose-cli --manifest-path crates/Cargo.toml
-      - name: Golden parity (Rust vs committed goldens)
+      - name: CLI consistency self-check
         env:
           REPOSE_RS: crates/target/debug/repose
-        run: bash scripts/parity-check.sh
+        run: bash scripts/check-cli.sh
 
   rust-assets-drift:
     # Regenerate the committed man pages + shell completions from the clap CLI

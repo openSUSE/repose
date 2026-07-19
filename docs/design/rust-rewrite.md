@@ -46,7 +46,7 @@ The Rust port:
 
 When behavior is ambiguous, resolve in this order:
 
-1. **Committed golden vectors** under `tests/oracle/` (machine-checked).
+1. **Committed golden vectors** under `tests/vectors/` (machine-checked).
 2. **Python asyncssh-path source** (`repose/aiossh.py`, `AsyncTarget`/`AsyncHostGroup`, command `_arun` bodies, CLI defaults).
 3. **This design document**.
 
@@ -155,7 +155,7 @@ Key modules and roles:
 ```
 repose/                          # Python package — ORACLE ONLY until cutover PR deletes it
 tests/                           # pytest suite — green until cutover; spec source for goldens
-tests/oracle/                    # NEW: shared golden vectors (JSON/NDJSON); survive cutover
+tests/vectors/                    # NEW: shared golden vectors (JSON/NDJSON); survive cutover
   inventory.md                   # maps pytest modules → golden files
   repa/ shell/ repoq/ reset/ ...
 crates/                          # NEW: Cargo workspace (becomes the product)
@@ -675,7 +675,7 @@ Subcommands/flags: unchanged from prior table (probe on add/install/reset; `--no
 {"event":"host_spec","host":"h","name":"h","location":["some location"],"arch":"...","product":{...},"addons":[...]}
 ```
 
-Commit example lines from Python as L1 fixtures under `tests/oracle/ndjson/`.
+Commit example lines from Python as L1 fixtures under `tests/vectors/ndjson/`.
 
 ### Progress (MVP)
 
@@ -778,7 +778,7 @@ No `products.yml` schema changes. Runtime types map 1:1 to Python. Migration is 
 
 ```mermaid
 flowchart TB
-  L1["L1: goldens in tests/oracle/<br/>generated from Python helpers"]
+  L1["L1: goldens in tests/vectors/<br/>generated from Python helpers"]
   L2["L2: Host/HostGroup mock command sequences<br/>reset/install/uninstall mandatory"]
   L3["L3: process parity Python repose vs Rust repose"]
   L4["L4: Python pytest green until cutover<br/>spec source — not run against Rust"]
@@ -793,24 +793,24 @@ flowchart TB
 - **Not** an executable Rust suite.
 - Goals claim “reuse Python tests” means: inventory their cases → goldens + L2 ports + L3 process compare.
 
-### Generator inventory (`tests/oracle/inventory.md`)
+### Generator inventory (`tests/vectors/inventory.md`)
 
 | Python source | Golden / L2 artifact |
 | --- | --- |
-| `tests/types/test_repa.py` | `tests/oracle/repa/*.json` |
-| `tests/command/test_shell_quoting.py` | `tests/oracle/shell/*.json` (**merge blocker for command PRs**) |
-| `tests/template/test_resolver.py` | `tests/oracle/repoq/*.json` |
-| `tests/template/test_loader.py` | `tests/oracle/template/*.json` |
-| `tests/target/parsers/test_product.py` | `tests/oracle/product/*.json` |
-| `tests/target/parsers/test_repository.py` | `tests/oracle/zypper_lr/*.json` |
-| `tests/types/test_transformations.py` | `tests/oracle/transform/*.json` |
-| `tests/command/test_reset.py` | `tests/oracle/sequences/reset_*.json` + L2 |
-| `tests/command/test_install.py` | `tests/oracle/sequences/install_*.json` + L2 |
-| `tests/command/test_uninstall.py` | `tests/oracle/sequences/uninstall_*.json` + L2 |
-| `tests/command/test_remove.py` | `tests/oracle/remove_match/*.json` |
+| `tests/types/test_repa.py` | `tests/vectors/repa/*.json` |
+| `tests/command/test_shell_quoting.py` | `tests/vectors/shell/*.json` (**merge blocker for command PRs**) |
+| `tests/template/test_resolver.py` | `tests/vectors/repoq/*.json` |
+| `tests/template/test_loader.py` | `tests/vectors/template/*.json` |
+| `tests/target/parsers/test_product.py` | `tests/vectors/product/*.json` |
+| `tests/target/parsers/test_repository.py` | `tests/vectors/zypper_lr/*.json` |
+| `tests/types/test_transformations.py` | `tests/vectors/transform/*.json` |
+| `tests/command/test_reset.py` | `tests/vectors/sequences/reset_*.json` + L2 |
+| `tests/command/test_install.py` | `tests/vectors/sequences/install_*.json` + L2 |
+| `tests/command/test_uninstall.py` | `tests/vectors/sequences/uninstall_*.json` + L2 |
+| `tests/command/test_remove.py` | `tests/vectors/remove_match/*.json` |
 | `tests/command/test_add.py` | L2 sequences (add + group refcmd) |
-| `tests/test_console.py` / display | `tests/oracle/ndjson/*.jsonl` |
-| `tests/test_utils.py` probe | `tests/oracle/probe/*.json` + HTTP mocks |
+| `tests/test_console.py` / display | `tests/vectors/ndjson/*.jsonl` |
+| `tests/test_utils.py` probe | `tests/vectors/probe/*.json` + HTTP mocks |
 | Dual-backend `test_backend_parity.py` | **Not ported**; replaced by L3 + Host mocks |
 
 ### L2 sequence goldens — **DoD blockers** (not optional)
@@ -946,7 +946,7 @@ flowchart TB
 | **Title** | `test(oracle): inventory map + REPA/shell golden format` |
 | **Stream** | parity |
 | **Depends on** | PR0 (soft) |
-| **Affects** | `tests/oracle/**`, generator scripts |
+| **Affects** | `tests/vectors/**`, generator scripts |
 | **Description** | `inventory.md`; REPA + shell_quoting vectors from Python; Rust loaders. |
 
 ### PR2 — Repa + shell quoting (**merge gate for commands**)
@@ -986,7 +986,7 @@ flowchart TB
 | **Title** | `feat(core): Console/Display/ExitCode + NDJSON examples` |
 | **Stream** | core |
 | **Depends on** | PR0.5 |
-| **Affects** | console/display/exit; `tests/oracle/ndjson/` |
+| **Affects** | console/display/exit; `tests/vectors/ndjson/` |
 | **Description** | Field-level schemas; None-as-success documented as bool-only. |
 
 ### PR6 — URL probe
@@ -1111,7 +1111,7 @@ flowchart TB
 | **Title** | `ci: Python repose vs Rust repose process parity` |
 | **Stream** | parity |
 | **Depends on** | PR15b (or 15a+known-products), PR1 |
-| **Affects** | CI scripts; `tests/oracle/parity/` |
+| **Affects** | CI scripts; `tests/vectors/cli/` |
 | **Description** | Dry-run mutation + known-products + NDJSON sorted-key diff; mock probe. Document sshd pre-cutover gate. |
 
 ### PR17 — Completions + man generation (Rust)
@@ -1142,7 +1142,7 @@ flowchart TB
 | **Stream** | packaging / cutover |
 | **Depends on** | DoD met; PR16 green; dogfood sign-off; PR17–PR18 |
 | **Affects** | remove `repose/` Python package, Python-only deps, Typer mangen; switch CI to cargo-only; `docs/man/` owned by Rust; README/install docs |
-| **Description** | Atomic replacement. Binary remains `repose`. No `repose` left behind. Goldens under `tests/oracle/` retained. |
+| **Description** | Atomic replacement. Binary remains `repose`. No `repose` left behind. Goldens under `tests/vectors/` retained. |
 
 ### Stretch
 

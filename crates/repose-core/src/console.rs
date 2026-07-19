@@ -187,9 +187,9 @@ mod tests {
     }
 
     #[test]
-    fn oracle_ndjson_shapes() {
+    fn ndjson_vector_shapes() {
         let path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("../../tests/oracle/ndjson/events.jsonl");
+            .join("../../tests/vectors/ndjson/events.jsonl");
         let raw = std::fs::read_to_string(path).unwrap();
         for line in raw.lines().filter(|l| !l.is_empty()) {
             let v: Value = serde_json::from_str(line).unwrap();

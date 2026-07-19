@@ -67,8 +67,8 @@ crate boundaries.
 - Add focused unit tests alongside changed modules. Command algorithms test
   against `repose_core::traits::{Host, HostGroup, Probe}` using mocks; reserve
   live transport behavior for `repose-ssh` integration tests.
-- Update committed oracle vectors in `tests/oracle/` only when Python-oracle
-  behavior changes or a documented intentional delta is approved.
+- The committed vectors in `tests/vectors/` define the binary's expected
+  output; update them only for an intentional, documented behavior change.
 - A dependency change must update `Cargo.lock`, preserve the MSRV, and pass
   `cargo deny check`. Prefer the smallest compatible version change; do not
   run a broad `cargo update` as part of an unrelated change.

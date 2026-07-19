@@ -220,7 +220,7 @@ impl Host for RusshHost {
 /// Fetch the inputs `parse_system` needs over SSH, then decide purely.
 ///
 /// All SSH lives here; all parsing/branching is in `repose_core::parse_system`,
-/// which is the behavioral oracle for the products.d / os-release / rhel6
+/// which is the behavioral reference for the products.d / os-release / rhel6
 /// discovery. `listdir` succeeding (even empty) is the SUSE path; an
 /// unresolved `baseproduct` symlink is an error (matching Python), not a
 /// silent os-release fallback.

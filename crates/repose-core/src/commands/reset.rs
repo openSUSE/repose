@@ -152,7 +152,7 @@ mod tests {
     const POOL_URL: &str = "http://example.com/15-SP3/x86_64/pool/";
 
     fn sample_config() -> PathBuf {
-        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tests/oracle/template/sample.yml")
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tests/vectors/template/sample.yml")
     }
 
     fn sles_system() -> System {

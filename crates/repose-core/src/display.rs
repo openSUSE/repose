@@ -11,7 +11,7 @@ use crate::types::{Product, Repositories, Repository, System};
 /// Python stores addons in a `frozenset`, so its iteration order is
 /// randomized per process (PYTHONHASHSEED) and is NOT reproducible. We emit a
 /// stable sorted order instead; every field except the addon *ordering* is
-/// byte-identical to the Python oracle.
+/// byte-identical to the historical Python 2.1.0 output.
 fn sorted_addons(system: &System) -> Vec<&Product> {
     let mut addons: Vec<&Product> = system.get_addons().iter().collect();
     addons.sort_by(|a, b| {

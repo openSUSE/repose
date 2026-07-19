@@ -1,7 +1,7 @@
 //! POSIX shell quoting matching Python `shlex.quote` / `shlex.join`.
 //!
-//! Goldens under `tests/oracle/shell/` are generated from CPython and are
-//! the merge gate for any remote command interpolation (design R2 / PR2).
+//! Vectors under `tests/vectors/shell/` capture CPython `shlex` behavior and
+//! are the merge gate for any remote command interpolation (design R2 / PR2).
 
 /// Python 3 `shlex.quote` uses `_find_unsafe = re.compile(r'[^\w@%+=:,./-]', re.ASCII)`.
 fn is_safe_char(c: char) -> bool {
@@ -115,15 +115,15 @@ mod tests {
     use super::*;
     use std::path::PathBuf;
 
-    fn oracle(name: &str) -> PathBuf {
+    fn vector(name: &str) -> PathBuf {
         PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("../../tests/oracle/shell")
+            .join("../../tests/vectors/shell")
             .join(name)
     }
 
     #[test]
-    fn quote_matches_oracle() {
-        let raw = std::fs::read_to_string(oracle("quote.json")).unwrap();
+    fn quote_matches_vector() {
+        let raw = std::fs::read_to_string(vector("quote.json")).unwrap();
         let cases: Vec<serde_json::Value> = serde_json::from_str(&raw).unwrap();
         for case in cases {
             let input = case["input"].as_str().unwrap();
@@ -133,8 +133,8 @@ mod tests {
     }
 
     #[test]
-    fn join_matches_oracle() {
-        let raw = std::fs::read_to_string(oracle("join.json")).unwrap();
+    fn join_matches_vector() {
+        let raw = std::fs::read_to_string(vector("join.json")).unwrap();
         let v: serde_json::Value = serde_json::from_str(&raw).unwrap();
         let parts: Vec<&str> = v["parts"]
             .as_array()
@@ -147,8 +147,8 @@ mod tests {
     }
 
     #[test]
-    fn command_templates_match_oracle() {
-        let raw = std::fs::read_to_string(oracle("command_templates.json")).unwrap();
+    fn command_templates_match_vector() {
+        let raw = std::fs::read_to_string(vector("command_templates.json")).unwrap();
         let expected: serde_json::Value = serde_json::from_str(&raw).unwrap();
         let evil_name = "evil repo's name";
         let evil_url = "http://mirror.example.com/dist path/?foo=1&bar=2";

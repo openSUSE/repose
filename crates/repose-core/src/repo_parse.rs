@@ -174,12 +174,12 @@ mod tests {
     }
 
     #[test]
-    fn matches_oracle_parse() {
+    fn matches_vector_parse() {
         let raw = std::fs::read_to_string(
             std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-                .join("../../tests/oracle/zypper_lr/parse.json"),
+                .join("../../tests/vectors/zypper_lr/parse.json"),
         )
-        .expect("oracle zypper_lr/parse.json");
+        .expect("vector zypper_lr/parse.json");
         for case in serde_json::from_str::<Vec<serde_json::Value>>(&raw).unwrap() {
             let name = case["name"].as_str().unwrap();
             let xml = case["xml"].as_str().unwrap();
