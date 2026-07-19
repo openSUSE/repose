@@ -180,8 +180,7 @@ fn push_version(s: &mut String, v: &Value, indent: &str) {
 /// Hand-rolled to byte-match ruamel's safe dumper: `---`/`...` document
 /// markers, alphabetically sorted top-level keys (addons, arch, location,
 /// name, product), version leaves run through `transform_version_partialy`.
-/// The addon list order is sorted (see [`sorted_addons`]); Python's is a
-/// non-reproducible `frozenset` order.
+/// The addon list order is sorted (see [`sorted_addons`]).
 pub fn list_products_yaml<W: Write>(
     out: &mut W,
     hostname: &str,

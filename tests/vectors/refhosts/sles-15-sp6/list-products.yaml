@@ -1,22 +1,6 @@
 ---
 addons:
-- name: sle-module-server-applications
-  version:
-    major: 15
-    minor: SP6
-- name: sle-module-development-tools-obs
-  version:
-    major: 15
-    minor: SP6
-- name: sle-we
-  version:
-    major: 15
-    minor: SP6
-- name: sle-module-basesystem
-  version:
-    major: 15
-    minor: SP6
-- name: sle-module-web-scripting
+- name: PackageHub
   version:
     major: 15
     minor: SP6
@@ -24,19 +8,7 @@ addons:
   version:
     major: 15
     minor: SP6
-- name: sle-module-development-tools
-  version:
-    major: 15
-    minor: SP6
-- name: sle-module-public-cloud
-  version:
-    major: 15
-    minor: SP6
-- name: sle-module-desktop-applications
-  version:
-    major: 15
-    minor: SP6
-- name: sle-module-python3
+- name: qa
   version:
     major: 15
     minor: SP6
@@ -44,11 +16,7 @@ addons:
   version:
     major: 15
     minor: SP6
-- name: sle-module-hpc
-  version:
-    major: 15
-    minor: SP6
-- name: PackageHub
+- name: sle-module-basesystem
   version:
     major: 15
     minor: SP6
@@ -56,11 +24,43 @@ addons:
   version:
     major: 15
     minor: SP6
-- name: qa
+- name: sle-module-desktop-applications
+  version:
+    major: 15
+    minor: SP6
+- name: sle-module-development-tools
+  version:
+    major: 15
+    minor: SP6
+- name: sle-module-development-tools-obs
+  version:
+    major: 15
+    minor: SP6
+- name: sle-module-hpc
   version:
     major: 15
     minor: SP6
 - name: sle-module-legacy
+  version:
+    major: 15
+    minor: SP6
+- name: sle-module-public-cloud
+  version:
+    major: 15
+    minor: SP6
+- name: sle-module-python3
+  version:
+    major: 15
+    minor: SP6
+- name: sle-module-server-applications
+  version:
+    major: 15
+    minor: SP6
+- name: sle-module-web-scripting
+  version:
+    major: 15
+    minor: SP6
+- name: sle-we
   version:
     major: 15
     minor: SP6

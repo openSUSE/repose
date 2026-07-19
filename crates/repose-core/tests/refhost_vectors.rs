@@ -1,23 +1,39 @@
-//! Offline record/replay parity corpus for `list-products`.
+//! Offline record/replay regression vectors for `list-products` and
+//! `list-repos`.
 //!
 //! Each `tests/vectors/refhosts/<label>/` directory holds sanitized real
 //! refhost discovery inputs (`products.d/*.prod`, `baseproduct-target`,
-//! `os-release`, `transactional`) plus the expected byte outputs
-//! (`list-products.{text,json,yaml}`), with the real hostname neutralized
-//! to `<label>`.
+//! `os-release`, `transactional`, and optionally `zypper-x-lr.xml`) plus the
+//! expected byte outputs (`list-products.{text,json,yaml}` and, when the
+//! zypper XML input is present, `list-repos.{text,json}`), with the real
+//! hostname neutralized to `<label>`.
 //!
 //! The test replays each case fully offline: it feeds the recorded inputs
 //! through the exact same pipeline the CLI uses — [`parse_system`] to build the
 //! `System`, then the [`TextDisplay`] / [`JsonDisplay`] / [`list_products_yaml`]
-//! renderers keyed by host `<label>:22` — and compares against the goldens.
-//! This locks in the list-products byte-parity (notably the nested
-//! `<codestream><name>` fix) with no network access.
+//! renderers keyed by host `<label>:22`; and, for cases that recorded a
+//! `zypper -x lr` capture, [`parse_repositories`] (the same pure fn the live
+//! `read_repos` path in `repose-ssh::host` calls) into the `list_repos`
+//! renderers — and compares against the goldens. This locks in the
+//! list-products byte-parity (notably the nested `<codestream><name>` fix)
+//! and the list-repos rendering with no network access. Cases without
+//! `zypper-x-lr.xml` simply skip the list-repos half.
 //!
-//! Python stores addons in a `frozenset`, so its addon *ordering* is not
-//! reproducible; Rust emits a deterministic sorted order. Cases with >= 2
-//! addons are therefore compared order-insensitively — as sorted lines for
+//! Golden regeneration (the capture workflow): run with `UPDATE_VECTORS=1`
+//! and the test WRITES the freshly rendered outputs as the expected files
+//! (printing one `updated <label>/<file>` line per write) before asserting —
+//! trivially green. Drop sanitized inputs into a new `<label>/` directory,
+//! run `UPDATE_VECTORS=1 cargo test -p repose-core --test refhost_vectors`,
+//! review the diff, commit. `REFHOST_VECTORS_ROOT` overrides the corpus root
+//! (useful for exercising regeneration on a scratch copy).
+//!
+//! Output ordering is deterministic (addons sorted by name/version/arch),
+//! so every format is compared by exact byte equality.
+//! (historical note: the old order-insensitive compare — sorted lines for
 //! text/json (self-contained lines), and as a set of complete `- name:`
-//! addon blocks for yaml (so name/version cross-attribution between addons
+//! addon blocks for yaml — was only needed while goldens carried Python's
+//! random frozenset order; goldens are now recorded in repose's own order.)
+//! (so name/version cross-attribution between addons
 //! still fails) — while the base-product structural line, the one the
 //! codestream bug corrupted, is additionally asserted verbatim and at its
 //! exact line position, and total byte length plus trailing newline must
@@ -28,10 +44,37 @@ use std::path::{Path, PathBuf};
 
 use repose_core::display::{list_products_yaml, CommandDisplay, JsonDisplay, TextDisplay};
 use repose_core::product_parse::{parse_system, ProdFile};
-use repose_core::types::System;
+use repose_core::repo_parse::parse_repositories;
+use repose_core::types::{Repository, System};
 
 fn corpus_root() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tests/vectors/refhosts")
+    match std::env::var_os("REFHOST_VECTORS_ROOT") {
+        Some(root) => PathBuf::from(root),
+        None => PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tests/vectors/refhosts"),
+    }
+}
+
+/// `UPDATE_VECTORS=1` switches the run from asserting to regenerating goldens.
+fn update_mode() -> bool {
+    std::env::var("UPDATE_VECTORS").as_deref() == Ok("1")
+}
+
+/// Read the golden `file` for a case. In UPDATE mode, first overwrite it with
+/// the freshly `rendered` bytes (announcing the write), so the subsequent
+/// comparison is trivially green and a brand-new `<label>/` needs no
+/// hand-written goldens.
+fn golden(dir: &Path, label: &str, file: &str, rendered: &str) -> String {
+    let path = dir.join(file);
+    if update_mode() {
+        fs::write(&path, rendered).unwrap_or_else(|e| panic!("write {}: {e}", path.display()));
+        println!("updated {label}/{file}");
+    }
+    fs::read_to_string(&path).unwrap_or_else(|e| {
+        panic!(
+            "golden {}: {e}\n(hint: UPDATE_VECTORS=1 regenerates expected outputs)",
+            path.display()
+        )
+    })
 }
 
 /// Replicates `commands::list_cmd::split_key`: `host:port`, defaulting to 22.
@@ -108,6 +151,22 @@ fn render_yaml(hostname: &str, sys: &System) -> String {
     String::from_utf8(out).unwrap()
 }
 
+fn render_repos_text(hostname: &str, port: u16, repos: &[Repository]) -> String {
+    let mut out = Vec::new();
+    TextDisplay { output: &mut out }
+        .list_repos(hostname, port, repos)
+        .unwrap();
+    String::from_utf8(out).unwrap()
+}
+
+fn render_repos_json(hostname: &str, port: u16, repos: &[Repository]) -> String {
+    let mut out = Vec::new();
+    JsonDisplay { output: &mut out }
+        .list_repos(hostname, port, repos)
+        .unwrap();
+    String::from_utf8(out).unwrap()
+}
+
 /// The base-product structural line/block for a format — the specific bytes
 /// the nested `<codestream><name>` bug corrupted — plus its LINE POSITION, so
 /// a rendering that emits the right bytes in the wrong place (e.g. base after
@@ -115,154 +174,23 @@ fn render_yaml(hostname: &str, sys: &System) -> String {
 /// path: addon reordering never moves the base marker (text/json put the base
 /// first; in yaml every addon occupies the same number of lines regardless of
 /// order, and `product:` follows the whole addons section).
-fn base_marker(fmt: &str, s: &str) -> (usize, String) {
-    match fmt {
-        "text" => {
-            let (pos, line) = s
-                .lines()
-                .enumerate()
-                .find(|(_, l)| l.starts_with("  Base product:"))
-                .expect("text base-product line");
-            (pos, line.to_string())
-        }
-        "json" => {
-            let (pos, line) = s
-                .lines()
-                .enumerate()
-                .find(|(_, l)| l.contains("\"kind\": \"base\""))
-                .expect("json base object");
-            (pos, line.to_string())
-        }
-        "yaml" => {
-            let lines: Vec<&str> = s.lines().collect();
-            let start = lines
-                .iter()
-                .position(|l| *l == "product:")
-                .expect("yaml product: block");
-            let mut block = vec![lines[start]];
-            for l in &lines[start + 1..] {
-                if l.starts_with(' ') {
-                    block.push(l);
-                } else {
-                    break;
-                }
-            }
-            (start, block.join("\n"))
-        }
-        other => panic!("unknown format {other}"),
-    }
-}
-
-/// Split a rendered YAML document into (head, addon blocks, tail): head is
-/// everything through the `addons:` key, each block is one complete
-/// `- name:`-rooted addon entry (its lines in order), tail is everything from
-/// the first following top-level key (`arch:`) onward.
-fn split_yaml_addons(s: &str) -> (Vec<&str>, Vec<String>, Vec<&str>) {
-    let lines: Vec<&str> = s.lines().collect();
-    let Some(start) = lines.iter().position(|l| *l == "addons:") else {
-        // "addons: []" (or no addons key at all): nothing to chunk.
-        return (lines, vec![], vec![]);
-    };
-    let mut blocks: Vec<Vec<&str>> = Vec::new();
-    let mut i = start + 1;
-    while i < lines.len() {
-        let l = lines[i];
-        if l.starts_with("- ") {
-            blocks.push(vec![l]);
-        } else if l.starts_with(' ') {
-            blocks
-                .last_mut()
-                .expect("addon continuation line before any '- name:' entry")
-                .push(l);
-        } else {
-            break;
-        }
-        i += 1;
-    }
-    (
-        lines[..=start].to_vec(),
-        blocks.into_iter().map(|b| b.join("\n")).collect(),
-        lines[i..].to_vec(),
-    )
-}
-
-/// Order-insensitive yaml compare that keeps addon entries INTACT: the head
-/// and tail must match verbatim, and the addons section must contain the same
-/// SET of complete `- name:` blocks (each block's internal line order
-/// preserved), so cross-attributing one addon's version to another's name
-/// fails even though the flat line multiset would be identical.
-fn yaml_addon_set_eq(golden: &str, actual: &str) -> bool {
-    let (g_head, mut g_blocks, g_tail) = split_yaml_addons(golden);
-    let (a_head, mut a_blocks, a_tail) = split_yaml_addons(actual);
-    g_blocks.sort_unstable();
-    a_blocks.sort_unstable();
-    g_head == a_head && g_blocks == a_blocks && g_tail == a_tail
-}
-
-fn sorted_lines(s: &str) -> Vec<&str> {
-    let mut v: Vec<&str> = s.lines().collect();
-    v.sort_unstable();
-    v
-}
-
-fn fail(label: &str, fmt: &str, mode: &str, expected: &str, actual: &str) -> ! {
-    let exp = sorted_lines(expected);
-    let act = sorted_lines(actual);
-    let only_expected: Vec<&str> = exp.iter().filter(|l| !act.contains(*l)).copied().collect();
-    let only_actual: Vec<&str> = act.iter().filter(|l| !exp.contains(*l)).copied().collect();
+fn fail(label: &str, fmt: &str, expected: &str, actual: &str) -> ! {
     panic!(
-        "\nrefhost parity MISMATCH [{label}] {fmt} ({mode})\n\
-         --- lines only in golden (expected) ---\n{}\n\
-         --- lines only in rendered (actual) ---\n{}\n\
-         --- full expected ---\n{expected}\n--- full actual ---\n{actual}",
-        only_expected.join("\n"),
-        only_actual.join("\n"),
+        "\nrefhost vector MISMATCH [{label}] {fmt}\n\
+         --- expected ---\n{expected}\n--- actual ---\n{actual}"
     );
 }
 
-fn check(label: &str, fmt: &str, golden: &str, actual: &str, addon_count: usize) {
-    // Whole-file shape first: byte length and trailing newline must always
-    // match — `lines()`-based comparison alone would miss a lost final `\n`
-    // or duplicated/merged whitespace.
-    assert_eq!(
-        golden.len(),
-        actual.len(),
-        "\nrefhost parity BYTE-LENGTH MISMATCH [{label}] {fmt}\n\
-         --- full expected ---\n{golden}\n--- full actual ---\n{actual}"
-    );
-    assert_eq!(
-        golden.ends_with('\n'),
-        actual.ends_with('\n'),
-        "refhost parity TRAILING-NEWLINE MISMATCH [{label}] {fmt}"
-    );
-
-    // >= 2 addons: Python frozenset order is non-reproducible, so compare
-    // order-insensitively — whole addon blocks for yaml, lines for text/json
-    // (whose lines are self-contained) — then pin the base-product marker
-    // verbatim AND at its position. 0/1 addon: the output is deterministic,
-    // so require exact byte-equality.
-    if addon_count >= 2 {
-        if fmt == "yaml" {
-            if !yaml_addon_set_eq(golden, actual) {
-                fail(label, fmt, "yaml-blocks", golden, actual);
-            }
-        } else if sorted_lines(golden) != sorted_lines(actual) {
-            fail(label, fmt, "sorted", golden, actual);
-        }
-        let ((g_pos, g), (a_pos, a)) = (base_marker(fmt, golden), base_marker(fmt, actual));
-        if g != a || g_pos != a_pos {
-            panic!(
-                "\nrefhost parity BASE-PRODUCT MISMATCH [{label}] {fmt}\n\
-                 expected (line {g_pos}): {g:?}\n  actual (line {a_pos}): {a:?}"
-            );
-        }
-    } else if golden != actual {
-        fail(label, fmt, "raw", golden, actual);
+fn check(label: &str, fmt: &str, golden: &str, actual: &str) {
+    // Deterministic output is the contract (addons are emitted in sorted
+    // order), so every format is compared by exact byte equality.
+    if golden != actual {
+        fail(label, fmt, golden, actual);
     }
 }
 
 #[test]
-fn refhost_list_products_parity() {
+fn refhost_vectors_parity() {
     let root = corpus_root();
     let mut labels: Vec<PathBuf> = fs::read_dir(&root)
         .unwrap_or_else(|_| panic!("corpus root {}", root.display()))
@@ -282,32 +210,38 @@ fn refhost_list_products_parity() {
         let (hostname, port) = split_key(&key);
 
         let sys = replay(dir);
-        let addon_count = sys.get_addons().len();
 
-        let text_golden = fs::read_to_string(dir.join("list-products.text")).unwrap();
-        let json_golden = fs::read_to_string(dir.join("list-products.json")).unwrap();
-        let yaml_golden = fs::read_to_string(dir.join("list-products.yaml")).unwrap();
+        let text = render_text(hostname, port, &sys);
+        let json = render_json(hostname, port, &sys);
+        let yaml = render_yaml(hostname, &sys);
 
-        check(
-            &label,
-            "text",
-            &text_golden,
-            &render_text(hostname, port, &sys),
-            addon_count,
-        );
-        check(
-            &label,
-            "json",
-            &json_golden,
-            &render_json(hostname, port, &sys),
-            addon_count,
-        );
-        check(
-            &label,
-            "yaml",
-            &yaml_golden,
-            &render_yaml(hostname, &sys),
-            addon_count,
-        );
+        let text_golden = golden(dir, &label, "list-products.text", &text);
+        let json_golden = golden(dir, &label, "list-products.json", &json);
+        let yaml_golden = golden(dir, &label, "list-products.yaml", &yaml);
+
+        check(&label, "text", &text_golden, &text);
+        check(&label, "json", &json_golden, &json);
+        check(&label, "yaml", &yaml_golden, &yaml);
+
+        // list-repos half: only for cases that recorded `zypper -x lr` XML
+        // (older cases are list-products-only and skip this silently). The
+        // XML goes through `parse_repositories` — the same pure fn the live
+        // `repose-ssh::host::read_repos` path feeds — and repo order from the
+        // XML is deterministic, so the compare is raw byte-equality
+        let lr_path = dir.join("zypper-x-lr.xml");
+        if lr_path.exists() {
+            let lr_xml = fs::read_to_string(&lr_path)
+                .unwrap_or_else(|e| panic!("read {}: {e}", lr_path.display()));
+            let repos = parse_repositories(&lr_xml);
+
+            let repos_text = render_repos_text(hostname, port, &repos);
+            let repos_json = render_repos_json(hostname, port, &repos);
+
+            let repos_text_golden = golden(dir, &label, "list-repos.text", &repos_text);
+            let repos_json_golden = golden(dir, &label, "list-repos.json", &repos_json);
+
+            check(&label, "repos-text", &repos_text_golden, &repos_text);
+            check(&label, "repos-json", &repos_json_golden, &repos_json);
+        }
     }
 }

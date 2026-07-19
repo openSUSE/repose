@@ -1,7 +1,7 @@
 [
   {
     "name": "live_success",
-    "description": "SLES 15-SP3 host, current repos present, all replacements probe live. Python emits rr aliases and ar commands in nondeterministic set-iteration order; Rust applies the stable-sort delta, so aliases sort ascending and full ar strings sort (params-first: -cfkn update before -ckn pool). Order is zypper-irrelevant.",
+    "description": "SLES 15-SP3 host, current repos present, all replacements probe live. repose emits rr aliases and ar commands in nondeterministic set-iteration order; Rust applies the stable-sort delta, so aliases sort ascending and full ar strings sort (params-first: -cfkn update before -ckn pool). Order is zypper-irrelevant.",
     "exit": "ok",
     "ran": [
       "zypper -n rr existing-repo1 existing-repo2",
