@@ -75,7 +75,7 @@ jobs:
         with:
           workspaces: . -> target
       - name: Install cargo-llvm-cov
-        uses: taiki-e/install-action@d0f4f69b07c0804d1003ca9a5a5f853423872ed9  # v2.62.13
+        uses: taiki-e/install-action@07b4745e0c39a41822af610387492e3e53aa222b  # v2.83.4
         with:
           tool: cargo-llvm-cov@0.8.7
       - name: Test with OpenSSH and enforce coverage ratchet
@@ -144,7 +144,7 @@ jobs:
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
       - name: Install Rust toolchain (MSRV)
-        uses: dtolnay/rust-toolchain@1.96
+        uses: dtolnay/rust-toolchain@1.100
       - name: Cache cargo
         uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32  # v2
         with:
