@@ -1,0 +1,40 @@
+Repositories on sled-15-sp6:22
+REPO name: QA SLE 15 SP6 - zabbix
+REPO URL: https://example.invalid/scrubbed/QA:/SLE15SP6/update/
+REPO name: SLED:15-SP6::pool
+REPO URL: https://example.invalid/scrubbed/SUSE/Products/SLE-Product-SLED/15-SP6/x86_64/product/
+REPO name: SLED:15-SP6::update
+REPO URL: https://example.invalid/scrubbed/SUSE/Updates/SLE-Product-SLED/15-SP6/x86_64/update/
+REPO name: SLES-LTSS:15-SP6::update
+REPO URL: https://example.invalid/scrubbed/SUSE/Updates/SLE-Product-SLES/15-SP6-LTSS/x86_64/update/
+REPO name: Zabbix Official Repository
+REPO URL: https://example.invalid/zabbix/6.4/sles/15/x86_64/
+REPO name: qa:15-SP6::pool
+REPO URL: https://example.invalid/scrubbed/QA:/SLE15SP6/update/
+REPO name: sle-module-basesystem:15-SP6::pool
+REPO URL: https://example.invalid/scrubbed/SUSE/Products/SLE-Module-Basesystem/15-SP6/x86_64/product/
+REPO name: sle-module-basesystem:15-SP6::update
+REPO URL: https://example.invalid/scrubbed/SUSE/Updates/SLE-Module-Basesystem/15-SP6/x86_64/update/
+REPO name: sle-module-containers:15-SP6::pool
+REPO URL: https://example.invalid/scrubbed/SUSE/Products/SLE-Module-Containers/15-SP6/x86_64/product/
+REPO name: sle-module-containers:15-SP6::update
+REPO URL: https://example.invalid/scrubbed/SUSE/Updates/SLE-Module-Containers/15-SP6/x86_64/update/
+REPO name: sle-module-desktop-applications:15-SP6::pool
+REPO URL: https://example.invalid/scrubbed/SUSE/Products/SLE-Module-Desktop-Applications/15-SP6/x86_64/product/
+REPO name: sle-module-desktop-applications:15-SP6::update
+REPO URL: https://example.invalid/scrubbed/SUSE/Updates/SLE-Module-Desktop-Applications/15-SP6/x86_64/update/
+REPO name: sle-module-development-tools:15-SP6::pool
+REPO URL: https://example.invalid/scrubbed/SUSE/Products/SLE-Module-Development-Tools/15-SP6/x86_64/product/
+REPO name: sle-module-development-tools:15-SP6::update
+REPO URL: https://example.invalid/scrubbed/SUSE/Updates/SLE-Module-Development-Tools/15-SP6/x86_64/update/
+REPO name: sle-module-python3:15-SP6::pool
+REPO URL: https://example.invalid/scrubbed/SUSE/Products/SLE-Module-Python3/15-SP6/x86_64/product/
+REPO name: sle-module-python3:15-SP6::update
+REPO URL: https://example.invalid/scrubbed/SUSE/Updates/SLE-Module-Python3/15-SP6/x86_64/update/
+REPO name: sle-we:15-SP6::pool
+REPO URL: https://example.invalid/scrubbed/SUSE/Products/SLE-Product-WE/15-SP6/x86_64/product/
+REPO name: sle-we:15-SP6::update
+REPO URL: https://example.invalid/scrubbed/SUSE/Updates/SLE-Product-WE/15-SP6/x86_64/update/
+REPO name: Zabbix 7.4 for SLES 15 - UPSTREAM
+REPO URL: https://example.invalid/zabbix/7.4/stable/sles/15/x86_64/
+

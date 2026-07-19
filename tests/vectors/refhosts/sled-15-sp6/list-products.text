@@ -1,0 +1,12 @@
+Host: sled-15-sp6:22
+  Base product: SLED-15-SP6-x86_64
+  Installed Extensions and Modules:
+      Addon: SLES-LTSS                                             - version: 15-SP6
+      Addon: qa                                                    - version: 15-SP6
+      Addon: sle-module-basesystem                                 - version: 15-SP6
+      Addon: sle-module-containers                                 - version: 15-SP6
+      Addon: sle-module-desktop-applications                       - version: 15-SP6
+      Addon: sle-module-development-tools                          - version: 15-SP6
+      Addon: sle-module-python3                                    - version: 15-SP6
+      Addon: sle-we                                                - version: 15-SP6
+

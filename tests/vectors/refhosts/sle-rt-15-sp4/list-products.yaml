@@ -1,0 +1,40 @@
+---
+addons:
+- name: SLES-LTSS
+  version:
+    major: 15
+    minor: SP4
+- name: qa
+  version:
+    major: 15
+    minor: SP4
+- name: sle-module-basesystem
+  version:
+    major: 15
+    minor: SP4
+- name: sle-module-desktop-applications
+  version:
+    major: 15
+    minor: SP4
+- name: sle-module-development-tools
+  version:
+    major: 15
+    minor: SP4
+- name: sle-module-rt
+  version:
+    major: 15
+    minor: SP4
+- name: sle-module-server-applications
+  version:
+    major: 15
+    minor: SP4
+arch: x86_64
+location:
+- some location
+name: sle-rt-15-sp4
+product:
+  name: SLE_RT
+  version:
+    major: 15
+    minor: SP4
+...

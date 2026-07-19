@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<product schemeversion="0">
+  <vendor>SUSE</vendor>
+  <name>sle-module-python3</name>
+  <version>15.5</version>
+  <baseversion>15</baseversion>
+  <patchlevel>5</patchlevel>
+  <release>0</release>
+  <endoflife>2026-12-31</endoflife>
+  <arch>x86_64</arch>
+  <cpeid>cpe:/o:suse:sle-module-python3:15:sp5</cpeid>
+  <productline>sle-module-python3</productline>
+  <register>
+      <target>sle-15-x86_64</target>
+    <flavor>module</flavor>
+  </register>
+  <repositories>
+      <repository type="update" repoid="obsrepository://example.invalid/scrubbed" />
+      <repository type="update" repoid="obsrepository://example.invalid/scrubbed" />
+      <repository type="pool" repoid="obsproduct://example.invalid/SUSE:Products:SLE-Module-Python3:15-SP5:x86_64/sle-module-python3/15.5/x86_64" />
+  </repositories>
+  <summary>Python 3 Module</summary>
+  <shortsummary>Python 3-Module</shortsummary>
+  <description>&lt;p&gt;
+        This module contains the Python 3 packages.
+        &lt;/p&gt;
+        &lt;p&gt;
+          Access to the Python 3 Module is included in your SUSE Linux Enterprise
+          subscription. The module has a different lifecycle than SUSE Linux
+          Enterprise itself; please check the Release Notes for further details.
+        &lt;/p&gt;</description>
+  <urls>
+    <url name="bugtracker">https://example.invalid/</url>
+  </urls>
+  <buildconfig>
+    <producttheme>SLES</producttheme>
+  </buildconfig>
+  <installconfig>
+    <defaultlang>en_US</defaultlang>
+    <releasepackage name="sle-module-python3-release" flag="EQ" version="15.5" release="150500.43.2"/>
+    <distribution>SUSE_SLE</distribution>
+  </installconfig>
+  <runtimeconfig/>
+  <productdependency relationship="requires" name="SUSE_SLE" baseversion="15" patchlevel="5" flag="GE"/>
+  <productdependency relationship="requires" name="sle-module-basesystem" baseversion="15" patchlevel="5" flag="GE"/>
+</product>
+

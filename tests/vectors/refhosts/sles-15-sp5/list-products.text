@@ -1,0 +1,21 @@
+Host: sles-15-sp5:22
+  Base product: SLES-15-SP5-x86_64
+  Installed Extensions and Modules:
+      Addon: PackageHub                                            - version: 15-SP5
+      Addon: SLES-LTSS                                             - version: 15-SP5
+      Addon: qa                                                    - version: 15-SP5
+      Addon: sle-ha                                                - version: 15-SP5
+      Addon: sle-module-basesystem                                 - version: 15-SP5
+      Addon: sle-module-containers                                 - version: 15-SP5
+      Addon: sle-module-desktop-applications                       - version: 15-SP5
+      Addon: sle-module-development-tools                          - version: 15-SP5
+      Addon: sle-module-hpc                                        - version: 15-SP5
+      Addon: sle-module-legacy                                     - version: 15-SP5
+      Addon: sle-module-live-patching                              - version: 15-SP5
+      Addon: sle-module-public-cloud                               - version: 15-SP5
+      Addon: sle-module-python3                                    - version: 15-SP5
+      Addon: sle-module-sap-applications                           - version: 15-SP5
+      Addon: sle-module-server-applications                        - version: 15-SP5
+      Addon: sle-module-web-scripting                              - version: 15-SP5
+      Addon: sle-we                                                - version: 15-SP5
+

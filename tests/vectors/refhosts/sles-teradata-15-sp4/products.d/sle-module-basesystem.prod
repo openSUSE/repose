@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<product schemeversion="0">
+  <vendor>SUSE</vendor>
+  <name>sle-module-basesystem</name>
+  <version>15.4</version>
+  <baseversion>15</baseversion>
+  <patchlevel>4</patchlevel>
+  <release>0</release>
+  <endoflife></endoflife>
+  <arch>x86_64</arch>
+  <cpeid>cpe:/o:suse:sle-module-basesystem:15:sp4</cpeid>
+  <productline>sle-module-basesystem</productline>
+  <register>
+      <target>sle-15-x86_64</target>
+    <flavor>module</flavor>
+  </register>
+  <repositories>
+      <repository type="update" repoid="obsrepository://example.invalid/scrubbed" />
+      <repository type="update" repoid="obsrepository://example.invalid/scrubbed" />
+      <repository type="pool" repoid="obsproduct://example.invalid/SUSE:Products:SLE-Module-Basesystem:15-SP4:x86_64/sle-module-basesystem/15.4/x86_64" />
+  </repositories>
+  <summary>Basesystem Module</summary>
+  <shortsummary>Basesystem-Module</shortsummary>
+  <description>&lt;p&gt;
+  The SUSE Linux Enterprise Basesystem Module delivers the base system of
+  the product.
+  &lt;/p&gt;</description>
+  <urls>
+    <url name="bugtracker">https://example.invalid/</url>
+  </urls>
+  <buildconfig>
+    <producttheme>SLES</producttheme>
+  </buildconfig>
+  <installconfig>
+    <defaultlang>en_US</defaultlang>
+    <releasepackage name="sle-module-basesystem-release" flag="EQ" version="15.4" release="150400.55.1"/>
+    <distribution>SUSE_SLE</distribution>
+  </installconfig>
+  <runtimeconfig/>
+  <productdependency relationship="requires" name="SUSE_SLE" baseversion="15" patchlevel="4" flag="GE"/>
+</product>
+

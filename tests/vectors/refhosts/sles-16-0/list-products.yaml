@@ -1,0 +1,16 @@
+---
+addons:
+- name: qa
+  version:
+    major: 16
+    minor: 0
+arch: x86_64
+location:
+- some location
+name: sles-16-0
+product:
+  name: SLES
+  version:
+    major: 16
+    minor: 0
+...

@@ -1,0 +1,5 @@
+Host: sles-16-0:22
+  Base product: SLES-16.0-x86_64
+  Installed Extensions and Modules:
+      Addon: qa                                                    - version: 16.0
+

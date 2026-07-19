@@ -1,0 +1,9 @@
+{"event": "product", "host": "sled-15-sp6", "port": 22, "kind": "base", "name": "SLED", "version": "15-SP6", "arch": "x86_64"}
+{"event": "product", "host": "sled-15-sp6", "port": 22, "kind": "addon", "name": "SLES-LTSS", "version": "15-SP6", "arch": "x86_64"}
+{"event": "product", "host": "sled-15-sp6", "port": 22, "kind": "addon", "name": "qa", "version": "15-SP6", "arch": "x86_64"}
+{"event": "product", "host": "sled-15-sp6", "port": 22, "kind": "addon", "name": "sle-module-basesystem", "version": "15-SP6", "arch": "x86_64"}
+{"event": "product", "host": "sled-15-sp6", "port": 22, "kind": "addon", "name": "sle-module-containers", "version": "15-SP6", "arch": "x86_64"}
+{"event": "product", "host": "sled-15-sp6", "port": 22, "kind": "addon", "name": "sle-module-desktop-applications", "version": "15-SP6", "arch": "x86_64"}
+{"event": "product", "host": "sled-15-sp6", "port": 22, "kind": "addon", "name": "sle-module-development-tools", "version": "15-SP6", "arch": "x86_64"}
+{"event": "product", "host": "sled-15-sp6", "port": 22, "kind": "addon", "name": "sle-module-python3", "version": "15-SP6", "arch": "x86_64"}
+{"event": "product", "host": "sled-15-sp6", "port": 22, "kind": "addon", "name": "sle-we", "version": "15-SP6", "arch": "x86_64"}

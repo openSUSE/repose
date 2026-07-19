@@ -1,0 +1,2 @@
+{"event": "product", "host": "sles-16-0", "port": 22, "kind": "base", "name": "SLES", "version": "16.0", "arch": "x86_64"}
+{"event": "product", "host": "sles-16-0", "port": 22, "kind": "addon", "name": "qa", "version": "16.0", "arch": "x86_64"}

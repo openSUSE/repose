@@ -1,0 +1,8 @@
+{"event": "product", "host": "sle-rt-15-sp4", "port": 22, "kind": "base", "name": "SLE_RT", "version": "15-SP4", "arch": "x86_64"}
+{"event": "product", "host": "sle-rt-15-sp4", "port": 22, "kind": "addon", "name": "SLES-LTSS", "version": "15-SP4", "arch": "x86_64"}
+{"event": "product", "host": "sle-rt-15-sp4", "port": 22, "kind": "addon", "name": "qa", "version": "15-SP4", "arch": "x86_64"}
+{"event": "product", "host": "sle-rt-15-sp4", "port": 22, "kind": "addon", "name": "sle-module-basesystem", "version": "15-SP4", "arch": "x86_64"}
+{"event": "product", "host": "sle-rt-15-sp4", "port": 22, "kind": "addon", "name": "sle-module-desktop-applications", "version": "15-SP4", "arch": "x86_64"}
+{"event": "product", "host": "sle-rt-15-sp4", "port": 22, "kind": "addon", "name": "sle-module-development-tools", "version": "15-SP4", "arch": "x86_64"}
+{"event": "product", "host": "sle-rt-15-sp4", "port": 22, "kind": "addon", "name": "sle-module-rt", "version": "15-SP4", "arch": "x86_64"}
+{"event": "product", "host": "sle-rt-15-sp4", "port": 22, "kind": "addon", "name": "sle-module-server-applications", "version": "15-SP4", "arch": "x86_64"}

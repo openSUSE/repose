@@ -1,0 +1,11 @@
+<?xml version='1.0'?>
+<stream>
+<repo-list>
+<repo alias="SLES:16.0::pool" name="SLES:16.0::pool" type="rpm-md" priority="99" enabled="1" autorefresh="1" gpgcheck="1" repo_gpgcheck="1" pkg_gpgcheck="0">
+<url>https://example.invalid/scrubbed/SUSE/Products/SLE-Product-SLES/16.0/x86_64/product/</url>
+</repo>
+<repo alias="qa:16.0::pool" name="qa:16.0::pool" type="rpm-md" priority="99" enabled="1" autorefresh="1" gpgcheck="1" repo_gpgcheck="1" pkg_gpgcheck="0">
+<url>https://example.invalid/scrubbed/QA:/SLE16.0/update/</url>
+</repo>
+</repo-list>
+</stream>

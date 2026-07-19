@@ -1,0 +1,11 @@
+Host: sle-rt-15-sp4:22
+  Base product: SLE_RT-15-SP4-x86_64
+  Installed Extensions and Modules:
+      Addon: SLES-LTSS                                             - version: 15-SP4
+      Addon: qa                                                    - version: 15-SP4
+      Addon: sle-module-basesystem                                 - version: 15-SP4
+      Addon: sle-module-desktop-applications                       - version: 15-SP4
+      Addon: sle-module-development-tools                          - version: 15-SP4
+      Addon: sle-module-rt                                         - version: 15-SP4
+      Addon: sle-module-server-applications                        - version: 15-SP4
+

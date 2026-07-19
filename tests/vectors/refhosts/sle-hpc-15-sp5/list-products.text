@@ -1,0 +1,11 @@
+Host: sle-hpc-15-sp5:22
+  Base product: SLE_HPC-15-SP5-x86_64
+  Installed Extensions and Modules:
+      Addon: PackageHub                                            - version: 15-SP5
+      Addon: SLES-LTSS                                             - version: 15-SP5
+      Addon: qa                                                    - version: 15-SP5
+      Addon: sle-module-basesystem                                 - version: 15-SP5
+      Addon: sle-module-hpc                                        - version: 15-SP5
+      Addon: sle-module-python3                                    - version: 15-SP5
+      Addon: sle-module-server-applications                        - version: 15-SP5
+

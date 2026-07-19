@@ -95,6 +95,7 @@ sanitize() {
         -e "s#https?://[^/\"'<>[:space:]]*#https://example.invalid#g" \
         -e 's#[A-Za-z0-9.-]*\.suse\.(cz|de)#example.invalid#g' \
         -e 's#qam\.suse[A-Za-z0-9.-]*#example.invalid#g' \
+        -e 's#/ibs/#/scrubbed/#g' \
         "$1"
 }
 

@@ -1,0 +1,6 @@
+Repositories on sles-16-0:22
+REPO name: SLES:16.0::pool
+REPO URL: https://example.invalid/scrubbed/SUSE/Products/SLE-Product-SLES/16.0/x86_64/product/
+REPO name: qa:16.0::pool
+REPO URL: https://example.invalid/scrubbed/QA:/SLE16.0/update/
+

@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<product schemeversion="0">
+  <vendor>SUSE</vendor>
+  <name>qa</name>
+  <version>15.4</version>
+  <baseversion>15</baseversion>
+  <patchlevel>4</patchlevel>
+  <release>0</release>
+  <endoflife>2028-10-31</endoflife>
+  <arch>x86_64</arch>
+  <cpeid>cpe:/o:suse:qa:15:sp4</cpeid>
+  <register>
+      <target>sle-15-x86_64</target>
+    <flavor>extension</flavor>
+    <updates>
+      <repository repoid="obsrepository://example.invalid/scrubbed"/>
+      <repository repoid="obsrepository://example.invalid/scrubbed"/>
+    </updates>
+  </register>
+  <upgrades/>
+  <summary>QA packages for SLE 15 SP4</summary>
+  <shortsummary>sle-qa</shortsummary>
+  <description>QA packages for SLES maintenance testing</description>
+  <urls>
+    <url name="bugtracker">https://example.invalid/</url>
+  </urls>
+  <installconfig>
+    <releasepackage name="qa-release" flag="EQ" version="15.4" release="qa.1.115"/>
+  </installconfig>
+</product>
+

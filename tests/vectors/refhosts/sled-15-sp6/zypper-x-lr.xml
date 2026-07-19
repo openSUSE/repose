@@ -1,0 +1,62 @@
+<?xml version='1.0'?>
+<stream>
+<repo-list>
+<repo alias="QA-zabbix" name="QA SLE 15 SP6 - zabbix" type="rpm-md" priority="99" enabled="1" autorefresh="1" gpgcheck="1" repo_gpgcheck="1" pkg_gpgcheck="0" raw_gpgcheck="1">
+<url>https://example.invalid/scrubbed/QA:/SLE15SP6/update/</url>
+</repo>
+<repo alias="SLED:15-SP6::pool" name="SLED:15-SP6::pool" type="rpm-md" priority="99" enabled="1" autorefresh="0" gpgcheck="1" repo_gpgcheck="1" pkg_gpgcheck="0">
+<url>https://example.invalid/scrubbed/SUSE/Products/SLE-Product-SLED/15-SP6/x86_64/product/</url>
+</repo>
+<repo alias="SLED:15-SP6::update" name="SLED:15-SP6::update" type="rpm-md" priority="99" enabled="1" autorefresh="1" gpgcheck="1" repo_gpgcheck="1" pkg_gpgcheck="0">
+<url>https://example.invalid/scrubbed/SUSE/Updates/SLE-Product-SLED/15-SP6/x86_64/update/</url>
+</repo>
+<repo alias="SLES-LTSS:15-SP6::update" name="SLES-LTSS:15-SP6::update" type="rpm-md" priority="99" enabled="1" autorefresh="1" gpgcheck="1" repo_gpgcheck="1" pkg_gpgcheck="0">
+<url>https://example.invalid/scrubbed/SUSE/Updates/SLE-Product-SLES/15-SP6-LTSS/x86_64/update/</url>
+</repo>
+<repo alias="Zabbix Official Repository" name="Zabbix Official Repository" type="rpm-md" priority="99" enabled="1" autorefresh="1" gpgcheck="1" repo_gpgcheck="1" pkg_gpgcheck="0" raw_gpgcheck="1">
+<url>https://example.invalid/zabbix/6.4/sles/15/x86_64/</url>
+</repo>
+<repo alias="qa:15-SP6::pool" name="qa:15-SP6::pool" type="rpm-md" priority="99" enabled="1" autorefresh="1" gpgcheck="1" repo_gpgcheck="1" pkg_gpgcheck="0">
+<url>https://example.invalid/scrubbed/QA:/SLE15SP6/update/</url>
+</repo>
+<repo alias="sle-module-basesystem:15-SP6::pool" name="sle-module-basesystem:15-SP6::pool" type="rpm-md" priority="99" enabled="1" autorefresh="0" gpgcheck="1" repo_gpgcheck="1" pkg_gpgcheck="0">
+<url>https://example.invalid/scrubbed/SUSE/Products/SLE-Module-Basesystem/15-SP6/x86_64/product/</url>
+</repo>
+<repo alias="sle-module-basesystem:15-SP6::update" name="sle-module-basesystem:15-SP6::update" type="rpm-md" priority="99" enabled="1" autorefresh="1" gpgcheck="1" repo_gpgcheck="1" pkg_gpgcheck="0">
+<url>https://example.invalid/scrubbed/SUSE/Updates/SLE-Module-Basesystem/15-SP6/x86_64/update/</url>
+</repo>
+<repo alias="sle-module-containers:15-SP6::pool" name="sle-module-containers:15-SP6::pool" type="rpm-md" priority="99" enabled="1" autorefresh="0" gpgcheck="1" repo_gpgcheck="1" pkg_gpgcheck="0">
+<url>https://example.invalid/scrubbed/SUSE/Products/SLE-Module-Containers/15-SP6/x86_64/product/</url>
+</repo>
+<repo alias="sle-module-containers:15-SP6::update" name="sle-module-containers:15-SP6::update" type="rpm-md" priority="99" enabled="1" autorefresh="1" gpgcheck="1" repo_gpgcheck="1" pkg_gpgcheck="0">
+<url>https://example.invalid/scrubbed/SUSE/Updates/SLE-Module-Containers/15-SP6/x86_64/update/</url>
+</repo>
+<repo alias="sle-module-desktop-applications:15-SP6::pool" name="sle-module-desktop-applications:15-SP6::pool" type="rpm-md" priority="99" enabled="1" autorefresh="0" gpgcheck="1" repo_gpgcheck="1" pkg_gpgcheck="0">
+<url>https://example.invalid/scrubbed/SUSE/Products/SLE-Module-Desktop-Applications/15-SP6/x86_64/product/</url>
+</repo>
+<repo alias="sle-module-desktop-applications:15-SP6::update" name="sle-module-desktop-applications:15-SP6::update" type="rpm-md" priority="99" enabled="1" autorefresh="1" gpgcheck="1" repo_gpgcheck="1" pkg_gpgcheck="0">
+<url>https://example.invalid/scrubbed/SUSE/Updates/SLE-Module-Desktop-Applications/15-SP6/x86_64/update/</url>
+</repo>
+<repo alias="sle-module-development-tools:15-SP6::pool" name="sle-module-development-tools:15-SP6::pool" type="rpm-md" priority="99" enabled="1" autorefresh="0" gpgcheck="1" repo_gpgcheck="1" pkg_gpgcheck="0">
+<url>https://example.invalid/scrubbed/SUSE/Products/SLE-Module-Development-Tools/15-SP6/x86_64/product/</url>
+</repo>
+<repo alias="sle-module-development-tools:15-SP6::update" name="sle-module-development-tools:15-SP6::update" type="rpm-md" priority="99" enabled="1" autorefresh="1" gpgcheck="1" repo_gpgcheck="1" pkg_gpgcheck="0">
+<url>https://example.invalid/scrubbed/SUSE/Updates/SLE-Module-Development-Tools/15-SP6/x86_64/update/</url>
+</repo>
+<repo alias="sle-module-python3:15-SP6::pool" name="sle-module-python3:15-SP6::pool" type="rpm-md" priority="99" enabled="1" autorefresh="0" gpgcheck="1" repo_gpgcheck="1" pkg_gpgcheck="0">
+<url>https://example.invalid/scrubbed/SUSE/Products/SLE-Module-Python3/15-SP6/x86_64/product/</url>
+</repo>
+<repo alias="sle-module-python3:15-SP6::update" name="sle-module-python3:15-SP6::update" type="rpm-md" priority="99" enabled="1" autorefresh="1" gpgcheck="1" repo_gpgcheck="1" pkg_gpgcheck="0">
+<url>https://example.invalid/scrubbed/SUSE/Updates/SLE-Module-Python3/15-SP6/x86_64/update/</url>
+</repo>
+<repo alias="sle-we:15-SP6::pool" name="sle-we:15-SP6::pool" type="rpm-md" priority="99" enabled="1" autorefresh="0" gpgcheck="1" repo_gpgcheck="1" pkg_gpgcheck="0">
+<url>https://example.invalid/scrubbed/SUSE/Products/SLE-Product-WE/15-SP6/x86_64/product/</url>
+</repo>
+<repo alias="sle-we:15-SP6::update" name="sle-we:15-SP6::update" type="rpm-md" priority="99" enabled="1" autorefresh="1" gpgcheck="1" repo_gpgcheck="1" pkg_gpgcheck="0">
+<url>https://example.invalid/scrubbed/SUSE/Updates/SLE-Product-WE/15-SP6/x86_64/update/</url>
+</repo>
+<repo alias="zabbix" name="Zabbix 7.4 for SLES 15 - UPSTREAM" type="rpm-md" priority="99" enabled="1" autorefresh="1" gpgcheck="1" repo_gpgcheck="1" pkg_gpgcheck="0" raw_gpgcheck="1">
+<url>https://example.invalid/zabbix/7.4/stable/sles/15/x86_64/</url>
+</repo>
+</repo-list>
+</stream>

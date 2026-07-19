@@ -1,0 +1,32 @@
+Repositories on sle-rt-15-sp4:22
+REPO name: SLES-LTSS:15-SP4::update
+REPO URL: https://example.invalid/scrubbed/SUSE/Updates/SLE-Product-SLES/15-SP4-LTSS/x86_64/update/
+REPO name: SLE_RT:15-SP4::pool
+REPO URL: https://example.invalid/scrubbed/SUSE/Products/SLE-Product-RT/15-SP4/x86_64/product/
+REPO name: SLE_RT:15-SP4::update
+REPO URL: https://example.invalid/scrubbed/SUSE/Updates/SLE-Product-RT/15-SP4/x86_64/update/
+REPO name: Zabbix Official Repository
+REPO URL: https://example.invalid/zabbix/6.4/sles/15/x86_64/
+REPO name: qa:15-SP4::pool
+REPO URL: https://example.invalid/scrubbed/QA:/SLE15SP4/update/
+REPO name: sle-module-basesystem:15-SP4::pool
+REPO URL: https://example.invalid/scrubbed/SUSE/Products/SLE-Module-Basesystem/15-SP4/x86_64/product/
+REPO name: sle-module-basesystem:15-SP4::update
+REPO URL: https://example.invalid/scrubbed/SUSE/Updates/SLE-Module-Basesystem/15-SP4/x86_64/update/
+REPO name: sle-module-desktop-applications:15-SP4::pool
+REPO URL: https://example.invalid/scrubbed/SUSE/Products/SLE-Module-Desktop-Applications/15-SP4/x86_64/product/
+REPO name: sle-module-desktop-applications:15-SP4::update
+REPO URL: https://example.invalid/scrubbed/SUSE/Updates/SLE-Module-Desktop-Applications/15-SP4/x86_64/update/
+REPO name: sle-module-development-tools:15-SP4::pool
+REPO URL: https://example.invalid/scrubbed/SUSE/Products/SLE-Module-Development-Tools/15-SP4/x86_64/product/
+REPO name: sle-module-development-tools:15-SP4::update
+REPO URL: https://example.invalid/scrubbed/SUSE/Updates/SLE-Module-Development-Tools/15-SP4/x86_64/update/
+REPO name: sle-module-rt:15-SP4::pool
+REPO URL: https://example.invalid/scrubbed/SUSE/Products/SLE-Module-RT/15-SP4/x86_64/product/
+REPO name: sle-module-rt:15-SP4::update
+REPO URL: https://example.invalid/scrubbed/SUSE/Updates/SLE-Module-RT/15-SP4/x86_64/update/
+REPO name: sle-module-server-applications:15-SP4::pool
+REPO URL: https://example.invalid/scrubbed/SUSE/Products/SLE-Module-Server-Applications/15-SP4/x86_64/product/
+REPO name: sle-module-server-applications:15-SP4::update
+REPO URL: https://example.invalid/scrubbed/SUSE/Updates/SLE-Module-Server-Applications/15-SP4/x86_64/update/
+

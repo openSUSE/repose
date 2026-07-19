@@ -1,0 +1,36 @@
+Repositories on sle-hpc-15-sp5:22
+REPO name: PackageHub:15-SP5::pool
+REPO URL: https://example.invalid/scrubbed/SUSE/Backports/SLE-15-SP5_x86_64/product/
+REPO name: PackageHub:15-SP5::update
+REPO URL: https://example.invalid/repositories/openSUSE:/Backports:/SLE-15-SP5/standard/
+REPO name: QA SLE 15 SP5 - zabbix
+REPO URL: https://example.invalid/scrubbed/QA:/SLE15SP5/update/
+REPO name: SLES-LTSS:15-SP5::update
+REPO URL: https://example.invalid/scrubbed/SUSE/Updates/SLE-Product-SLES/15-SP5-LTSS/x86_64/update/
+REPO name: SLE_HPC:15-SP5::pool
+REPO URL: https://example.invalid/scrubbed/SUSE/Products/SLE-Product-HPC/15-SP5/x86_64/product/
+REPO name: SLE_HPC:15-SP5::update
+REPO URL: https://example.invalid/scrubbed/SUSE/Updates/SLE-Product-HPC/15-SP5/x86_64/update/
+REPO name: Zabbix Official Repository
+REPO URL: https://example.invalid/zabbix/6.4/sles/15/x86_64/
+REPO name: qa:15-SP5::pool
+REPO URL: https://example.invalid/scrubbed/QA:/SLE15SP5/update/
+REPO name: sle-module-basesystem:15-SP5::pool
+REPO URL: https://example.invalid/scrubbed/SUSE/Products/SLE-Module-Basesystem/15-SP5/x86_64/product/
+REPO name: sle-module-basesystem:15-SP5::update
+REPO URL: https://example.invalid/scrubbed/SUSE/Updates/SLE-Module-Basesystem/15-SP5/x86_64/update/
+REPO name: sle-module-hpc:15-SP5::pool
+REPO URL: https://example.invalid/scrubbed/SUSE/Products/SLE-Module-HPC/15-SP5/x86_64/product/
+REPO name: sle-module-hpc:15-SP5::update
+REPO URL: https://example.invalid/scrubbed/SUSE/Updates/SLE-Module-HPC/15-SP5/x86_64/update/
+REPO name: sle-module-python3:15-SP5::pool
+REPO URL: https://example.invalid/scrubbed/SUSE/Products/SLE-Module-Python3/15-SP5/x86_64/product/
+REPO name: sle-module-python3:15-SP5::update
+REPO URL: https://example.invalid/scrubbed/SUSE/Updates/SLE-Module-Python3/15-SP5/x86_64/update/
+REPO name: sle-module-server-applications:15-SP5::pool
+REPO URL: https://example.invalid/scrubbed/SUSE/Products/SLE-Module-Server-Applications/15-SP5/x86_64/product/
+REPO name: sle-module-server-applications:15-SP5::update
+REPO URL: https://example.invalid/scrubbed/SUSE/Updates/SLE-Module-Server-Applications/15-SP5/x86_64/update/
+REPO name: Zabbix 7.4 for SLES 15 - UPSTREAM
+REPO URL: https://example.invalid/zabbix/7.4/stable/sles/15/x86_64/
+

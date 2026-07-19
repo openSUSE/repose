@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<product schemeversion="0">
+  <vendor>SUSE</vendor>
+  <name>sle-sdk</name>
+  <version>12.5</version>
+  <baseversion>12</baseversion>
+  <patchlevel>5</patchlevel>
+  <release>0</release>
+  <endoflife></endoflife>
+  <arch>x86_64</arch>
+  <cpeid>cpe:/o:suse:sle-sdk:12:sp5</cpeid>
+  <productline>sle</productline>
+  <codestream>
+    <name>SUSE Linux Enterprise Server 12</name>
+    <endoflife>2024-10-31</endoflife>
+  </codestream>
+  <register>
+      <target>sle-12-x86_64</target>
+    <flavor>extension</flavor>
+    <updates>
+      <repository repoid="obsrepository://example.invalid/scrubbed" />
+      <repository repoid="obsrepository://example.invalid/scrubbed" />
+    </updates>
+  </register>
+  <upgrades/>
+  <summary>SUSE Linux Enterprise Software Development Kit 12 SP5</summary>
+  <shortsummary>SDK12-SP5</shortsummary>
+  <description>&lt;p&gt;
+	SUSE Linux Enterprise Software Development Kit is the Software
+	Development Kit for the family of SUSE Linux Enterprise products. It is a
+	free of charge extension for partners and customers working with SUSE
+	Linux Enterprise Server and Desktop and derived products.
+	&lt;/p&gt;
+	&lt;p&gt;
+	Packages on the SDK are delivered without L3 support; maintenance updates
+	will be done for  critical security and critical non-security issues, and
+	where needed to remain in sync with packages delivered in the SUSE Linux
+	Enterprise Server and Desktop products.
+	&lt;/p&gt;
+	&lt;p&gt;
+	Packages to rebuild SUSE Linux Enterprise Server are not part of the SUSE
+	Linux Enterprise Software Development Kit.
+	&lt;/p&gt;</description>
+  <urls>
+    <url name="bugtracker">https://example.invalid/</url>
+    <url name="releasenotes">https://example.invalid/releasenotes/x86_64/SLE-SDK/12-SP5/release-notes-sdk.rpm</url>
+  </urls>
+  <buildconfig>
+    <producttheme>SLES</producttheme>
+  </buildconfig>
+  <installconfig>
+    <defaultlang>en_US</defaultlang>
+    <datadir>suse</datadir>
+    <descriptiondir>suse/setup/descr</descriptiondir>
+    <releasepackage name="sle-sdk-release" flag="EQ" version="12.5" release="1.54"/>
+    <distribution>SUSE_SDK</distribution>
+  </installconfig>
+  <runtimeconfig/>
+  <productdependency relationship="requires" name="SUSE_SLE" baseversion="12" patchlevel="5" flag="EQ"/>
+</product>
+

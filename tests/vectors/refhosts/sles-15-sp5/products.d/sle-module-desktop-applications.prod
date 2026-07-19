@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<product schemeversion="0">
+  <vendor>SUSE</vendor>
+  <name>sle-module-desktop-applications</name>
+  <version>15.5</version>
+  <baseversion>15</baseversion>
+  <patchlevel>5</patchlevel>
+  <release>0</release>
+  <endoflife></endoflife>
+  <arch>x86_64</arch>
+  <cpeid>cpe:/o:suse:sle-module-desktop-applications:15:sp5</cpeid>
+  <productline>sle-module-desktop-applications</productline>
+  <register>
+      <target>sle-15-x86_64</target>
+    <flavor>module</flavor>
+  </register>
+  <repositories>
+      <repository type="update" repoid="obsrepository://example.invalid/scrubbed" />
+      <repository type="update" repoid="obsrepository://example.invalid/scrubbed" />
+      <repository type="pool" repoid="obsproduct://example.invalid/SUSE:Products:SLE-Module-Desktop-Applications:15-SP5:x86_64/sle-module-desktop-applications/15.5/x86_64" />
+  </repositories>
+  <summary>Desktop Applications Module</summary>
+  <shortsummary>Desktop-Applications-Module</shortsummary>
+  <description>&lt;p&gt;
+	The SUSE Linux Enterprise Desktop Applications Module delivers a
+	basic set of Desktop functionality.
+	&lt;/p&gt;
+	&lt;p&gt;
+	Access to the Desktop Applications Module is included in your SUSE Linux
+	Enterprise product subscription.
+	&lt;/p&gt;</description>
+  <urls>
+    <url name="bugtracker">https://example.invalid/</url>
+  </urls>
+  <buildconfig>
+    <producttheme>SLES</producttheme>
+  </buildconfig>
+  <installconfig>
+    <defaultlang>en_US</defaultlang>
+    <releasepackage name="sle-module-desktop-applications-release" flag="EQ" version="15.5" release="150500.43.2"/>
+    <distribution>SUSE_SLE</distribution>
+  </installconfig>
+  <runtimeconfig/>
+  <productdependency relationship="requires" name="SUSE_SLE" baseversion="15" patchlevel="5" flag="GE"/>
+  <productdependency relationship="requires" name="sle-module-basesystem" baseversion="15" patchlevel="5" flag="GE"/>
+</product>
+

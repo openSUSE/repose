@@ -1,0 +1,74 @@
+<?xml version='1.0'?>
+<stream>
+<repo-list>
+<repo alias="SLES-LTSS:12-SP5::update" name="SLES-LTSS:12-SP5::update" type="rpm-md" priority="99" enabled="1" autorefresh="1" gpgcheck="1" repo_gpgcheck="1" pkg_gpgcheck="0">
+<url>https://example.invalid/scrubbed/SUSE/Updates/SLE-SERVER/12-SP5-LTSS/x86_64/update/</url>
+</repo>
+<repo alias="SLES:12-SP5::pool" name="SLES:12-SP5::pool" type="rpm-md" priority="99" enabled="1" autorefresh="0" gpgcheck="1" repo_gpgcheck="1" pkg_gpgcheck="0">
+<url>https://example.invalid/scrubbed/SUSE/Products/SLE-SERVER/12-SP5/x86_64/product/</url>
+</repo>
+<repo alias="SLES:12-SP5::update" name="SLES:12-SP5::update" type="rpm-md" priority="99" enabled="1" autorefresh="1" gpgcheck="1" repo_gpgcheck="1" pkg_gpgcheck="0">
+<url>https://example.invalid/scrubbed/SUSE/Updates/SLE-SERVER/12-SP5/x86_64/update/</url>
+</repo>
+<repo alias="Zabbix Official Repository" name="Zabbix Official Repository" type="rpm-md" priority="99" enabled="1" autorefresh="1" gpgcheck="1" repo_gpgcheck="1" pkg_gpgcheck="0">
+<url>https://example.invalid/zabbix/6.4/sles/12/x86_64/</url>
+</repo>
+<repo alias="qa:12-SP5::pool" name="qa:12-SP5::pool" type="rpm-md" priority="99" enabled="1" autorefresh="1" gpgcheck="1" repo_gpgcheck="1" pkg_gpgcheck="0">
+<url>https://example.invalid/scrubbed/QA:/SLE12SP5/update/</url>
+</repo>
+<repo alias="sle-live-patching:12-SP5::pool" name="sle-live-patching:12-SP5::pool" type="rpm-md" priority="99" enabled="1" autorefresh="0" gpgcheck="1" repo_gpgcheck="1" pkg_gpgcheck="0">
+<url>https://example.invalid/scrubbed/SUSE/Products/SLE-Live-Patching/12-SP5/x86_64/product/</url>
+</repo>
+<repo alias="sle-live-patching:12-SP5::update" name="sle-live-patching:12-SP5::update" type="rpm-md" priority="99" enabled="1" autorefresh="1" gpgcheck="1" repo_gpgcheck="1" pkg_gpgcheck="0">
+<url>https://example.invalid/scrubbed/SUSE/Updates/SLE-Live-Patching/12-SP5/x86_64/update/</url>
+</repo>
+<repo alias="sle-module-adv-systems-management:12::pool" name="sle-module-adv-systems-management:12::pool" type="rpm-md" priority="99" enabled="1" autorefresh="0" gpgcheck="1" repo_gpgcheck="1" pkg_gpgcheck="0">
+<url>https://example.invalid/scrubbed/SUSE/Products/SLE-Module-Adv-Systems-Management/12/x86_64/product/</url>
+</repo>
+<repo alias="sle-module-adv-systems-management:12::update" name="sle-module-adv-systems-management:12::update" type="rpm-md" priority="99" enabled="1" autorefresh="1" gpgcheck="1" repo_gpgcheck="1" pkg_gpgcheck="0">
+<url>https://example.invalid/scrubbed/SUSE/Updates/SLE-Module-Adv-Systems-Management/12/x86_64/update/</url>
+</repo>
+<repo alias="sle-module-containers:12::pool" name="sle-module-containers:12::pool" type="rpm-md" priority="99" enabled="1" autorefresh="0" gpgcheck="1" repo_gpgcheck="1" pkg_gpgcheck="0">
+<url>https://example.invalid/scrubbed/SUSE/Products/SLE-Module-Containers/12/x86_64/product/</url>
+</repo>
+<repo alias="sle-module-containers:12::update" name="sle-module-containers:12::update" type="rpm-md" priority="99" enabled="1" autorefresh="1" gpgcheck="1" repo_gpgcheck="1" pkg_gpgcheck="0">
+<url>https://example.invalid/scrubbed/SUSE/Updates/SLE-Module-Containers/12/x86_64/update/</url>
+</repo>
+<repo alias="sle-module-public-cloud:12::pool" name="sle-module-public-cloud:12::pool" type="rpm-md" priority="99" enabled="1" autorefresh="0" gpgcheck="1" repo_gpgcheck="1" pkg_gpgcheck="0">
+<url>https://example.invalid/scrubbed/SUSE/Products/SLE-Module-Public-Cloud/12/x86_64/product/</url>
+</repo>
+<repo alias="sle-module-public-cloud:12::update" name="sle-module-public-cloud:12::update" type="rpm-md" priority="99" enabled="1" autorefresh="1" gpgcheck="1" repo_gpgcheck="1" pkg_gpgcheck="0">
+<url>https://example.invalid/scrubbed/SUSE/Updates/SLE-Module-Public-Cloud/12/x86_64/update/</url>
+</repo>
+<repo alias="sle-module-toolchain:12::pool" name="sle-module-toolchain:12::pool" type="rpm-md" priority="99" enabled="1" autorefresh="0" gpgcheck="1" repo_gpgcheck="1" pkg_gpgcheck="0">
+<url>https://example.invalid/scrubbed/SUSE/Products/SLE-Module-Toolchain/12/x86_64/product/</url>
+</repo>
+<repo alias="sle-module-toolchain:12::update" name="sle-module-toolchain:12::update" type="rpm-md" priority="99" enabled="1" autorefresh="1" gpgcheck="1" repo_gpgcheck="1" pkg_gpgcheck="0">
+<url>https://example.invalid/scrubbed/SUSE/Updates/SLE-Module-Toolchain/12/x86_64/update/</url>
+</repo>
+<repo alias="sle-module-web-scripting:12::pool" name="sle-module-web-scripting:12::pool" type="rpm-md" priority="99" enabled="1" autorefresh="0" gpgcheck="1" repo_gpgcheck="1" pkg_gpgcheck="0">
+<url>https://example.invalid/scrubbed/SUSE/Products/SLE-Module-Web-Scripting/12/x86_64/product/</url>
+</repo>
+<repo alias="sle-module-web-scripting:12::update" name="sle-module-web-scripting:12::update" type="rpm-md" priority="99" enabled="1" autorefresh="1" gpgcheck="1" repo_gpgcheck="1" pkg_gpgcheck="0">
+<url>https://example.invalid/scrubbed/SUSE/Updates/SLE-Module-Web-Scripting/12/x86_64/update/</url>
+</repo>
+<repo alias="sle-sap" name="sle-sap" type="rpm-md" priority="99" enabled="1" autorefresh="0" gpgcheck="1" repo_gpgcheck="1" pkg_gpgcheck="0">
+<url>https://example.invalid/scrubbed/SUSE/Products/SLE-SAP/12-SP5/x86_64/product/</url>
+</repo>
+<repo alias="sle-sap-up" name="sle-sap-up" type="rpm-md" priority="99" enabled="1" autorefresh="0" gpgcheck="1" repo_gpgcheck="1" pkg_gpgcheck="0">
+<url>https://example.invalid/scrubbed/SUSE/Updates/SLE-SAP/12-SP5/x86_64/update/</url>
+</repo>
+<repo alias="sle-sdk:12-SP5::pool" name="sle-sdk:12-SP5::pool" type="rpm-md" priority="99" enabled="1" autorefresh="0" gpgcheck="1" repo_gpgcheck="1" pkg_gpgcheck="0">
+<url>https://example.invalid/scrubbed/SUSE/Products/SLE-SDK/12-SP5/x86_64/product/</url>
+</repo>
+<repo alias="sle-sdk:12-SP5::update" name="sle-sdk:12-SP5::update" type="rpm-md" priority="99" enabled="1" autorefresh="1" gpgcheck="1" repo_gpgcheck="1" pkg_gpgcheck="0">
+<url>https://example.invalid/scrubbed/SUSE/Updates/SLE-SDK/12-SP5/x86_64/update/</url>
+</repo>
+<repo alias="sle-we:12-SP5::pool" name="sle-we:12-SP5::pool" type="rpm-md" priority="99" enabled="1" autorefresh="0" gpgcheck="1" repo_gpgcheck="1" pkg_gpgcheck="0">
+<url>https://example.invalid/scrubbed/SUSE/Products/SLE-WE/12-SP5/x86_64/product/</url>
+</repo>
+<repo alias="sle-we:12-SP5::update" name="sle-we:12-SP5::update" type="rpm-md" priority="99" enabled="1" autorefresh="1" gpgcheck="1" repo_gpgcheck="1" pkg_gpgcheck="0">
+<url>https://example.invalid/scrubbed/SUSE/Updates/SLE-WE/12-SP5/x86_64/update/</url>
+</repo>
+</repo-list>
+</stream>

@@ -1,0 +1,47 @@
+---
+addons:
+- name: SLES-LTSS
+  version:
+    major: 12
+    minor: SP5
+- name: qa
+  version:
+    major: 12
+    minor: SP5
+- name: sle-live-patching
+  version:
+    major: 12
+    minor: SP5
+- name: sle-module-adv-systems-management
+  version:
+    major: 12
+- name: sle-module-containers
+  version:
+    major: 12
+- name: sle-module-public-cloud
+  version:
+    major: 12
+- name: sle-module-toolchain
+  version:
+    major: 12
+- name: sle-module-web-scripting
+  version:
+    major: 12
+- name: sle-sdk
+  version:
+    major: 12
+    minor: SP5
+- name: sle-we
+  version:
+    major: 12
+    minor: SP5
+arch: x86_64
+location:
+- some location
+name: sles-12-sp5
+product:
+  name: SLES
+  version:
+    major: 12
+    minor: SP5
+...

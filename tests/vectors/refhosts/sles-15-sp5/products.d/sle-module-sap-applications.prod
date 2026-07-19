@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<product schemeversion="0">
+  <vendor>SUSE</vendor>
+  <name>sle-module-sap-applications</name>
+  <version>15.5</version>
+  <baseversion>15</baseversion>
+  <patchlevel>5</patchlevel>
+  <release>0</release>
+  <endoflife></endoflife>
+  <arch>x86_64</arch>
+  <cpeid>cpe:/o:suse:sle-module-sap-applications:15:sp5</cpeid>
+  <productline>sle-module-sap-applications</productline>
+  <register>
+      <target>sle-15-x86_64</target>
+    <flavor>module</flavor>
+  </register>
+  <repositories>
+      <repository type="update" repoid="obsrepository://example.invalid/scrubbed" />
+      <repository type="update" repoid="obsrepository://example.invalid/scrubbed" />
+      <repository type="pool" repoid="obsproduct://example.invalid/SUSE:Products:SLE-Module-SAP-Applications:15-SP5:x86_64/sle-module-sap-applications/15.5/x86_64" />
+  </repositories>
+  <summary>SAP Applications Module</summary>
+  <shortsummary>SAP-Applications-Module</shortsummary>
+  <description>&lt;p&gt;
+	The SAP Applications module contains the specialized tools for SAP Applications administration.
+	&lt;/p&gt;
+  &lt;p&gt;
+  The module is maintained and supported by the SUSE Linux Enterprise Server for SAP Applications product subscription.
+  &lt;/p&gt;</description>
+  <urls>
+    <url name="bugtracker">https://example.invalid/</url>
+  </urls>
+  <buildconfig>
+    <producttheme>SLES</producttheme>
+  </buildconfig>
+  <installconfig>
+    <defaultlang>en_US</defaultlang>
+    <releasepackage name="sle-module-sap-applications-release" flag="EQ" version="15.5" release="150500.43.2"/>
+    <distribution>SUSE_SLE</distribution>
+  </installconfig>
+  <runtimeconfig/>
+  <productdependency relationship="requires" name="SUSE_SLE" baseversion="15" patchlevel="5" flag="GE"/>
+  <productdependency relationship="conflicts" name="SLED" baseversion="15" patchlevel="5" flag="GE"/>
+  <productdependency relationship="requires" name="sle-ha" baseversion="15" patchlevel="5" flag="GE"/>
+</product>
+
