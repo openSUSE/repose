@@ -15,7 +15,7 @@ command -v jq >/dev/null || {
 }
 
 mkdir -p "$COVERAGE_DIR"
-cd "$ROOT/crates"
+cd "$ROOT"
 
 cargo llvm-cov clean --workspace
 cargo llvm-cov --workspace --all-targets --locked --no-report

@@ -1,7 +1,8 @@
-# repose Rust workspace
+# repose Rust crates
 
-The openSUSE/repose implementation — a Rust workspace (`repose-core` domain
-layer, `repose-ssh` transport, `repose-cli` binary).
+The openSUSE/repose implementation consists of three crates in the root Rust
+workspace (`repose-core` domain layer, `repose-ssh` transport, `repose-cli`
+binary).
 
 ## SSH configuration compatibility
 
@@ -34,19 +35,19 @@ file protected from untrusted writers.
 
 ```bash
 # from repository root
-cargo test --manifest-path crates/Cargo.toml
-cargo fmt --manifest-path crates/Cargo.toml --all -- --check
-cargo clippy --manifest-path crates/Cargo.toml --workspace --all-targets -- -D warnings
-cargo deny --manifest-path crates/Cargo.toml check   # needs cargo-deny >= 0.18.4 (0.20.x preferred)
-cargo run --manifest-path crates/Cargo.toml -p repose-cli --bin repose
+cargo test --workspace --all-targets --locked
+cargo fmt --all -- --check
+cargo clippy --workspace --all-targets -- -D warnings
+cargo deny check   # needs cargo-deny >= 0.18.4 (0.20.x preferred)
+cargo run -p repose-cli --bin repose
 ```
 
-Or `cd crates` and run the same commands without `--manifest-path`.
+Run these commands from the repository root.
 
 ## Policy notes
 
 - **Layering:** `repose-core` must never depend on `repose-ssh` or `russh` (enforced more strictly in PR0.5).
-- **Single SSH backend:** `crates/deny.toml` bans `ssh2` / `libssh2-sys` / async-ssh2-* crates.
+- **Single SSH backend:** `deny.toml` bans `ssh2` / `libssh2-sys` / async-ssh2-* crates.
 - **Path deps** pin the workspace version (`version = "3.0.0"`) so `cargo-deny` `wildcards = "deny"` accepts them.
 - **Binary name:** `repose` (replace strategy; no `repose-rs`).
 
@@ -67,7 +68,7 @@ generator crates):
 
 ```bash
 # from repository root (the argument is the output directory)
-cargo run --manifest-path crates/Cargo.toml -p repose-cli --features gen --bin repose-gen -- crates/repose-cli
+cargo run -p repose-cli --features gen --bin repose-gen -- crates/repose-cli
 ```
 
 CI (`rust-assets-drift`) regenerates and `git diff --exit-code`s these paths,

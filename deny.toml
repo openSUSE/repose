@@ -1,12 +1,10 @@
 # cargo-deny config for the repose Rust workspace (cargo-deny >= 0.18.4 / 0.20.x).
 #
-# From crates/:
+# From the repository root:
 #   cargo deny check
-# From repo root:
-#   cargo deny -c crates/deny.toml --manifest-path crates/Cargo.toml check
 #
-# CI: EmbarkStudios/cargo-deny-action@v2 with manifest-path=crates/Cargo.toml
-# (discovers this file next to the workspace Cargo.toml).
+# CI: EmbarkStudios/cargo-deny-action@v2 discovers this file next to the
+# workspace Cargo.toml.
 
 [graph]
 all-features = false

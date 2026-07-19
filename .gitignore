@@ -1,6 +1,7 @@
-# Rust / Cargo (workspace under crates/)
-/crates/target/
+# Rust / Cargo
 /target/
+# Ignore artifacts left by the former crates/ workspace root.
+/crates/target/
 /coverage/
 *.rs.bk
 Cargo.lock.bak

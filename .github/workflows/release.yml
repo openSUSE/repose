@@ -26,18 +26,18 @@ jobs:
       - name: Cache cargo
         uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32  # v2
         with:
-          workspaces: crates -> target
+          workspaces: . -> target
 
       - name: Verify tag matches workspace version
         run: |
-          pkg="$(sed -n 's/^version = "\(.*\)"/\1/p' crates/Cargo.toml | head -1)"
+          pkg="$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)"
           if [ "$pkg" != "$GITHUB_REF_NAME" ]; then
             echo "::error::tag '$GITHUB_REF_NAME' != workspace version '$pkg'"
             exit 1
           fi
 
       - name: Build release binary
-        run: cargo build --release --locked -p repose-cli --manifest-path crates/Cargo.toml
+        run: cargo build --release --locked -p repose-cli
 
       - name: Create GitHub release
         env:
@@ -46,4 +46,4 @@ jobs:
           gh release create "$GITHUB_REF_NAME"
           --title "$GITHUB_REF_NAME"
           --generate-notes
-          crates/target/release/repose
+          target/release/repose

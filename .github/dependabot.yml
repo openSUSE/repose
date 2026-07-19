@@ -3,10 +3,9 @@
 # https://docs.github.com/code-security/dependabot/dependabot-version-updates
 version: 2
 updates:
-  # Rust dependencies for the cargo workspace under crates/ (Cargo.toml +
-  # Cargo.lock).
+  # Rust dependencies for the root cargo workspace.
   - package-ecosystem: "cargo"
-    directory: "/crates"
+    directory: "/"
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 5

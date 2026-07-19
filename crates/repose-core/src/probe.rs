@@ -9,11 +9,9 @@ use crate::traits::Probe;
 
 const SUFFIXES: &[&str] = &["repodata/repomd.xml", "suse/repodata/repomd.xml"];
 
-/// Default async probe using rustls with the OS/system trust store
-/// (`rustls-tls-native-roots`), so internal enterprise mirrors signed by a
-/// private CA (e.g. the internal SUSE CA / "SUSE Trust Root") validate just as
-/// they do under Python's system-CA probe. Public https keeps working because
-/// real hosts also carry the Mozilla roots in their system store.
+/// Default async probe using rustls's platform verifier, so internal enterprise
+/// mirrors signed by a private CA (e.g. the internal SUSE CA / "SUSE Trust
+/// Root") validate just as they do under Python's system-CA probe.
 #[derive(Debug, Clone)]
 pub struct HttpProbe {
     /// `None` when client construction failed (e.g. the native root store

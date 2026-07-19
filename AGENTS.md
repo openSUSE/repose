@@ -1,11 +1,11 @@
 # Rust Workspace Guidelines
 
-These instructions apply to this repository — a Rust workspace
-(sources under `crates/`).
+These instructions apply to this repository — a root Rust workspace with
+sources under `crates/`.
 
 ## Workspace Commands
 
-Run commands from `crates/`:
+Run commands from the repository root:
 
 ```bash
 cargo fmt --check
@@ -32,7 +32,7 @@ committed `Cargo.lock`, so use `--locked` for verification.
   `repose-cli -> repose-core`, `repose-cli -> repose-ssh`, and
   `repose-ssh -> repose-core`.
 
-Run `../scripts/check-rust-layering.sh` after changing Cargo dependencies or
+Run `scripts/check-rust-layering.sh` after changing Cargo dependencies or
 crate boundaries.
 
 ## Rust Style and APIs

@@ -1,5 +1,5 @@
 # Generated man pages + shell completions — produced by the repose-gen tool
-# (`cargo run -p repose-cli --features gen --bin repose-gen -- repose-cli`).
+# (`cargo run -p repose-cli --features gen --bin repose-gen -- crates/repose-cli`).
 # Marking them as generated keeps GitHub from counting them in language stats
 # and auto-collapses them in pull-request diffs. CI's `rust-assets-drift` job
 # regenerates and ensures they stay in sync with the clap CLI.
