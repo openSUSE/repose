@@ -20,11 +20,9 @@ serde_json = "1"
 serde_yaml = "0.9"
 thiserror = "2"
 # URL probe (async path baseline).
-# rustls-tls-native-roots loads the OS/system trust store (rustls-native-certs)
-# so internal enterprise mirrors signed by a private CA (e.g. SUSE Trust Root)
-# validate, matching Python's system-CA behavior. The system store also carries
-# the public Mozilla roots on real hosts, so public https keeps working.
-reqwest = { version = "0.12", default-features = false, features = ["rustls-tls-native-roots", "http2"] }
+# reqwest's rustls feature uses the platform verifier, so internal enterprise
+# mirrors signed by a private CA validate against the OS trust configuration.
+reqwest = { version = "0.13", default-features = false, features = ["rustls", "http2"] }
 # Bounded-concurrency probe fan-out (StreamExt::buffered)
 futures-util = { version = "0.3", default-features = false, features = ["std", "async-await"] }
 # XML parsers (zypper -x lr, .prod)

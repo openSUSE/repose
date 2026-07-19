@@ -1,9 +1,9 @@
 [workspace]
 resolver = "2"
 members = [
-    "repose-core",
-    "repose-ssh",
-    "repose-cli",
+    "crates/repose-core",
+    "crates/repose-ssh",
+    "crates/repose-cli",
 ]
 
 [workspace.package]

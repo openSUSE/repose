@@ -15,14 +15,11 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  # Rust workspace (crates/) — the sole implementation since the Python
+  # Rust workspace — the sole implementation since the Python
   # cutover . Python and its jobs were removed.
   rust:
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    defaults:
-      run:
-        working-directory: crates
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
       - name: Install Rust toolchain
@@ -32,14 +29,13 @@ jobs:
       - name: Cache cargo
         uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32  # v2
         with:
-          workspaces: crates -> target
+          workspaces: . -> target
       - name: Format
         run: cargo fmt --all -- --check
       - name: Clippy
         run: cargo clippy --workspace --all-targets --locked -- -D warnings
       - name: Layering (core ↛ ssh/russh)
-        # Script lives at repo root; job working-directory is crates/.
-        run: bash ../scripts/check-rust-layering.sh
+        run: bash scripts/check-rust-layering.sh
       - name: Test
         run: cargo test --workspace --all-targets --locked
       - name: Binary version line
@@ -51,7 +47,7 @@ jobs:
           echo "$out" | grep -E '^repose version: [0-9]+\.[0-9]+\.[0-9]+$'
 
   rust-deny:
-    # Dependency policy for the Rust workspace. Config: crates/deny.toml
+    # Dependency policy for the Rust workspace. Config: deny.toml
     # next to the workspace manifest (auto-discovered by cargo-deny).
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -60,7 +56,7 @@ jobs:
       - name: cargo-deny
         uses: EmbarkStudios/cargo-deny-action@v2
         with:
-          manifest-path: crates/Cargo.toml
+          manifest-path: Cargo.toml
           command: check
           # Empty arguments: do not force --all-features on an empty graph.
           arguments: ""
@@ -77,7 +73,7 @@ jobs:
       - name: Cache cargo
         uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32  # v2
         with:
-          workspaces: crates -> target
+          workspaces: . -> target
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@d0f4f69b07c0804d1003ca9a5a5f853423872ed9  # v2.62.13
         with:
@@ -105,12 +101,12 @@ jobs:
       - name: Cache cargo
         uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32  # v2
         with:
-          workspaces: crates -> target
+          workspaces: . -> target
       - name: Build Rust binary
-        run: cargo build --locked -p repose-cli --manifest-path crates/Cargo.toml
+        run: cargo build --locked -p repose-cli
       - name: CLI consistency self-check
         env:
-          REPOSE_RS: crates/target/debug/repose
+          REPOSE_RS: target/debug/repose
         run: bash scripts/check-cli.sh
 
   rust-assets-drift:
@@ -118,9 +114,6 @@ jobs:
     # and fail if they drift.
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    defaults:
-      run:
-        working-directory: crates
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
       - name: Install Rust toolchain
@@ -128,15 +121,15 @@ jobs:
       - name: Cache cargo
         uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32  # v2
         with:
-          workspaces: crates -> target
+          workspaces: . -> target
       - name: Regenerate man pages + completions
-        run: cargo run --locked -p repose-cli --features gen --bin repose-gen -- repose-cli
+        run: cargo run --locked -p repose-cli --features gen --bin repose-gen -- crates/repose-cli
       - name: Check for drift
         # Fail on modified tracked assets AND on untracked leftovers (e.g. a
         # renamed page that regeneration no longer produces/overwrites).
         run: |
-          git diff --exit-code -- repose-cli/man repose-cli/completions
-          untracked="$(git status --porcelain -- repose-cli/man repose-cli/completions)"
+          git diff --exit-code -- crates/repose-cli/man crates/repose-cli/completions
+          untracked="$(git status --porcelain -- crates/repose-cli/man crates/repose-cli/completions)"
           if [ -n "$untracked" ]; then
             echo "::error::untracked generated assets:"
             echo "$untracked"
@@ -145,12 +138,9 @@ jobs:
 
   rust-msrv:
     # Build with the minimum supported Rust version (rust-version in
-    # crates/Cargo.toml) so MSRV cannot silently drift.
+    # Cargo.toml) so MSRV cannot silently drift.
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    defaults:
-      run:
-        working-directory: crates
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
       - name: Install Rust toolchain (MSRV)
@@ -158,6 +148,6 @@ jobs:
       - name: Cache cargo
         uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32  # v2
         with:
-          workspaces: crates -> target
+          workspaces: . -> target
       - name: Build (MSRV)
         run: cargo build --workspace --locked

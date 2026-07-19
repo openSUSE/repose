@@ -38,7 +38,7 @@ repose <TAB>           # add remove reset install clear uninstall ...
 Regenerate the committed completions (and man pages) from the CLI with:
 
 ```
-cargo run -p repose-cli --features gen --bin repose-gen -- repose-cli
+cargo run -p repose-cli --features gen --bin repose-gen -- crates/repose-cli
 ```
 
 ## Internal Functionality
@@ -282,15 +282,15 @@ when `IdentitiesOnly yes` is set for a host.
 
 ## Building
 
-Repose is a Rust workspace under `crates/`. Build the binary with:
+Repose is a root Rust workspace with crate sources under `crates/`. Build the
+binary with:
 
 ```
-cargo build --release -p repose-cli --manifest-path crates/Cargo.toml
-# binary at crates/target/release/repose
+cargo build --release -p repose-cli
+# binary at target/release/repose
 ```
 
 ## License
 
 This project is licensed under the GPLv3 license, see LICENSE file for
 details.
-
