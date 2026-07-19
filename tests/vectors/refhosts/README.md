@@ -107,20 +107,8 @@ this directory (the capture script enforces this):
 grep -rEn 'suse\.(cz|de)|qam\.suse' tests/vectors/refhosts/
 ```
 
-## Addon-order caveat (list-products only)
+## Ordering
 
-The historical Python 2.1.0 implementation stored addons in a `frozenset`, so
-the addon **ordering** in vectors recorded from it is not reproducible (it
-varied with `PYTHONHASHSEED`); Rust emits a deterministic sorted order. The
-test therefore:
-
-- compares **single-addon** cases (`<= 1` addon) byte-for-byte, and
-- compares **multi-addon** cases order-**insensitively** (sort the lines;
-  whole `- name:` blocks for yaml), while additionally asserting the
-  base-product structural line (text `Base product:`, json `"kind": "base"`,
-  yaml `product:` block) verbatim and in place — that is the specific line the
-  codestream bug corrupted.
-
-The committed vectors keep whatever addon order the original recording run
-emitted; only the comparison is order-insensitive. `list-repos` outputs have
-no such caveat and are always compared byte-for-byte.
+Addon ordering in list-products output is deterministic (sorted by name,
+then version, then arch) and vectors are recorded in that order; the test
+compares every file by exact byte equality.

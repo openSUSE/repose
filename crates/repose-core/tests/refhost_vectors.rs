@@ -29,15 +29,6 @@
 //!
 //! Output ordering is deterministic (addons sorted by name/version/arch),
 //! so every format is compared by exact byte equality.
-//! (historical note: the old order-insensitive compare — sorted lines for
-//! text/json (self-contained lines), and as a set of complete `- name:`
-//! addon blocks for yaml — was only needed while goldens carried Python's
-//! random frozenset order; goldens are now recorded in repose's own order.)
-//! (so name/version cross-attribution between addons
-//! still fails) — while the base-product structural line, the one the
-//! codestream bug corrupted, is additionally asserted verbatim and at its
-//! exact line position, and total byte length plus trailing newline must
-//! always match. Zero/single-addon cases are compared byte-for-byte.
 
 use std::fs;
 use std::path::{Path, PathBuf};
