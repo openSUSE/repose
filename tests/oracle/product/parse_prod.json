@@ -122,5 +122,113 @@
       "xml": "<product><name>bad</name><arch>x86_64</arch><baseversion/><patchlevel>3</patchlevel></product>"
     },
     "expected": null
+  },
+  {
+    "name": "self_closing_name_with_tail_text",
+    "input": {
+      "filename": "b.prod",
+      "xml": "<product><name/>SLES<version>1</version><arch>x86_64</arch></product>"
+    },
+    "expected": null
+  },
+  {
+    "name": "self_closing_arch_with_tail_text",
+    "input": {
+      "filename": "b.prod",
+      "xml": "<product><arch/>x86_64<name>SLES</name><version>1</version></product>"
+    },
+    "expected": null
+  },
+  {
+    "name": "first_name_element_empty_shadows_second",
+    "input": {
+      "filename": "b.prod",
+      "xml": "<product><name></name><name>SLES</name><version>1</version><arch>x86_64</arch></product>"
+    },
+    "expected": null
+  },
+  {
+    "name": "two_names_first_wins",
+    "input": {
+      "filename": "a.prod",
+      "xml": "<product><name>FIRST</name><name>SECOND</name><version>1</version><arch>x86_64</arch></product>"
+    },
+    "expected": {
+      "name": "FIRST",
+      "version": "1",
+      "arch": "x86_64"
+    }
+  },
+  {
+    "name": "entity_in_name",
+    "input": {
+      "filename": "a.prod",
+      "xml": "<product><name>A&amp;B</name><version>1</version><arch>x86_64</arch></product>"
+    },
+    "expected": {
+      "name": "A&B",
+      "version": "1",
+      "arch": "x86_64"
+    }
+  },
+  {
+    "name": "comment_splits_name_text",
+    "input": {
+      "filename": "a.prod",
+      "xml": "<product><name>A<!-- c -->B</name><version>1</version><arch>x86_64</arch></product>"
+    },
+    "expected": {
+      "name": "AB",
+      "version": "1",
+      "arch": "x86_64"
+    }
+  },
+  {
+    "name": "cdata_name",
+    "input": {
+      "filename": "a.prod",
+      "xml": "<product><name><![CDATA[SLES]]></name><version>1</version><arch>x86_64</arch></product>"
+    },
+    "expected": {
+      "name": "SLES",
+      "version": "1",
+      "arch": "x86_64"
+    }
+  },
+  {
+    "name": "cdata_mixed_with_text",
+    "input": {
+      "filename": "a.prod",
+      "xml": "<product><name>SL<![CDATA[ES]]></name><version>1</version><arch>x86_64</arch></product>"
+    },
+    "expected": {
+      "name": "SLES",
+      "version": "1",
+      "arch": "x86_64"
+    }
+  },
+  {
+    "name": "numeric_charref_in_name",
+    "input": {
+      "filename": "a.prod",
+      "xml": "<product><name>S&#76;ES</name><version>1</version><arch>x86_64</arch></product>"
+    },
+    "expected": {
+      "name": "SLES",
+      "version": "1",
+      "arch": "x86_64"
+    }
+  },
+  {
+    "name": "nested_product_element_ignored",
+    "input": {
+      "filename": "a.prod",
+      "xml": "<product><product><name>X</name><version>2</version></product><name>REAL</name><version>1</version><arch>x86_64</arch></product>"
+    },
+    "expected": {
+      "name": "REAL",
+      "version": "1",
+      "arch": "x86_64"
+    }
   }
 ]

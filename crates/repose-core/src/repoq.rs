@@ -47,7 +47,11 @@ impl Repoq {
         let arch = orepa.arch.clone().unwrap_or_else(|| base.arch.clone());
         let version_opt = orepa.version.clone().or_else(|| Some(base.version.clone()));
         let version = version_opt.clone().unwrap_or_default();
-        let baseversion = orepa.baseversion.clone().or_else(|| derive_base(&version));
+        // Python derives `baseversion` only at Repa construction (from the
+        // REPA's own version component) and never recomputes it after the
+        // version is inherited from the host base product. A version-less
+        // REPA therefore has no baseversion fallback.
+        let baseversion = orepa.baseversion.clone();
 
         let products = self
             .template
@@ -87,11 +91,19 @@ impl Repoq {
         let shortversion = resolved_version.replace('-', "");
 
         let result_list = if let Some(repo) = &orepa.repo {
-            let url_raw = subtemplate
-                .get(repo)
-                .and_then(|r| r.get("url"))
-                .and_then(|u| u.as_str())
-                .unwrap_or("http://empty.url");
+            // Python: `subtemplate.get(repo, {"url": "http://empty.url"})["url"]`
+            // — a repo *absent* from the template falls back to the marker URL,
+            // but an entry present *without* a `url` key raises (KeyError →
+            // ValueError). Never fabricate a URL for a present entry.
+            let entry = subtemplate.get(repo);
+            let url_raw = match entry {
+                None => "http://empty.url",
+                Some(r) => r.get("url").and_then(|u| u.as_str()).ok_or_else(|| {
+                    RepoqError::Message(format!(
+                        "Cannot resolve REPA {name_prefix}{repo}: missing template key or URL placeholder 'url'"
+                    ))
+                })?,
+            };
             let url = substitute(url_raw, &resolved_version, &arch, &shortversion).map_err(
                 |e| {
                     RepoqError::Message(format!(
@@ -99,8 +111,7 @@ impl Repoq {
                     ))
                 },
             )?;
-            let refresh = subtemplate
-                .get(repo)
+            let refresh = entry
                 .and_then(|r| r.get("enabled"))
                 .and_then(|e| e.as_bool())
                 .unwrap_or(false);
@@ -121,19 +132,23 @@ impl Repoq {
             let mut rlist = Vec::new();
             for x in defaults {
                 let repo_name = x.as_str().unwrap_or("");
-                let url_raw = subtemplate
-                    .get(repo_name)
-                    .and_then(|r| r.get("url"))
-                    .and_then(|u| u.as_str())
-                    .unwrap_or("http://empty.url");
+                // Same missing-`url` semantics as the named-repo branch above.
+                let entry = subtemplate.get(repo_name);
+                let url_raw = match entry {
+                    None => "http://empty.url",
+                    Some(r) => r.get("url").and_then(|u| u.as_str()).ok_or_else(|| {
+                        RepoqError::Message(format!(
+                            "Cannot resolve REPA {name_prefix}: missing template key or URL placeholder 'url'"
+                        ))
+                    })?,
+                };
                 let url = substitute(url_raw, &resolved_version, &arch, &shortversion)
                     .map_err(|e| {
                         RepoqError::Message(format!(
                             "Cannot resolve REPA {name_prefix}: missing template key or URL placeholder {e}"
                         ))
                     })?;
-                let refresh = subtemplate
-                    .get(repo_name)
+                let refresh = entry
                     .and_then(|r| r.get("enabled"))
                     .and_then(|e| e.as_bool())
                     .unwrap_or(false);
@@ -180,16 +195,21 @@ impl Repoq {
             let mut rlist = Vec::new();
             for repo in defaults {
                 let repo_name = repo.as_str().unwrap_or("");
-                let url_raw = sub
-                    .get(repo_name)
-                    .and_then(|r| r.get("url"))
-                    .and_then(|u| u.as_str())
-                    .unwrap_or("http://empty.url");
+                // As in `solve_repa`: a repo absent from the template falls
+                // back to the marker URL (Python `.get(repo, {"url": ...})`),
+                // but a present entry without `url` raises (KeyError →
+                // UnsuportedProductMessage in Python).
+                let entry = sub.get(repo_name);
+                let url_raw = match entry {
+                    None => "http://empty.url",
+                    Some(r) => r.get("url").and_then(|u| u.as_str()).ok_or_else(|| {
+                        UnsupportedProductError(format!("{}:{}", product.name, product.version))
+                    })?,
+                };
                 let url = substitute(url_raw, &product.version, &product.arch, &shortver).map_err(
                     |_| UnsupportedProductError(format!("{}:{}", product.name, product.version)),
                 )?;
-                let refresh = sub
-                    .get(repo_name)
+                let refresh = entry
                     .and_then(|r| r.get("enabled"))
                     .and_then(|e| e.as_bool())
                     .unwrap_or(false);
@@ -209,16 +229,6 @@ fn flatten_system(system: &System) -> Vec<Product> {
     let mut v = vec![system.base.clone()];
     v.extend(system.addons.iter().cloned());
     v
-}
-
-fn derive_base(version: &str) -> Option<String> {
-    if version.contains("-SP") {
-        version.split('-').next().map(str::to_string)
-    } else if version.is_empty() {
-        None
-    } else {
-        Some(version.to_string())
-    }
 }
 
 /// Minimal `string.Template.substitute` for `$foo` / `${foo}`.
@@ -274,29 +284,20 @@ fn lookup<'a>(
     }
 }
 
-/// Very small close-match: longest common prefix among candidates.
+/// Very small close-match: longest common prefix among candidates sharing the
+/// first character. Char-based — byte slicing would panic on a multi-byte
+/// (non-ASCII) first character.
 fn close_match<'a>(word: &str, candidates: &[&'a str]) -> Option<&'a str> {
-    if word.is_empty() || candidates.is_empty() {
-        return None;
-    }
+    let first = word.chars().next()?;
     candidates
         .iter()
         .copied()
-        .filter(|c| {
-            c.starts_with(&word[..word.len().min(1)]) || word.starts_with(&c[..c.len().min(1)])
-        })
+        .filter(|c| c.starts_with(first))
         .max_by_key(|c| {
             c.chars()
                 .zip(word.chars())
                 .take_while(|(a, b)| a == b)
                 .count()
-        })
-        .filter(|c| {
-            c.chars()
-                .zip(word.chars())
-                .take_while(|(a, b)| a == b)
-                .count()
-                >= 1
         })
 }
 
@@ -392,5 +393,125 @@ PackageHub:
             "http://example.invalid/product/15-SP6/x86_64/"
         );
         assert!(repos[0].refresh, "enabled: true carries through the merge");
+    }
+
+    fn base_15sp3() -> Product {
+        Product {
+            name: "SLES".into(),
+            version: "15-SP3".into(),
+            arch: "x86_64".into(),
+        }
+    }
+
+    /// A non-ASCII product must take the normal "not known product" error
+    /// path, not panic on a byte slice inside a multi-byte character.
+    #[test]
+    fn solve_repa_non_ascii_product_errors_cleanly() {
+        let rq = Repoq::new(serde_json::json!({ "SLES": {} }));
+        let repa = crate::repa::Repa::parse("\u{3a9}oo:15::pool").unwrap();
+        let err = rq.solve_repa(&repa, &base_15sp3()).unwrap_err();
+        assert_eq!(
+            err,
+            RepoqError::Message("Not known product: \u{3a9}oo".into()),
+            "clean error, no suggestion, no panic"
+        );
+    }
+
+    /// A repo entry that exists but has no `url` key must error (Python
+    /// KeyError → ValueError), never resolve to the bogus `http://empty.url`.
+    /// A repo entirely absent from the template still falls back to it.
+    #[test]
+    fn solve_repa_entry_without_url_key_errors() {
+        let rq = Repoq::new(serde_json::json!({
+            "SLES": { "15-SP3": { "nourl": { "enabled": true } } }
+        }));
+        let repa = crate::repa::Repa::parse("SLES:15-SP3::nourl").unwrap();
+        let err = rq.solve_repa(&repa, &base_15sp3()).unwrap_err();
+        assert_eq!(
+            err,
+            RepoqError::Message(
+                "Cannot resolve REPA SLES:15-SP3::nourl: missing template key or URL placeholder 'url'"
+                    .into()
+            )
+        );
+        // Absent entry keeps the Python `.get(repo, {"url": ...})` fallback.
+        let absent = crate::repa::Repa::parse("SLES:15-SP3::absent").unwrap();
+        let res = rq.solve_repa(&absent, &base_15sp3()).unwrap();
+        assert_eq!(res["SLES"][0].url, "http://empty.url");
+    }
+
+    /// Same missing-`url` rule inside the `default_repos` expansion.
+    #[test]
+    fn solve_repa_default_repo_without_url_key_errors() {
+        let rq = Repoq::new(serde_json::json!({
+            "SLES": { "15-SP3": {
+                "default_repos": ["nourl"],
+                "nourl": { "enabled": true }
+            } }
+        }));
+        let repa = crate::repa::Repa::parse("SLES:15-SP3").unwrap();
+        let err = rq.solve_repa(&repa, &base_15sp3()).unwrap_err();
+        assert_eq!(
+            err,
+            RepoqError::Message(
+                "Cannot resolve REPA SLES:15-SP3::: missing template key or URL placeholder 'url'"
+                    .into()
+            )
+        );
+    }
+
+    /// `baseversion` comes only from the REPA's own version component. A
+    /// version-less REPA inheriting `15-SP3` from the base product must NOT
+    /// re-derive `15` and silently resolve against a `"15"` template key.
+    #[test]
+    fn solve_repa_inherited_version_has_no_baseversion_fallback() {
+        let rq = Repoq::new(serde_json::json!({
+            "SLES": { "15": {
+                "pool": { "url": "http://example.invalid/$version/" },
+                "default_repos": ["pool"]
+            } }
+        }));
+        let repa = crate::repa::Repa::parse("SLES").unwrap();
+        let err = rq.solve_repa(&repa, &base_15sp3()).unwrap_err();
+        assert_eq!(
+            err,
+            RepoqError::Message("Unknow version: 15-SP3 for product: SLES".into())
+        );
+        // An explicit `-SP` version still falls back to its parse-derived
+        // baseversion, as in Python.
+        let explicit = crate::repa::Repa::parse("SLES:15-SP9").unwrap();
+        let res = rq.solve_repa(&explicit, &base_15sp3()).unwrap();
+        assert_eq!(res["SLES"][0].name, "SLES:15::pool");
+        assert_eq!(res["SLES"][0].url, "http://example.invalid/15/");
+    }
+
+    /// `solve_product`: an entry without `url` raises (Python
+    /// `UnsuportedProductMessage`); an absent entry keeps the fallback URL.
+    #[test]
+    fn solve_product_entry_without_url_key_errors() {
+        use crate::types::System;
+        let system = |version: &str| System {
+            base: Product {
+                name: "SLES".into(),
+                version: version.into(),
+                arch: "x86_64".into(),
+            },
+            addons: vec![],
+            transactional: false,
+        };
+        let rq = Repoq::new(serde_json::json!({
+            "SLES": { "15-SP3": {
+                "default_repos": ["nourl"],
+                "nourl": { "enabled": true }
+            } }
+        }));
+        let err = rq.solve_product(&system("15-SP3")).unwrap_err();
+        assert_eq!(err, UnsupportedProductError("SLES:15-SP3".into()));
+
+        let rq = Repoq::new(serde_json::json!({
+            "SLES": { "15-SP3": { "default_repos": ["absent"] } }
+        }));
+        let res = rq.solve_product(&system("15-SP3")).unwrap();
+        assert_eq!(res["SLES"][0].url, "http://empty.url");
     }
 }

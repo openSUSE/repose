@@ -28,6 +28,10 @@ pub enum TemplateError {
         #[source]
         source: serde_json::Error,
     },
+    #[error(
+        "invalid `<<` merge in template {path}: expected a mapping or a sequence of mappings, got {got}"
+    )]
+    Merge { path: String, got: String },
 }
 
 /// Load products YAML; empty/null → `{}`; non-mapping → [`TemplateError`].
@@ -50,7 +54,10 @@ pub fn load_template(path: &Path) -> Result<Value, TemplateError> {
             path: path_s.clone(),
             source,
         })?;
-    expand_merges(&mut doc);
+    expand_merges(&mut doc).map_err(|got| TemplateError::Merge {
+        path: path_s.clone(),
+        got,
+    })?;
     // Convert the merged YAML value to `serde_json::Value`. Integer mapping keys
     // are coerced to their string form here, identical to the previous direct
     // `serde_yaml::from_str::<serde_json::Value>` path.
@@ -76,31 +83,37 @@ pub fn load_template(path: &Path) -> Result<Value, TemplateError> {
 /// YAML merge semantics; because a nearer merge source is inserted before a
 /// farther one is reached, chained precedence (own > nearer > farther) is
 /// preserved.
-fn expand_merges(node: &mut serde_yaml::Value) {
+///
+/// Errors with the offending YAML type name when a `<<` value is not a mapping
+/// or a sequence of mappings — ruamel/PyYAML raise `ConstructorError` there,
+/// so silently dropping the value would hide a broken template.
+fn expand_merges(node: &mut serde_yaml::Value) -> Result<(), String> {
     match node {
         serde_yaml::Value::Mapping(map) => {
             for (_k, v) in map.iter_mut() {
-                expand_merges(v);
+                expand_merges(v)?;
             }
             if let Some(merged) = map.remove("<<") {
-                merge_into(map, merged);
+                merge_into(map, merged)?;
             }
         }
         serde_yaml::Value::Sequence(seq) => {
             for v in seq.iter_mut() {
-                expand_merges(v);
+                expand_merges(v)?;
             }
         }
         _ => {}
     }
+    Ok(())
 }
 
 /// Fold a resolved `<<` source into `map` without overriding existing keys.
 ///
 /// A single mapping merges directly; a sequence merges each mapping in order
 /// (earlier entries take precedence, per the YAML merge spec). The source has
-/// already had its own merges expanded by [`expand_merges`].
-fn merge_into(map: &mut serde_yaml::Mapping, merged: serde_yaml::Value) {
+/// already had its own merges expanded by [`expand_merges`]. Any other value —
+/// a scalar, or a sequence containing a non-mapping — is a template error.
+fn merge_into(map: &mut serde_yaml::Mapping, merged: serde_yaml::Value) -> Result<(), String> {
     match merged {
         serde_yaml::Value::Mapping(m) => {
             for (k, v) in m {
@@ -109,14 +122,30 @@ fn merge_into(map: &mut serde_yaml::Mapping, merged: serde_yaml::Value) {
         }
         serde_yaml::Value::Sequence(seq) => {
             for item in seq {
-                if let serde_yaml::Value::Mapping(m) = item {
-                    for (k, v) in m {
-                        map.entry(k).or_insert(v);
+                match item {
+                    serde_yaml::Value::Mapping(m) => {
+                        for (k, v) in m {
+                            map.entry(k).or_insert(v);
+                        }
                     }
+                    other => return Err(yaml_type_name(&other).to_string()),
                 }
             }
         }
-        _ => {}
+        other => return Err(yaml_type_name(&other).to_string()),
+    }
+    Ok(())
+}
+
+fn yaml_type_name(v: &serde_yaml::Value) -> &'static str {
+    match v {
+        serde_yaml::Value::Null => "null",
+        serde_yaml::Value::Bool(_) => "bool",
+        serde_yaml::Value::Number(_) => "number",
+        serde_yaml::Value::String(_) => "str",
+        serde_yaml::Value::Sequence(_) => "list",
+        serde_yaml::Value::Mapping(_) => "dict",
+        serde_yaml::Value::Tagged(_) => "tagged",
     }
 }
 
@@ -225,6 +254,56 @@ PackageHub:
 
         // No `<<` key anywhere in the whole document.
         assert_eq!(count_merge_keys(&t), 0);
+    }
+
+    /// A `<<:` whose value is a scalar must be a load error (ruamel raises
+    /// `ConstructorError`), not a silently dropped key.
+    #[test]
+    fn scalar_merge_value_errors() {
+        let dir = tempfile::tempdir().unwrap();
+        let p = dir.path().join("scalar-merge.yml");
+        fs::write(&p, "a:\n  <<: 5\n  own: 1\n").unwrap();
+        let err = load_template(&p).unwrap_err();
+        assert!(
+            matches!(&err, TemplateError::Merge { got, .. } if got == "number"),
+            "got: {err}"
+        );
+    }
+
+    /// A `<<:` sequence containing a non-mapping item must also error.
+    #[test]
+    fn sequence_with_non_mapping_merge_item_errors() {
+        let dir = tempfile::tempdir().unwrap();
+        let p = dir.path().join("seq-merge.yml");
+        fs::write(
+            &p,
+            "x: &a\n  ka: A\nc:\n  <<:\n    - *a\n    - scalar\n  own: 1\n",
+        )
+        .unwrap();
+        let err = load_template(&p).unwrap_err();
+        assert!(
+            matches!(&err, TemplateError::Merge { got, .. } if got == "str"),
+            "got: {err}"
+        );
+    }
+
+    /// A `<<:` sequence of mappings stays supported, with earlier entries
+    /// taking precedence over later ones and own keys over both.
+    #[test]
+    fn sequence_of_mappings_merge_earlier_wins() {
+        let dir = tempfile::tempdir().unwrap();
+        let p = dir.path().join("seq-ok.yml");
+        fs::write(
+            &p,
+            "a: &a\n  x: 1\n  ka: A\nb: &b\n  x: 2\n  kb: B\nc:\n  <<: [*a, *b]\n  own: 1\n",
+        )
+        .unwrap();
+        let t = load_template(&p).unwrap();
+        assert_eq!(
+            t["c"],
+            serde_json::json!({"x": 1, "ka": "A", "kb": "B", "own": 1}),
+            "earlier mapping wins for x; own key kept"
+        );
     }
 
     fn count_merge_keys(v: &Value) -> usize {

@@ -1,14 +1,14 @@
 //! Parse `zypper -x lr` XML (Python `parse_repositories`).
 
 use quick_xml::events::Event;
-use quick_xml::Reader;
+use quick_xml::{Reader, XmlVersion};
 
+use crate::product_parse::resolve_general_ref;
 use crate::types::Repository;
 
 /// Parse zypper XML into repositories; skip malformed entries.
 pub fn parse_repositories(xml: &str) -> Vec<Repository> {
     let mut reader = Reader::from_str(xml);
-    reader.config_mut().trim_text(true);
     let mut repos = Vec::new();
     let mut buf = Vec::new();
 
@@ -17,11 +17,19 @@ pub fn parse_repositories(xml: &str) -> Vec<Repository> {
     let mut name = String::new();
     let mut enabled = String::new();
     let mut url = String::new();
+    // Collecting text of the first `<url>` child (Python `find("./url").text`).
     let mut in_url = false;
+    // Python `find` returns the first match: later `<url>` siblings are ignored.
+    let mut url_seen = false;
 
     loop {
         match reader.read_event_into(&mut buf) {
             Ok(Event::Start(e)) => {
+                // Python `.text` covers only the run up to the first child
+                // element, so any element opening inside `<url>` ends it.
+                if in_url {
+                    in_url = false;
+                }
                 let tag = String::from_utf8_lossy(e.name().as_ref()).into_owned();
                 if tag == "repo" {
                     in_repo = true;
@@ -29,36 +37,66 @@ pub fn parse_repositories(xml: &str) -> Vec<Repository> {
                     name.clear();
                     enabled.clear();
                     url.clear();
+                    url_seen = false;
                     for a in e.attributes().flatten() {
-                        let key = String::from_utf8_lossy(a.key.as_ref()).into_owned();
-                        let val = String::from_utf8_lossy(a.value.as_ref()).into_owned();
-                        match key.as_str() {
-                            "alias" => alias = val.clone(),
-                            "name" => name = val.clone(),
-                            "enabled" => enabled = val,
+                        // Resolve entity/char references in attribute values
+                        // (`name="A &amp; B"` → `A & B`), as Python's
+                        // ElementTree does (including standard attribute-value
+                        // whitespace normalization). An undefined entity makes
+                        // Python raise ParseError; keep the documented lenient
+                        // delta and skip just that attribute.
+                        let Ok(val) = a.normalized_value(XmlVersion::Implicit1_0) else {
+                            continue;
+                        };
+                        match a.key.as_ref() {
+                            b"alias" => alias = val.into_owned(),
+                            b"name" => name = val.into_owned(),
+                            b"enabled" => enabled = val.into_owned(),
                             _ => {}
                         }
                     }
-                } else if tag == "url" && in_repo {
+                } else if tag == "url" && in_repo && !url_seen {
+                    url_seen = true;
                     in_url = true;
+                    url.clear();
                 }
             }
+            // Text arrives fragmented (entity references and CDATA split it
+            // into separate events): accumulate, never assign.
             Ok(Event::Text(t)) if in_url => {
-                url = t.decode().map(|c| c.into_owned()).unwrap_or_default();
+                if let Ok(text) = t.decode() {
+                    url.push_str(&text);
+                }
+            }
+            Ok(Event::CData(t)) if in_url => {
+                if let Ok(text) = t.decode() {
+                    url.push_str(&text);
+                }
+            }
+            Ok(Event::GeneralRef(e)) if in_url => {
+                match resolve_general_ref(&e) {
+                    Some(s) => url.push_str(&s),
+                    // Undefined entity: Python raises ParseError for the whole
+                    // document; mirror the malformed-XML delta and stop here.
+                    None => break,
+                }
             }
             Ok(Event::End(e)) => {
                 let tag = String::from_utf8_lossy(e.name().as_ref()).into_owned();
                 if tag == "url" {
                     in_url = false;
+                    // Python keeps `.text` verbatim; trimming padding is a
+                    // documented delta (see below). Idempotent on re-entry.
+                    url = url.trim().to_string();
                 } else if tag == "repo" && in_repo {
                     in_repo = false;
                     // Python skips a repo only when a required field is *absent*.
-                    // Combined with `trim_text` (above), this non-empty check is a
-                    // documented delta on pathological input: it (a) drops
-                    // present-but-empty/whitespace-only fields Python keeps (e.g.
-                    // `enabled=""`, `<url> </url>`), and (b) strips surrounding
-                    // whitespace Python preserves in a padded `<url>`. Real
-                    // `zypper -x lr` emits neither.
+                    // Combined with the whitespace trim (above), this non-empty
+                    // check is a documented delta on pathological input: it (a)
+                    // drops present-but-empty/whitespace-only fields Python
+                    // keeps (e.g. `enabled=""`, `<url> </url>`), and (b) strips
+                    // surrounding whitespace Python preserves in a padded
+                    // `<url>`. Real `zypper -x lr` emits neither.
                     if !alias.is_empty()
                         && !name.is_empty()
                         && !enabled.is_empty()
@@ -103,6 +141,36 @@ mod tests {
         assert_eq!(repos.len(), 1);
         assert_eq!(repos[0].alias, "A");
         assert!(repos[0].state);
+    }
+
+    /// XML entities in attribute values and url text must be resolved and the
+    /// fragmented text accumulated, matching Python's ElementTree.
+    #[test]
+    fn entities_in_attributes_and_url_are_unescaped() {
+        let xml = r#"<stream><repo-list><repo alias="r1" name="A &amp; B" enabled="1"><url>http://example.invalid/?a=1&amp;b=2</url></repo></repo-list></stream>"#;
+        let repos = parse_repositories(xml);
+        assert_eq!(repos.len(), 1);
+        assert_eq!(repos[0].name, "A & B");
+        assert_eq!(repos[0].url, "http://example.invalid/?a=1&b=2");
+    }
+
+    /// Numeric character references and CDATA sections are part of the text.
+    #[test]
+    fn char_refs_and_cdata_in_url() {
+        let xml = r#"<stream><repo-list><repo alias="a" name="n" enabled="1"><url>http&#58;//example.invalid<![CDATA[/cdata/]]>end</url></repo></repo-list></stream>"#;
+        let repos = parse_repositories(xml);
+        assert_eq!(repos.len(), 1);
+        assert_eq!(repos[0].url, "http://example.invalid/cdata/end");
+    }
+
+    /// Python `repo.find("./url")` takes the first `<url>` child; a second one
+    /// must be ignored, not overwrite or concatenate.
+    #[test]
+    fn first_url_child_wins() {
+        let xml = r#"<stream><repo-list><repo alias="a" name="n" enabled="1"><url>http://example.invalid/first/</url><url>http://example.invalid/second/</url></repo></repo-list></stream>"#;
+        let repos = parse_repositories(xml);
+        assert_eq!(repos.len(), 1);
+        assert_eq!(repos[0].url, "http://example.invalid/first/");
     }
 
     #[test]

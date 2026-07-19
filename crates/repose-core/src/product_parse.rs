@@ -1,9 +1,33 @@
 //! Pure parsers for `.prod` XML and os-release text (no SFTP).
 
-use quick_xml::events::Event;
+use quick_xml::events::{BytesRef, Event};
 use quick_xml::Reader;
 
 use crate::types::{Product, System};
+
+/// Resolve a `&name;` / `&#N;` general-entity reference to its text, the way
+/// Python's ElementTree inlines it. Returns `None` for an undefined entity
+/// (where Python raises `ParseError`); callers treat that as malformed input.
+pub(crate) fn resolve_general_ref(e: &BytesRef<'_>) -> Option<String> {
+    if let Ok(Some(ch)) = e.resolve_char_ref() {
+        return Some(ch.to_string());
+    }
+    let name = e.decode().ok()?;
+    quick_xml::escape::resolve_predefined_entity(&name).map(str::to_string)
+}
+
+/// Index of `tag` in the tracked `.prod` fields, if it is one.
+fn field_index(tag: &[u8]) -> Option<usize> {
+    [
+        b"name".as_slice(),
+        b"arch",
+        b"baseversion",
+        b"patchlevel",
+        b"version",
+    ]
+    .iter()
+    .position(|f| *f == tag)
+}
 
 /// Parse one `.prod` XML document into a product, or `None` if malformed.
 ///
@@ -12,55 +36,90 @@ use crate::types::{Product, System};
 /// `./patchlevel`) — i.e. the **first direct child** of the root `<product>`
 /// element. Real `.prod` files carry a second, nested `<codestream><name>`
 /// (the friendly/summary name); it must NOT clobber the canonical one, so we
-/// only consider elements whose parent is the root (depth 1) and keep the
-/// first occurrence of each field.
+/// only consider elements whose parent is the root (depth 1) and commit the
+/// **first element** per field (an empty first `<name></name>` shadows a later
+/// text-bearing one, exactly like `find`'s first-match + `.text is None`).
+///
+/// Like ElementTree's `.text`, a field's value is the concatenation of the
+/// character data — text, resolved entity/char references, CDATA — between
+/// its start tag and its first child element (comments do not interrupt it).
 pub fn parse_prod_xml(xml: &str, _filename: &str) -> Option<Product> {
     let mut reader = Reader::from_str(xml);
-    reader.config_mut().trim_text(true);
     let mut buf = Vec::new();
-    let mut name = None;
-    let mut arch = None;
-    let mut baseversion = None;
-    let mut patchlevel = None;
-    let mut version = None;
-    // Depth of the element we're currently inside a text node of. The root
-    // `<product>` is at depth 0, so its direct children sit at depth 1.
+    // Per-field committed `.text` (index shape from `field_index`). `Some("")`
+    // models Python's "element seen, `.text` is None/empty" — falsy downstream.
+    let mut texts: [Option<String>; 5] = Default::default();
+    // Whether each field's element has been seen at depth 1: the FIRST element
+    // wins the field even if it carries no text.
+    let mut seen = [false; 5];
+    // The root `<product>` is at depth 0, so its direct children sit at depth 1.
     let mut depth: i32 = 0;
-    let mut cur = String::new();
-    let mut cur_depth: i32 = -1;
+    // Field whose depth-1 element is currently open and collecting `.text`.
+    let mut active: Option<usize> = None;
+    let mut acc = String::new();
+    // `.text` ends at the first child element (its content and everything
+    // after it belongs to child text/tails in ElementTree).
+    let mut text_done = false;
 
     loop {
         match reader.read_event_into(&mut buf) {
             Ok(Event::Start(e)) => {
-                cur = String::from_utf8_lossy(e.name().as_ref()).into_owned();
-                cur_depth = depth;
+                if active.is_some() {
+                    text_done = true;
+                } else if depth == 1 {
+                    if let Some(idx) = field_index(e.name().as_ref()) {
+                        if !seen[idx] {
+                            seen[idx] = true;
+                            active = Some(idx);
+                            acc.clear();
+                            text_done = false;
+                        }
+                    }
+                }
                 depth += 1;
             }
             Ok(Event::Empty(e)) => {
-                // Self-closing element: carries no text, so it can only
-                // satisfy Python's `find(...).text is None` (malformed) path.
-                cur = String::from_utf8_lossy(e.name().as_ref()).into_owned();
-                cur_depth = depth;
-            }
-            Ok(Event::Text(t)) => {
-                // Only direct children of the root count (Python `find("./X")`);
-                // keep the first occurrence, matching `find`'s first-match.
-                if cur_depth == 1 {
-                    let text = t.decode().map(|c| c.into_owned()).unwrap_or_default();
-                    match cur.as_str() {
-                        "name" if name.is_none() => name = Some(text),
-                        "arch" if arch.is_none() => arch = Some(text),
-                        "baseversion" if baseversion.is_none() => baseversion = Some(text),
-                        "patchlevel" if patchlevel.is_none() => patchlevel = Some(text),
-                        "version" if version.is_none() => version = Some(text),
-                        _ => {}
+                // Self-closing element: immediately closed, carries no text —
+                // Python's `.text` is None. Crucially it does NOT stay
+                // "current": tail text after it belongs to no field.
+                if active.is_some() {
+                    text_done = true;
+                } else if depth == 1 {
+                    if let Some(idx) = field_index(e.name().as_ref()) {
+                        if !seen[idx] {
+                            seen[idx] = true;
+                            texts[idx] = Some(String::new());
+                        }
                     }
+                }
+            }
+            // Character data is fragmented across Text / GeneralRef / CData
+            // events: accumulate every piece of the active field's `.text`.
+            Ok(Event::Text(t)) => {
+                if active.is_some() && !text_done {
+                    acc.push_str(&t.decode().ok()?);
+                }
+            }
+            Ok(Event::CData(t)) => {
+                if active.is_some() && !text_done {
+                    acc.push_str(&t.decode().ok()?);
+                }
+            }
+            Ok(Event::GeneralRef(e)) => {
+                if active.is_some() && !text_done {
+                    // Undefined entity → Python ParseError → malformed here.
+                    acc.push_str(&resolve_general_ref(&e)?);
                 }
             }
             Ok(Event::End(_)) => {
                 depth -= 1;
-                cur.clear();
-                cur_depth = -1;
+                if depth == 1 {
+                    if let Some(idx) = active.take() {
+                        // Whitespace trim is a documented delta (Python keeps
+                        // `.text` verbatim); real `.prod` files are unpadded.
+                        texts[idx] = Some(acc.trim().to_string());
+                    }
+                }
             }
             Ok(Event::Eof) => break,
             Err(_) => return None,
@@ -69,6 +128,7 @@ pub fn parse_prod_xml(xml: &str, _filename: &str) -> Option<Product> {
         buf.clear();
     }
 
+    let [name, arch, baseversion, patchlevel, version] = texts;
     let name = name.filter(|s| !s.is_empty())?;
     let arch = arch.filter(|s| !s.is_empty())?;
     // Intentional delta: with `<baseversion>` present but `<patchlevel>` entirely
@@ -324,6 +384,57 @@ mod tests {
 <product><name>CAASP</name><version>4.0</version><arch>x86_64</arch></product>"#;
         let p = parse_prod_xml(xml, "CAASP.prod").unwrap();
         assert_eq!(p.version, "ALL");
+    }
+
+    /// Tail text after a self-closing depth-1 element must not be attributed
+    /// to it (Python: `<arch/>` → `.text is None` → malformed).
+    #[test]
+    fn self_closing_field_with_tail_text_is_malformed() {
+        let xml = "<product><arch/>x86_64<name>S</name><version>1</version></product>";
+        assert_eq!(parse_prod_xml(xml, "t.prod"), None);
+        let xml = "<product><name/>SLES<version>1</version><arch>x86_64</arch></product>";
+        assert_eq!(parse_prod_xml(xml, "t.prod"), None);
+    }
+
+    /// The FIRST element wins per field, even when empty: a later text-bearing
+    /// duplicate must not fill the field (Python `find` + `.text is None`).
+    #[test]
+    fn first_element_wins_even_when_empty() {
+        let xml =
+            "<product><name></name><name>SLES</name><version>1</version><arch>a</arch></product>";
+        assert_eq!(parse_prod_xml(xml, "t.prod"), None);
+        let xml =
+            "<product><name>FIRST</name><name>SECOND</name><version>1</version><arch>a</arch></product>";
+        let p = parse_prod_xml(xml, "t.prod").unwrap();
+        assert_eq!(p.name, "FIRST");
+    }
+
+    /// Entity references, comments, and CDATA fragment the character data;
+    /// the pieces must be accumulated and resolved like ElementTree's `.text`.
+    #[test]
+    fn fragmented_text_entities_comments_cdata() {
+        let entity = "<product><name>A&amp;B</name><version>1</version><arch>a</arch></product>";
+        assert_eq!(parse_prod_xml(entity, "t.prod").unwrap().name, "A&B");
+        let comment =
+            "<product><name>A<!-- c -->B</name><version>1</version><arch>a</arch></product>";
+        assert_eq!(parse_prod_xml(comment, "t.prod").unwrap().name, "AB");
+        let cdata =
+            "<product><name><![CDATA[SLES]]></name><version>1</version><arch>a</arch></product>";
+        assert_eq!(parse_prod_xml(cdata, "t.prod").unwrap().name, "SLES");
+        let mixed =
+            "<product><name>SL<![CDATA[ES]]></name><version>1</version><arch>a</arch></product>";
+        assert_eq!(parse_prod_xml(mixed, "t.prod").unwrap().name, "SLES");
+        let charref = "<product><name>S&#76;ES</name><version>1</version><arch>a</arch></product>";
+        assert_eq!(parse_prod_xml(charref, "t.prod").unwrap().name, "SLES");
+    }
+
+    /// `.text` stops at the first child element; the child's content and its
+    /// tail belong to the child, not the field.
+    #[test]
+    fn text_stops_at_first_child_element() {
+        let xml = "<product><name>REAL<sub>X</sub>tail</name><version>1</version><arch>a</arch></product>";
+        let p = parse_prod_xml(xml, "t.prod").unwrap();
+        assert_eq!(p.name, "REAL");
     }
 
     #[test]
