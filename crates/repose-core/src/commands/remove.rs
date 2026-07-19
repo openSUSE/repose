@@ -1,11 +1,12 @@
 //! `repose remove` — pattern match aliases, zypper rr.
 
-use crate::commands::{aggregate, run_reported, CommandOptions};
+use crate::commands::{aggregate, run_reported_shared, CommandOptions, SharedConsole};
 use crate::console::Console;
 use crate::repa::Repa;
 use crate::shell::cmd;
-use crate::traits::HostGroup;
+use crate::traits::{Host, HostGroup};
 use crate::types::{ExitCode, Product};
+use futures_util::future::join_all;
 use std::collections::BTreeSet;
 use std::io::Write;
 
@@ -63,49 +64,53 @@ pub async fn run_remove<W: Write>(
     group.read_repos().await;
     group.parse_repos().await;
 
-    let keys = group.keys();
-    let mut results = Vec::new();
-    for key in keys {
-        let Some(host) = group.get_mut(&key) else {
-            results.push(false);
-            continue;
-        };
-        // Python dereferences `products.flatten()` unguarded — a host whose
-        // product read failed raises in the worker and counts as failed.
-        let Some(system) = host.products() else {
-            results.push(false);
-            continue;
-        };
-        let products = system.flatten();
-        let patterns = calculate_patterns(&opts.repa, &products);
-        if patterns.is_empty() {
-            let _ = console.info(&format!("For {} no repos for remove found", host.key()));
-            results.push(true);
-            continue;
-        }
-        let aliases = host
-            .repos()
-            .map(|r| r.keys().cloned().collect::<Vec<_>>())
-            .unwrap_or_default();
-        let repolist = calculate_repolist(aliases.into_iter(), &patterns);
-        if repolist.is_empty() {
-            let _ = console.info(&format!("For {} no repos for remove found", host.key()));
-            results.push(true);
-            continue;
-        }
-        let refs: Vec<&str> = repolist.iter().map(String::as_str).collect();
-        let c = cmd::zypper_rr(&refs);
-        if opts.dry {
-            let _ = console.dry(host.key(), &c);
-            results.push(true);
-            continue;
-        }
-        let ok = run_reported(host, &c, console).await;
-        results.push(ok);
-    }
+    // Fan out per-host work concurrently (Python spawned one worker task per
+    // target); `join_all` preserves key order for exit aggregation.
+    let console = SharedConsole::new(console);
+    let results = join_all(
+        group
+            .hosts_mut()
+            .into_iter()
+            .map(|host| remove_one(opts, host, &console)),
+    )
+    .await;
 
     group.close().await;
     aggregate(results)
+}
+
+async fn remove_one<W: Write>(
+    opts: &CommandOptions,
+    host: &mut dyn Host,
+    console: &SharedConsole<'_, W>,
+) -> bool {
+    // Python dereferences `products.flatten()` unguarded — a host whose
+    // product read failed raises in the worker and counts as failed.
+    let Some(system) = host.products() else {
+        return false;
+    };
+    let products = system.flatten();
+    let patterns = calculate_patterns(&opts.repa, &products);
+    if patterns.is_empty() {
+        console.info(&format!("For {} no repos for remove found", host.key()));
+        return true;
+    }
+    let aliases = host
+        .repos()
+        .map(|r| r.keys().cloned().collect::<Vec<_>>())
+        .unwrap_or_default();
+    let repolist = calculate_repolist(aliases.into_iter(), &patterns);
+    if repolist.is_empty() {
+        console.info(&format!("For {} no repos for remove found", host.key()));
+        return true;
+    }
+    let refs: Vec<&str> = repolist.iter().map(String::as_str).collect();
+    let c = cmd::zypper_rr(&refs);
+    if opts.dry {
+        console.dry(host.key(), &c);
+        return true;
+    }
+    run_reported_shared(host, &c, console).await
 }
 
 #[cfg(test)]

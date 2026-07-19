@@ -1,13 +1,15 @@
 //! `repose install` — ar + ref + product install; transactional path.
 
 use crate::commands::{
-    aggregate, filter_live, load_repoq, reboot_and_verify, run_reported, CommandOptions,
+    aggregate, filter_live, load_repoq, reboot_and_verify_shared, run_reported_shared,
+    CommandOptions, SharedConsole,
 };
 use crate::console::Console;
 use crate::repoq::Repos;
 use crate::shell::cmd;
 use crate::traits::{Host, HostGroup, Probe};
 use crate::types::ExitCode;
+use futures_util::future::join_all;
 use std::collections::BTreeMap;
 use std::io::Write;
 
@@ -49,15 +51,16 @@ pub async fn run_install<W: Write>(
     group.read_products().await;
     group.read_repos().await;
 
-    let keys = group.keys();
-    let mut results = Vec::new();
-    for key in keys {
-        let Some(host) = group.get_mut(&key) else {
-            results.push(false);
-            continue;
-        };
-        results.push(install_one(opts, host, probe, &repoq, console).await);
-    }
+    // Fan out per-host work concurrently (Python spawned one worker task per
+    // target); `join_all` preserves key order for exit aggregation.
+    let console = SharedConsole::new(console);
+    let results = join_all(
+        group
+            .hosts_mut()
+            .into_iter()
+            .map(|host| install_one(opts, host, probe, &repoq, &console)),
+    )
+    .await;
     group.close().await;
     Ok(aggregate(results))
 }
@@ -67,7 +70,7 @@ async fn install_one<W: Write>(
     host: &mut dyn Host,
     probe: &dyn Probe,
     repoq: &crate::repoq::Repoq,
-    console: &mut Console<W>,
+    console: &SharedConsole<'_, W>,
 ) -> bool {
     let Some(products) = host.products() else {
         return false;
@@ -81,7 +84,7 @@ async fn install_one<W: Write>(
         match repoq.solve_repa(repa, &base) {
             Ok(m) => merge_repos(&mut repositories, m),
             Err(e) => {
-                let _ = console.error(host.key(), &e.to_string());
+                console.error(host.key(), &e.to_string());
                 ok = false;
             }
         }
@@ -97,9 +100,9 @@ async fn install_one<W: Write>(
     for repo in &live {
         let addcmd = cmd::zypper_ar(repo.refresh, &repo.name, &repo.url);
         if opts.dry {
-            let _ = console.dry(host.key(), &addcmd);
+            console.dry(host.key(), &addcmd);
         } else {
-            if !run_reported(host, &addcmd, console).await {
+            if !run_reported_shared(host, &addcmd, console).await {
                 ok = false;
             }
             // Per-repo ref without report_target (Python parity trap).
@@ -108,7 +111,7 @@ async fn install_one<W: Write>(
     }
 
     if repositories.is_empty() {
-        let _ = console.error(host.key(), "No products to install");
+        console.error(host.key(), "No products to install");
         return false;
     }
 
@@ -123,11 +126,11 @@ async fn install_one<W: Write>(
 
     if opts.dry {
         if transactional {
-            let _ = console.dry(host.key(), cmd::REFTCMD);
+            console.dry(host.key(), cmd::REFTCMD);
         }
-        let _ = console.dry(host.key(), &inscmd);
+        console.dry(host.key(), &inscmd);
         if transactional && !opts.no_reboot {
-            let _ = console.dry(host.key(), cmd::REBOOT);
+            console.dry(host.key(), cmd::REBOOT);
         }
         return ok;
     }
@@ -137,9 +140,9 @@ async fn install_one<W: Write>(
     }
     // Short-circuit: a failed install report skips the reboot+verify
     // (Python `elif transactional`).
-    if !run_reported(host, &inscmd, console).await
+    if !run_reported_shared(host, &inscmd, console).await
         || (transactional
-            && !reboot_and_verify(host, &product_names, true, opts.no_reboot, console).await)
+            && !reboot_and_verify_shared(host, &product_names, true, opts.no_reboot, console).await)
     {
         ok = false;
     }

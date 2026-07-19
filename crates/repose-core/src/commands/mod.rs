@@ -18,6 +18,7 @@ pub use uninstall::run_uninstall;
 
 use std::io::Write;
 use std::path::PathBuf;
+use std::sync::{Mutex, PoisonError};
 use std::time::Duration;
 
 use crate::console::{Console, Level, OutputFormat};
@@ -61,6 +62,51 @@ pub(crate) fn load_repoq(config: &std::path::Path) -> Result<Repoq, TemplateErro
     Ok(Repoq::new(load_template(config)?))
 }
 
+/// Console shared by the concurrent per-host futures of a mutation command.
+///
+/// Each emission takes the lock only for the duration of one synchronous
+/// write — never across an `.await` — so live output stays streaming and
+/// host-prefixed; lines from different hosts may interleave, matching the
+/// Python asyncio worker model.
+pub(crate) struct SharedConsole<'a, W: Write> {
+    inner: Mutex<&'a mut Console<W>>,
+}
+
+impl<'a, W: Write> SharedConsole<'a, W> {
+    pub(crate) const fn new(console: &'a mut Console<W>) -> Self {
+        Self {
+            inner: Mutex::new(console),
+        }
+    }
+
+    /// Run a synchronous emission block under the lock.
+    ///
+    /// A poisoned lock only means a sibling host future panicked mid-write;
+    /// keep reporting from the remaining hosts.
+    pub(crate) fn with<R>(&self, f: impl FnOnce(&mut Console<W>) -> R) -> R {
+        let mut guard = self.inner.lock().unwrap_or_else(PoisonError::into_inner);
+        f(&mut guard)
+    }
+
+    pub(crate) fn dry(&self, host: &str, cmd: &str) {
+        self.with(|c| {
+            let _ = c.dry(host, cmd);
+        });
+    }
+
+    pub(crate) fn error(&self, host: &str, msg: &str) {
+        self.with(|c| {
+            let _ = c.error(host, msg);
+        });
+    }
+
+    pub(crate) fn info(&self, msg: &str) {
+        self.with(|c| {
+            let _ = c.info(msg);
+        });
+    }
+}
+
 /// Report the last command's output for `host` via the console and classify
 /// its exit code (Python `_report_target`).
 ///
@@ -102,15 +148,29 @@ pub(crate) fn report_target<W: Write>(host: &dyn Host, console: &mut Console<W>)
 ///
 /// A transport-level `Err` (no `out` entry appended) counts as host failure,
 /// mirroring the Python worker-exception path into `_aggregate`.
+///
+/// The console lock is taken only after the `.await` completes, for the
+/// synchronous report block.
+pub(crate) async fn run_reported_shared<W: Write>(
+    host: &mut dyn Host,
+    command: &str,
+    console: &SharedConsole<'_, W>,
+) -> bool {
+    match host.run(command).await {
+        Ok(()) => console.with(|c| report_target(host, c)),
+        Err(_) => false,
+    }
+}
+
+/// Serial-console convenience wrapper around [`run_reported_shared`], kept
+/// for unit tests that drive a single host with a plain `&mut Console`.
+#[cfg(test)]
 pub(crate) async fn run_reported<W: Write>(
     host: &mut dyn Host,
     command: &str,
     console: &mut Console<W>,
 ) -> bool {
-    match host.run(command).await {
-        Ok(()) => report_target(host, console),
-        Err(_) => false,
-    }
+    run_reported_shared(host, command, &SharedConsole::new(console)).await
 }
 
 /// Verify `products` are present/absent in the host's re-read state
@@ -160,15 +220,15 @@ fn check_products<W: Write>(
 /// With `no_reboot` the change is left staged and only a reminder is
 /// printed (returns `true`). Otherwise the host is rebooted + reconnected
 /// and its products are re-read and checked.
-pub(crate) async fn reboot_and_verify<W: Write>(
+pub(crate) async fn reboot_and_verify_shared<W: Write>(
     host: &mut dyn Host,
     products: &[String],
     present: bool,
     no_reboot: bool,
-    console: &mut Console<W>,
+    console: &SharedConsole<'_, W>,
 ) -> bool {
     if no_reboot {
-        let _ = console.info(&format!(
+        console.info(&format!(
             "Reboot {} to activate the staged snapshot (--no-reboot set)",
             host.key()
         ));
@@ -178,10 +238,30 @@ pub(crate) async fn reboot_and_verify<W: Write>(
         return false;
     }
     if host.read_products().await.is_err() {
-        let _ = console.error(host.key(), "could not re-read products after reboot");
+        console.error(host.key(), "could not re-read products after reboot");
         return false;
     }
-    check_products(host, products, present, console)
+    console.with(|c| check_products(host, products, present, c))
+}
+
+/// Serial-console convenience wrapper around [`reboot_and_verify_shared`],
+/// kept for unit tests that drive a single host with a plain `&mut Console`.
+#[cfg(test)]
+pub(crate) async fn reboot_and_verify<W: Write>(
+    host: &mut dyn Host,
+    products: &[String],
+    present: bool,
+    no_reboot: bool,
+    console: &mut Console<W>,
+) -> bool {
+    reboot_and_verify_shared(
+        host,
+        products,
+        present,
+        no_reboot,
+        &SharedConsole::new(console),
+    )
+    .await
 }
 
 /// Aggregate per-host bool results (Python `_aggregate`).
@@ -189,15 +269,21 @@ pub fn aggregate(results: impl IntoIterator<Item = bool>) -> ExitCode {
     ExitCode::aggregate(results)
 }
 
-pub(crate) async fn filter_live(
+/// Probe `repos` and split them into `(live, dropped)`, both preserving
+/// input order. With `no_probe` everything is live.
+///
+/// Reset needs both halves (its partial-drop guard reports the dropped
+/// names), so partitioning here avoids probing a clone of the candidate
+/// list and re-deriving the dropped set with per-element clones.
+pub(crate) async fn partition_live(
     probe: &dyn Probe,
     repos: Vec<crate::repoq::Repos>,
     timeout: Duration,
     no_probe: bool,
-) -> Vec<crate::repoq::Repos> {
+) -> (Vec<crate::repoq::Repos>, Vec<crate::repoq::Repos>) {
     use futures_util::StreamExt;
     if no_probe || repos.is_empty() {
-        return repos;
+        return (repos, Vec::new());
     }
     // Probe concurrently, bounded to 16 in-flight (Python `_afilter_live_urls`
     // uses `asyncio.Semaphore(min(16, n))`); `buffered` preserves input order.
@@ -207,11 +293,25 @@ pub(crate) async fn filter_live(
         .buffered(cap)
         .collect()
         .await;
-    repos
-        .into_iter()
-        .zip(alive)
-        .filter_map(|(r, live)| live.then_some(r))
-        .collect()
+    let mut live = Vec::new();
+    let mut dropped = Vec::new();
+    for (repo, ok) in repos.into_iter().zip(alive) {
+        if ok {
+            live.push(repo);
+        } else {
+            dropped.push(repo);
+        }
+    }
+    (live, dropped)
+}
+
+pub(crate) async fn filter_live(
+    probe: &dyn Probe,
+    repos: Vec<crate::repoq::Repos>,
+    timeout: Duration,
+    no_probe: bool,
+) -> Vec<crate::repoq::Repos> {
+    partition_live(probe, repos, timeout, no_probe).await.0
 }
 
 /// Default HTTP probe; tests inject [`crate::mock::ConstProbe`].

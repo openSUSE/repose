@@ -1,10 +1,11 @@
 //! `repose clear` — `zypper rr` every raw alias; never `_report_target`.
 
-use crate::commands::{aggregate, CommandOptions};
+use crate::commands::{aggregate, CommandOptions, SharedConsole};
 use crate::console::Console;
 use crate::shell::cmd;
-use crate::traits::HostGroup;
+use crate::traits::{Host, HostGroup};
 use crate::types::ExitCode;
+use futures_util::future::join_all;
 use std::io::Write;
 
 pub async fn run_clear<W: Write>(
@@ -15,45 +16,52 @@ pub async fn run_clear<W: Write>(
     group.connect_and_prune().await;
     group.read_repos().await;
 
-    let keys = group.keys();
-    let mut results = Vec::new();
-    for key in keys {
-        let Some(host) = group.get_mut(&key) else {
-            results.push(false);
-            continue;
-        };
-        let mut aliases: Vec<String> = host
-            .raw_repos()
-            .map(|r| r.iter().map(|x| x.alias.clone()).collect())
-            .unwrap_or_default();
-        if aliases.is_empty() {
-            let _ = console.info(&format!("No repositories to clear from {}", host.key()));
-            results.push(true);
-            continue;
-        }
-        // Python `_clear` collects into a set: sorted + unique.
-        aliases.sort();
-        aliases.dedup();
-        let refs: Vec<&str> = aliases.iter().map(String::as_str).collect();
-        let c = cmd::zypper_rr(&refs);
-        if opts.dry {
-            let _ = console.dry(host.key(), &c);
-            results.push(true);
-            continue;
-        }
-        // Never report_target (Python parity); only a transport-level error
-        // (worker exception in Python) fails the host.
-        match host.run(&c).await {
-            Ok(()) => {
-                let _ = console.info(&format!("Repositories cleared from {}", host.key()));
-                results.push(true);
-            }
-            Err(_) => results.push(false),
-        }
-    }
+    // Fan out per-host work concurrently (Python spawned one worker task per
+    // target); `join_all` preserves key order for exit aggregation.
+    let console = SharedConsole::new(console);
+    let results = join_all(
+        group
+            .hosts_mut()
+            .into_iter()
+            .map(|host| clear_one(opts, host, &console)),
+    )
+    .await;
 
     group.close().await;
     aggregate(results)
+}
+
+async fn clear_one<W: Write>(
+    opts: &CommandOptions,
+    host: &mut dyn Host,
+    console: &SharedConsole<'_, W>,
+) -> bool {
+    let mut aliases: Vec<String> = host
+        .raw_repos()
+        .map(|r| r.iter().map(|x| x.alias.clone()).collect())
+        .unwrap_or_default();
+    if aliases.is_empty() {
+        console.info(&format!("No repositories to clear from {}", host.key()));
+        return true;
+    }
+    // Python `_clear` collects into a set: sorted + unique.
+    aliases.sort();
+    aliases.dedup();
+    let refs: Vec<&str> = aliases.iter().map(String::as_str).collect();
+    let c = cmd::zypper_rr(&refs);
+    if opts.dry {
+        console.dry(host.key(), &c);
+        return true;
+    }
+    // Never report_target (Python parity); only a transport-level error
+    // (worker exception in Python) fails the host.
+    match host.run(&c).await {
+        Ok(()) => {
+            console.info(&format!("Repositories cleared from {}", host.key()));
+            true
+        }
+        Err(_) => false,
+    }
 }
 
 #[cfg(test)]

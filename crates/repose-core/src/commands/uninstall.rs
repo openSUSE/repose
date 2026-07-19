@@ -1,12 +1,15 @@
 //! `repose uninstall` — strip repos + remove products.
 
 use crate::commands::remove::{calculate_patterns, calculate_repolist};
-use crate::commands::{aggregate, reboot_and_verify, run_reported, CommandOptions};
+use crate::commands::{
+    aggregate, reboot_and_verify_shared, run_reported_shared, CommandOptions, SharedConsole,
+};
 use crate::console::Console;
 use crate::repa::Repa;
 use crate::shell::cmd;
 use crate::traits::{Host, HostGroup};
 use crate::types::ExitCode;
+use futures_util::future::join_all;
 use std::io::Write;
 
 pub async fn run_uninstall<W: Write>(
@@ -25,15 +28,16 @@ pub async fn run_uninstall<W: Write>(
     group.read_repos().await;
     group.parse_repos().await;
 
-    let keys = group.keys();
-    let mut results = Vec::new();
-    for key in keys {
-        let Some(host) = group.get_mut(&key) else {
-            results.push(false);
-            continue;
-        };
-        results.push(uninstall_one(opts, host, &orepa, console).await);
-    }
+    // Fan out per-host work concurrently (Python spawned one worker task per
+    // target); `join_all` preserves key order for exit aggregation.
+    let console = SharedConsole::new(console);
+    let results = join_all(
+        group
+            .hosts_mut()
+            .into_iter()
+            .map(|host| uninstall_one(opts, host, &orepa, &console)),
+    )
+    .await;
     group.close().await;
     aggregate(results)
 }
@@ -42,7 +46,7 @@ async fn uninstall_one<W: Write>(
     opts: &CommandOptions,
     host: &mut dyn Host,
     orepa: &[Repa],
-    console: &mut Console<W>,
+    console: &SharedConsole<'_, W>,
 ) -> bool {
     // Python dereferences `products.flatten()` / `.is_transactional()`
     // unguarded — a host whose product read failed raises in the worker
@@ -54,7 +58,7 @@ async fn uninstall_one<W: Write>(
     let transactional = system.is_transactional();
     let patterns = calculate_patterns(orepa, &products);
     if patterns.is_empty() {
-        let _ = console.info(&format!("For {} no products for remove found", host.key()));
+        console.info(&format!("For {} no products for remove found", host.key()));
         return true;
     }
 
@@ -72,7 +76,7 @@ async fn uninstall_one<W: Write>(
     // Patterns already end with `::` (repo forced None) → substring match.
     let repolist = calculate_repolist(aliases.into_iter(), &patterns);
     if repolist.is_empty() {
-        let _ = console.info(&format!("For {} no repos for remove found", host.key()));
+        console.info(&format!("For {} no repos for remove found", host.key()));
     }
 
     // Duplicates are intentional: Python `[x.split(":")[0] for x in patterns]`
@@ -92,11 +96,11 @@ async fn uninstall_one<W: Write>(
     if opts.dry {
         if !repolist.is_empty() {
             let refs: Vec<&str> = repolist.iter().map(String::as_str).collect();
-            let _ = console.dry(host.key(), &cmd::zypper_rr(&refs));
+            console.dry(host.key(), &cmd::zypper_rr(&refs));
         }
-        let _ = console.dry(host.key(), &pdcmd);
+        console.dry(host.key(), &pdcmd);
         if transactional && !opts.no_reboot {
-            let _ = console.dry(host.key(), cmd::REBOOT);
+            console.dry(host.key(), cmd::REBOOT);
         }
         return true;
     }
@@ -105,15 +109,16 @@ async fn uninstall_one<W: Write>(
     if !repolist.is_empty() {
         let refs: Vec<&str> = repolist.iter().map(String::as_str).collect();
         let rr = cmd::zypper_rr(&refs);
-        if !run_reported(host, &rr, console).await {
+        if !run_reported_shared(host, &rr, console).await {
             ok = false;
         }
     }
     // Short-circuit: a failed product-removal report skips the reboot+verify
     // (Python `elif transactional`).
-    if !run_reported(host, &pdcmd, console).await
+    if !run_reported_shared(host, &pdcmd, console).await
         || (transactional
-            && !reboot_and_verify(host, &product_names, false, opts.no_reboot, console).await)
+            && !reboot_and_verify_shared(host, &product_names, false, opts.no_reboot, console)
+                .await)
     {
         ok = false;
     }

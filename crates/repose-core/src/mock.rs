@@ -1,6 +1,9 @@
 //! In-memory [`Host`] / [`HostGroup`] for L2 command tests (no SSH).
 
 use std::collections::BTreeMap;
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::Arc;
+use std::task::Poll;
 use std::time::Duration;
 
 use async_trait::async_trait;
@@ -37,13 +40,67 @@ impl MockRunOutcome {
     }
 
     #[must_use]
-    pub fn exit(code: i32) -> Self {
+    pub const fn exit(code: i32) -> Self {
         Self::Complete {
             stdout: String::new(),
             stderr: String::new(),
             exitcode: code,
             runtime_secs: 0,
         }
+    }
+}
+
+/// Cooperative rendezvous for concurrency tests: [`RunBarrier::enter`]
+/// completes only once `total` participants have entered.
+///
+/// Under truly concurrent fan-out every participant reaches the barrier
+/// while the others are still inside it, so it releases immediately. Under
+/// serial per-host execution the first participant can never be joined by
+/// the second; it gives up after a bounded number of polls and sets
+/// [`RunBarrier::timed_out`], which tests assert against (no hang, no
+/// wall-clock timing).
+#[derive(Debug)]
+pub struct RunBarrier {
+    total: usize,
+    entered: AtomicUsize,
+    timed_out: AtomicBool,
+}
+
+impl RunBarrier {
+    #[must_use]
+    pub fn new(total: usize) -> Arc<Self> {
+        Arc::new(Self {
+            total,
+            entered: AtomicUsize::new(0),
+            timed_out: AtomicBool::new(false),
+        })
+    }
+
+    /// Enter the barrier and cooperatively wait for the other participants.
+    pub async fn enter(&self) {
+        const MAX_SPINS: usize = 100_000;
+        self.entered.fetch_add(1, Ordering::SeqCst);
+        let mut spins = 0usize;
+        std::future::poll_fn(|cx| {
+            if self.entered.load(Ordering::SeqCst) >= self.total {
+                return Poll::Ready(());
+            }
+            spins += 1;
+            if spins > MAX_SPINS {
+                // Serial execution: nobody else can arrive while we wait.
+                self.timed_out.store(true, Ordering::SeqCst);
+                return Poll::Ready(());
+            }
+            cx.waker().wake_by_ref();
+            Poll::Pending
+        })
+        .await;
+    }
+
+    /// Whether any participant gave up waiting (i.e. execution was serial).
+    #[must_use]
+    pub fn timed_out(&self) -> bool {
+        self.timed_out.load(Ordering::SeqCst)
     }
 }
 
@@ -69,6 +126,9 @@ pub struct MockHost {
     /// Commands observed by `run` (in order).
     pub ran: Vec<String>,
     connect_fail: bool,
+    /// When set, `run` enters this barrier before executing (concurrency
+    /// proof in fan-out tests).
+    run_barrier: Option<Arc<RunBarrier>>,
 }
 
 impl MockHost {
@@ -110,15 +170,22 @@ impl MockHost {
     /// After `reboot`, clear `products` to `None` (post-reboot re-read
     /// succeeded but yielded no product state).
     #[must_use]
-    pub fn with_post_reboot_no_products(mut self) -> Self {
+    pub const fn with_post_reboot_no_products(mut self) -> Self {
         self.post_reboot_clear_products = true;
         self
     }
 
     /// Make `read_products` fail (models a re-read failure after reboot).
     #[must_use]
-    pub fn with_read_products_err(mut self) -> Self {
+    pub const fn with_read_products_err(mut self) -> Self {
         self.read_products_err = true;
+        self
+    }
+
+    /// Enter `barrier` at the start of every `run` call (see [`RunBarrier`]).
+    #[must_use]
+    pub fn with_run_barrier(mut self, barrier: Arc<RunBarrier>) -> Self {
+        self.run_barrier = Some(barrier);
         self
     }
 
@@ -127,7 +194,7 @@ impl MockHost {
         self.run_queue.push(outcome);
     }
 
-    pub fn fail_connect(&mut self) {
+    pub const fn fail_connect(&mut self) {
         self.connect_fail = true;
     }
 
@@ -187,6 +254,9 @@ impl Host for MockHost {
         if !self.connected {
             // Pre-append failure: not connected, no out entry.
             return Err(SshError::NotConnected(self.key.clone()));
+        }
+        if let Some(barrier) = self.run_barrier.clone() {
+            barrier.enter().await;
         }
         self.ran.push(command.to_string());
         match self.take_outcome() {
@@ -295,6 +365,14 @@ impl HostGroup for MockHostGroup {
 
     fn get_mut(&mut self, key: &str) -> Option<&mut dyn Host> {
         self.hosts.get_mut(key).map(|h| h as &mut dyn Host)
+    }
+
+    fn hosts_mut(&mut self) -> Vec<&mut dyn Host> {
+        // BTreeMap::values_mut iterates in ascending key order.
+        self.hosts
+            .values_mut()
+            .map(|h| h as &mut dyn Host)
+            .collect()
     }
 
     async fn connect_and_prune(&mut self) {
@@ -444,6 +522,18 @@ mod tests {
         let err = h.run("x").await.unwrap_err();
         assert!(matches!(err, SshError::NotConnected(_)));
         assert!(h.out().is_empty());
+    }
+
+    #[test]
+    fn hosts_mut_matches_keys_order() {
+        // Exit aggregation relies on hosts_mut() lining up with keys().
+        let mut g = MockHostGroup::new();
+        g.insert(MockHost::new("b"));
+        g.insert(MockHost::new("a"));
+        g.insert(MockHost::new("c"));
+        let order: Vec<String> = g.hosts_mut().iter().map(|h| h.key().to_string()).collect();
+        assert_eq!(order, vec!["a", "b", "c"]);
+        assert_eq!(order, g.keys());
     }
 
     #[tokio::test]

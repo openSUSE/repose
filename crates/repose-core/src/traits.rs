@@ -103,6 +103,14 @@ pub trait HostGroup: Send {
 
     fn get_mut(&mut self, key: &str) -> Option<&mut dyn Host>;
 
+    /// All hosts mutably at once, in ascending key order (same order as
+    /// [`Self::keys`]).
+    ///
+    /// Mutation commands fan their per-host work out concurrently over this
+    /// list (`join_all`, which preserves input order), so per-host results
+    /// line up with `keys()` for exit aggregation.
+    fn hosts_mut(&mut self) -> Vec<&mut dyn Host>;
+
     /// Connect all; drop hosts that fail to connect.
     async fn connect_and_prune(&mut self);
 

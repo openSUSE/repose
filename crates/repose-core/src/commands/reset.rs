@@ -1,10 +1,13 @@
 //! `repose reset` — rr then ar only if full live replacement set.
 
-use crate::commands::{aggregate, filter_live, load_repoq, run_reported, CommandOptions};
+use crate::commands::{
+    aggregate, load_repoq, partition_live, run_reported_shared, CommandOptions, SharedConsole,
+};
 use crate::console::Console;
 use crate::shell::cmd;
 use crate::traits::{Host, HostGroup, Probe};
 use crate::types::ExitCode;
+use futures_util::future::join_all;
 use std::io::Write;
 
 pub async fn run_reset<W: Write>(
@@ -18,15 +21,16 @@ pub async fn run_reset<W: Write>(
     group.read_products().await;
     group.read_repos().await;
 
-    let keys = group.keys();
-    let mut results = Vec::new();
-    for key in keys {
-        let Some(host) = group.get_mut(&key) else {
-            results.push(false);
-            continue;
-        };
-        results.push(reset_one(opts, host, probe, &repoq, console).await);
-    }
+    // Fan out per-host work concurrently (Python spawned one worker task per
+    // target); `join_all` preserves key order for exit aggregation.
+    let console = SharedConsole::new(console);
+    let results = join_all(
+        group
+            .hosts_mut()
+            .into_iter()
+            .map(|host| reset_one(opts, host, probe, &repoq, &console)),
+    )
+    .await;
     group.close().await;
     Ok(aggregate(results))
 }
@@ -36,7 +40,7 @@ async fn reset_one<W: Write>(
     host: &mut dyn Host,
     probe: &dyn Probe,
     repoq: &crate::repoq::Repoq,
-    console: &mut Console<W>,
+    console: &SharedConsole<'_, W>,
 ) -> bool {
     let aliases: Vec<String> = host
         .raw_repos()
@@ -49,36 +53,28 @@ async fn reset_one<W: Write>(
         })
         .unwrap_or_default();
     if aliases.is_empty() {
-        let _ = console.info(&format!("No repositories to clear from {}", host.key()));
+        console.info(&format!("No repositories to clear from {}", host.key()));
     }
 
     let Some(products) = host.products() else {
-        let _ = console.error(host.key(), "no products discovered");
+        console.error(host.key(), "no products discovered");
         return false;
     };
 
     let resolved = match repoq.solve_product(products) {
         Ok(m) => m,
         Err(e) => {
-            let _ = console.error(host.key(), &e.to_string());
+            console.error(host.key(), &e.to_string());
             return false;
         }
     };
     let candidates: Vec<_> = resolved.into_values().flatten().collect();
-    let live = filter_live(probe, candidates.clone(), opts.probe_timeout, opts.no_probe).await;
-
-    // dropped = candidates not in live (by name+url identity)
-    let live_keys: std::collections::BTreeSet<_> = live
-        .iter()
-        .map(|r| (r.name.clone(), r.url.clone()))
-        .collect();
-    let mut dropped: Vec<_> = candidates
-        .iter()
-        .filter(|r| !live_keys.contains(&(r.name.clone(), r.url.clone())))
-        .map(|r| r.name.clone())
-        .collect();
+    // Partition in one pass instead of probing a clone of `candidates` and
+    // re-deriving the dropped set with per-element (name, url) clones.
+    let (live, dead) = partition_live(probe, candidates, opts.probe_timeout, opts.no_probe).await;
+    let mut dropped: Vec<&str> = dead.iter().map(|r| r.name.as_str()).collect();
     // Python reports `", ".join(sorted(dropped))`.
-    dropped.sort();
+    dropped.sort_unstable();
 
     let mut cmds: Vec<String> = live
         .iter()
@@ -91,7 +87,7 @@ async fn reset_one<W: Write>(
 
     // Guards BEFORE dry-run (wording mirrors Python `reset._run`).
     if cmds.is_empty() {
-        let _ = console.error(
+        console.error(
             host.key(),
             "no live replacement repositories resolved; aborting reset to \
              avoid leaving the host without any repositories",
@@ -99,7 +95,7 @@ async fn reset_one<W: Write>(
         return false;
     }
     if !dropped.is_empty() {
-        let _ = console.error(
+        console.error(
             host.key(),
             &format!(
                 "live-URL probe dropped {} of the resolved replacement \
@@ -115,10 +111,10 @@ async fn reset_one<W: Write>(
     if opts.dry {
         if !aliases.is_empty() {
             let refs: Vec<&str> = aliases.iter().map(String::as_str).collect();
-            let _ = console.dry(host.key(), &cmd::zypper_rr(&refs));
+            console.dry(host.key(), &cmd::zypper_rr(&refs));
         }
         for c in &cmds {
-            let _ = console.dry(host.key(), c);
+            console.dry(host.key(), c);
         }
         return true;
     }
@@ -127,12 +123,12 @@ async fn reset_one<W: Write>(
     if !aliases.is_empty() {
         let refs: Vec<&str> = aliases.iter().map(String::as_str).collect();
         let rr = cmd::zypper_rr(&refs);
-        if !run_reported(host, &rr, console).await {
+        if !run_reported_shared(host, &rr, console).await {
             ok = false;
         }
     }
     for c in cmds {
-        if !run_reported(host, &c, console).await {
+        if !run_reported_shared(host, &c, console).await {
             ok = false;
         }
     }

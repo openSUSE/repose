@@ -1,10 +1,13 @@
 //! `repose add` — resolve REPA, probe, zypper ar, cohort refresh.
 
-use crate::commands::{aggregate, filter_live, load_repoq, run_reported, CommandOptions};
+use crate::commands::{
+    aggregate, filter_live, load_repoq, run_reported_shared, CommandOptions, SharedConsole,
+};
 use crate::console::Console;
 use crate::shell::cmd;
 use crate::traits::{Host, HostGroup, Probe};
 use crate::types::ExitCode;
+use futures_util::future::join_all;
 use std::io::Write;
 
 pub async fn run_add<W: Write>(
@@ -17,23 +20,19 @@ pub async fn run_add<W: Write>(
     group.connect_and_prune().await;
     group.read_products().await;
 
-    let keys = group.keys();
-    let mut results = Vec::new();
-    for key in keys {
-        let Some(host) = group.get_mut(&key) else {
-            results.push(false);
-            continue;
-        };
-        results.push(add_one(opts, host, probe, &repoq, console).await);
-    }
+    // Fan out per-host work concurrently (Python spawned one worker task per
+    // target); `join_all` preserves key order for exit aggregation.
+    let console = SharedConsole::new(console);
+    let results = join_all(
+        group
+            .hosts_mut()
+            .into_iter()
+            .map(|host| add_one(opts, host, probe, &repoq, &console)),
+    )
+    .await;
 
     if !opts.dry {
-        let keys = group.keys();
-        for key in keys {
-            if let Some(h) = group.get_mut(&key) {
-                let _ = h.run(cmd::REFCMD).await;
-            }
-        }
+        group.run_all(cmd::REFCMD).await;
     }
     group.close().await;
     Ok(aggregate(results))
@@ -44,7 +43,7 @@ async fn add_one<W: Write>(
     host: &mut dyn Host,
     probe: &dyn Probe,
     repoq: &crate::repoq::Repoq,
-    console: &mut Console<W>,
+    console: &SharedConsole<'_, W>,
 ) -> bool {
     let Some(products) = host.products() else {
         return false;
@@ -60,7 +59,7 @@ async fn add_one<W: Write>(
                 }
             }
             Err(e) => {
-                let _ = console.error(host.key(), &e.to_string());
+                console.error(host.key(), &e.to_string());
                 ok = false;
             }
         }
@@ -77,8 +76,8 @@ async fn add_one<W: Write>(
     cmds.dedup();
     for c in cmds {
         if opts.dry {
-            let _ = console.dry(host.key(), &c);
-        } else if !run_reported(host, &c, console).await {
+            console.dry(host.key(), &c);
+        } else if !run_reported_shared(host, &c, console).await {
             ok = false;
         }
     }
@@ -160,6 +159,55 @@ mod tests {
             buf.contains("h1 - Repository 'update' successfully added\n"),
             "live run must report stdout lines, got: {buf:?}"
         );
+    }
+
+    #[tokio::test]
+    async fn concurrent_hosts_overlap_in_run() {
+        use crate::mock::RunBarrier;
+        // Concurrency proof: both hosts must be inside `Host::run` at the
+        // same time — each blocks at the barrier until the other arrives.
+        // Under the old serial per-host loop, h2's run could not start
+        // before h1's finished, so h1 would spin out and set `timed_out`.
+        let barrier = RunBarrier::new(2);
+        let mut g = MockHostGroup::new();
+        for key in ["h1", "h2"] {
+            g.insert(
+                MockHost::new(key)
+                    .with_products(System {
+                        base: Product {
+                            name: "SLES".into(),
+                            version: "15-SP3".into(),
+                            arch: "x86_64".into(),
+                        },
+                        addons: vec![],
+                        transactional: false,
+                    })
+                    .with_run_barrier(barrier.clone()),
+            );
+        }
+        let opts = CommandOptions {
+            config: sample_config(),
+            repa: vec![Repa::parse("SLES:15-SP3:x86_64:update").unwrap()],
+            no_probe: true,
+            ..Default::default()
+        };
+        let mut buf = Buffer::default();
+        let mut c = Console::new(&mut buf);
+        let code = run_add(&opts, &mut g, &ConstProbe { live: true }, &mut c)
+            .await
+            .unwrap();
+        assert_eq!(code, ExitCode::Ok);
+        assert!(
+            !barrier.timed_out(),
+            "hosts ran serially: h2 never entered run() while h1 was inside it"
+        );
+        for key in ["h1", "h2"] {
+            let ran = g.get_mock_mut(key).unwrap().ran.clone();
+            assert!(
+                ran.iter().any(|c| c.starts_with("zypper -n ar")),
+                "{key} must have run zypper ar, ran: {ran:?}"
+            );
+        }
     }
 
     #[tokio::test]

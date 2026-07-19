@@ -251,27 +251,37 @@ async fn discover_system(session: &mut RusshSession, _hostname: &str) -> Result<
                 None => None,
             };
 
-            let mut prod_files = Vec::new();
-            for f in prod_names {
-                if base_file.as_deref() == Some(f.as_str()) {
-                    continue; // base already read; not an addon candidate
-                }
-                let xml = session
-                    .read_file(&format!("/etc/products.d/{f}"))
-                    .await
-                    .ok()
-                    .map(|b| String::from_utf8_lossy(&b).into_owned());
-                prod_files.push(ProdFile { filename: f, xml });
-            }
+            // base already read; not an addon candidate
+            let addon_names: Vec<String> = prod_names
+                .into_iter()
+                .filter(|f| base_file.as_deref() != Some(f.as_str()))
+                .collect();
 
-            // Transactional is probed only on the SUSE path (Python parity).
-            let mut transactional = false;
-            for path in TRANSACTIONAL_CONF_PATHS {
-                if session.read_file(path).await.is_ok() {
-                    transactional = true;
-                    break;
-                }
-            }
+            // The addon `.prod` reads and the transactional-conf probes
+            // (the latter only on the SUSE path — Python parity) are
+            // independent SFTP lookups: issue them all concurrently over
+            // the shared channel instead of awaiting each in turn.
+            // `read_files` preserves input order, so addon order is
+            // unchanged (results are re-sorted downstream anyway).
+            let mut paths: Vec<String> = addon_names
+                .iter()
+                .map(|f| format!("/etc/products.d/{f}"))
+                .collect();
+            paths.extend(TRANSACTIONAL_CONF_PATHS.iter().map(|p| (*p).to_string()));
+            let mut contents = session.read_files(paths).await;
+
+            let transactional = contents
+                .split_off(addon_names.len())
+                .into_iter()
+                .any(|conf| conf.is_some());
+            let prod_files: Vec<ProdFile> = addon_names
+                .into_iter()
+                .zip(contents)
+                .map(|(filename, bytes)| ProdFile {
+                    filename,
+                    xml: bytes.map(|b| String::from_utf8_lossy(&b).into_owned()),
+                })
+                .collect();
 
             parse_system(
                 Some(&prod_files),
@@ -301,7 +311,7 @@ pub struct RusshHostGroup {
 
 impl RusshHostGroup {
     #[must_use]
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self {
             hosts: BTreeMap::new(),
         }
@@ -338,6 +348,14 @@ impl HostGroup for RusshHostGroup {
 
     fn get_mut(&mut self, key: &str) -> Option<&mut dyn Host> {
         self.hosts.get_mut(key).map(|h| h as &mut dyn Host)
+    }
+
+    fn hosts_mut(&mut self) -> Vec<&mut dyn Host> {
+        // BTreeMap::values_mut iterates in ascending key order.
+        self.hosts
+            .values_mut()
+            .map(|h| h as &mut dyn Host)
+            .collect()
     }
 
     // Group operations fan out per host concurrently (Python
