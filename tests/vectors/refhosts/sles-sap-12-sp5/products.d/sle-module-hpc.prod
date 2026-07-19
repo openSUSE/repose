@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<product schemeversion="0">
+  <vendor>SUSE</vendor>
+  <name>sle-module-hpc</name>
+  <version>12</version>
+  <baseversion>12</baseversion>
+  <patchlevel>0</patchlevel>
+  <release>0</release>
+  <endoflife>2024-10-31</endoflife>
+  <arch>x86_64</arch>
+  <cpeid>cpe:/o:suse:sle-module-hpc:12</cpeid>
+  <productline>sle-module-hpc</productline>
+  <register>
+      <target>sle-12-x86_64</target>
+    <flavor>module</flavor>
+    <updates>
+      <repository repoid="obsrepository://example.invalid/scrubbed" />
+      <repository repoid="obsrepository://example.invalid/scrubbed" />
+    </updates>
+  </register>
+  <upgrades />
+  <summary>HPC Module</summary>
+  <shortsummary>HPC-Module</shortsummary>
+  <description>The SUSE Linux Enterprise Server High Performance Computing (HPC) module
+	delivers specific tools commonly used for high performance, numerically
+	intensive workloads.
+
+	SUSE packages these tools in the SLES HPC Module to provide greater
+	flexibility to deliver new versions or new tools more rapidly than the
+	standard SUSE Linux Enterprise lifecycle would permit.
+
+	Packages in this module are general supported till a newer version of
+	the package is released or the package is dropped from the module.</description>
+  <urls>
+    <url name="bugtracker">https://example.invalid/scrubbed</url>
+    <url name="releasenotes">https://example.invalid/scrubbed</url>
+  </urls>
+  <buildconfig>
+    <producttheme>SLES</producttheme>
+  </buildconfig>
+  <installconfig>
+    <defaultlang>en_US</defaultlang>
+    <datadir>suse</datadir>
+    <descriptiondir>suse/setup/descr</descriptiondir>
+    <releasepackage name="sle-module-hpc-release" flag="EQ" version="12" release="1.5" />
+    <distribution>SUSE_SLE</distribution>
+  </installconfig>
+  <runtimeconfig />
+  <productdependency relationship="requires" name="SLES" baseversion="12" patchlevel="2" flag="GE" />
+</product>
+

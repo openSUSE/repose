@@ -1,0 +1,41 @@
+[package]
+name = "repose-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+description = "repose command-line interface (Rust rewrite)"
+publish = false
+# Two bins live here (`repose` + the feature-gated `repose-gen`); a bare
+# `cargo run -p repose-cli` must mean the shipped binary.
+default-run = "repose"
+
+[[bin]]
+name = "repose"
+path = "src/main.rs"
+
+# Dev/packaging asset generator; built only with `--features gen` so the
+# shipped `repose` binary never drags in clap_complete/clap_mangen.
+[[bin]]
+name = "repose-gen"
+path = "src/bin/repose-gen.rs"
+required-features = ["gen"]
+
+[features]
+gen = ["dep:clap_complete", "dep:clap_mangen"]
+
+[lints]
+workspace = true
+
+[dependencies]
+repose-core = { path = "../repose-core", version = "3.0.0" }
+repose-ssh = { path = "../repose-ssh", version = "3.0.0" }
+clap = { version = "4", features = ["derive"] }
+clap_complete = { version = "4", optional = true }
+clap_mangen = { version = "0.2", optional = true }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "signal"] }
+tracing = "0.1"
+# Bridges repose-ssh's `log` events into the subscriber (tracing-log feature,
+# on by default) and honours -d/-q verbosity + NO_COLOR.
+tracing-subscriber = "0.3"

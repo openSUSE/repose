@@ -1,0 +1,90 @@
+{
+  "template": "\nSLES:\n  \"15-SP3\":\n    pool:\n      url: http://example.com/$version/$arch/pool/\n    nourl:\n      enabled: true\n    update:\n      url: http://example.com/${version}/$arch/update/\n      enabled: true\n    default_repos:\n      - update\n      - pool\n  \"15\":\n    pool:\n      url: http://example.com/$shortver/$arch/\n    default_repos:\n      - pool\nQA:\n  \"15-SP3\":\n    tools:\n      url: http://qa/$version/\n    default_repos:\n      - tools\nPackageHub:\n  \"15\": &ph\n    pool:\n      url: http://example.invalid/product/$version/$arch/\n      enabled: true\n    default_repos:\n      - pool\n  \"15-SP6\":\n    <<: *ph\n",
+  "cases": [
+    {
+      "repa": "SLES:15-SP3:x86_64:update",
+      "ok": true,
+      "result": {
+        "SLES": [
+          {
+            "name": "SLES:15-SP3::update",
+            "url": "http://example.com/15-SP3/x86_64/update/",
+            "refresh": true
+          }
+        ]
+      }
+    },
+    {
+      "repa": "SLES:15-SP3:x86_64",
+      "ok": true,
+      "result": {
+        "SLES": [
+          {
+            "name": "SLES:15-SP3::update",
+            "url": "http://example.com/15-SP3/x86_64/update/",
+            "refresh": true
+          },
+          {
+            "name": "SLES:15-SP3::pool",
+            "url": "http://example.com/15-SP3/x86_64/pool/",
+            "refresh": false
+          }
+        ]
+      }
+    },
+    {
+      "repa": "SLES:15-SP9:x86_64",
+      "ok": true,
+      "result": {
+        "SLES": [
+          {
+            "name": "SLES:15::pool",
+            "url": "http://example.com/15/x86_64/",
+            "refresh": false
+          }
+        ]
+      }
+    },
+    {
+      "repa": "SLES:15-SP3:x86_64:missing",
+      "ok": true,
+      "result": {
+        "SLES": [
+          {
+            "name": "SLES:15-SP3::missing",
+            "url": "http://empty.url",
+            "refresh": false
+          }
+        ]
+      }
+    },
+    {
+      "repa": "NOPE:1",
+      "ok": false,
+      "error": "Not known product: NOPE"
+    },
+    {
+      "repa": "PackageHub:15-SP6:x86_64",
+      "ok": true,
+      "result": {
+        "PackageHub": [
+          {
+            "name": "PackageHub:15-SP6::pool",
+            "url": "http://example.invalid/product/15-SP6/x86_64/",
+            "refresh": true
+          }
+        ]
+      }
+    },
+    {
+      "repa": "SLES:15-SP3::nourl",
+      "ok": false,
+      "error": "Cannot resolve REPA SLES:15-SP3::nourl: missing template key or URL placeholder 'url'"
+    },
+    {
+      "repa": "PackageHub",
+      "ok": false,
+      "error": "Unknow version: 15-SP3 for product: PackageHub"
+    }
+  ]
+}

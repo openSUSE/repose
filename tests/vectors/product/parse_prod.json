@@ -1,0 +1,234 @@
+[
+  {
+    "name": "base_sp",
+    "input": {
+      "filename": "SLES.prod",
+      "xml": "<product><name>SLES</name><arch>x86_64</arch><baseversion>15</baseversion><patchlevel>3</patchlevel></product>"
+    },
+    "expected": {
+      "name": "SLES",
+      "version": "15-SP3",
+      "arch": "x86_64"
+    }
+  },
+  {
+    "name": "patchlevel_0",
+    "input": {
+      "filename": "X.prod",
+      "xml": "<product><name>SLES</name><arch>x86_64</arch><baseversion>15</baseversion><patchlevel>0</patchlevel></product>"
+    },
+    "expected": {
+      "name": "SLES",
+      "version": "15",
+      "arch": "x86_64"
+    }
+  },
+  {
+    "name": "simple_version",
+    "input": {
+      "filename": "os.prod",
+      "xml": "<product><name>openSUSE</name><arch>x86_64</arch><version>15.5</version></product>"
+    },
+    "expected": {
+      "name": "openSUSE",
+      "version": "15.5",
+      "arch": "x86_64"
+    }
+  },
+  {
+    "name": "caasp_all",
+    "input": {
+      "filename": "CAASP.prod",
+      "xml": "<product><name>CAASP</name><arch>x86_64</arch><version>4.0</version></product>"
+    },
+    "expected": {
+      "name": "CAASP",
+      "version": "ALL",
+      "arch": "x86_64"
+    }
+  },
+  {
+    "name": "addon_module",
+    "input": {
+      "filename": "m.prod",
+      "xml": "<product><name>sle-module-basesystem</name><arch>x86_64</arch><baseversion>15</baseversion><patchlevel>3</patchlevel></product>"
+    },
+    "expected": {
+      "name": "sle-module-basesystem",
+      "version": "15-SP3",
+      "arch": "x86_64"
+    }
+  },
+  {
+    "name": "codestream_simple_version",
+    "input": {
+      "filename": "SL-Micro.prod",
+      "xml": "<product><name>SL-Micro</name><version>6.1</version><arch>x86_64</arch><productline>SL-Micro</productline><codestream><name>SUSE Linux Micro 6.1</name></codestream></product>"
+    },
+    "expected": {
+      "name": "SL-Micro",
+      "version": "6.1",
+      "arch": "x86_64"
+    }
+  },
+  {
+    "name": "codestream_baseversion",
+    "input": {
+      "filename": "SLES_SAP.prod",
+      "xml": "<product><name>SLES_SAP</name><version>12.5</version><baseversion>12</baseversion><patchlevel>5</patchlevel><arch>x86_64</arch><codestream><name>SUSE Linux Enterprise Server 12</name></codestream></product>"
+    },
+    "expected": {
+      "name": "SLES_SAP",
+      "version": "12-SP5",
+      "arch": "x86_64"
+    }
+  },
+  {
+    "name": "missing_name",
+    "input": {
+      "filename": "b.prod",
+      "xml": "<product><arch>x86_64</arch><version>1.0</version></product>"
+    },
+    "expected": null
+  },
+  {
+    "name": "missing_arch",
+    "input": {
+      "filename": "b.prod",
+      "xml": "<product><name>bad</name><version>1.0</version></product>"
+    },
+    "expected": null
+  },
+  {
+    "name": "empty_name",
+    "input": {
+      "filename": "b.prod",
+      "xml": "<product><name/><arch>x86_64</arch><version>1.0</version></product>"
+    },
+    "expected": null
+  },
+  {
+    "name": "missing_version",
+    "input": {
+      "filename": "b.prod",
+      "xml": "<product><name>bad</name><arch>x86_64</arch></product>"
+    },
+    "expected": null
+  },
+  {
+    "name": "empty_baseversion",
+    "input": {
+      "filename": "b.prod",
+      "xml": "<product><name>bad</name><arch>x86_64</arch><baseversion/><patchlevel>3</patchlevel></product>"
+    },
+    "expected": null
+  },
+  {
+    "name": "self_closing_name_with_tail_text",
+    "input": {
+      "filename": "b.prod",
+      "xml": "<product><name/>SLES<version>1</version><arch>x86_64</arch></product>"
+    },
+    "expected": null
+  },
+  {
+    "name": "self_closing_arch_with_tail_text",
+    "input": {
+      "filename": "b.prod",
+      "xml": "<product><arch/>x86_64<name>SLES</name><version>1</version></product>"
+    },
+    "expected": null
+  },
+  {
+    "name": "first_name_element_empty_shadows_second",
+    "input": {
+      "filename": "b.prod",
+      "xml": "<product><name></name><name>SLES</name><version>1</version><arch>x86_64</arch></product>"
+    },
+    "expected": null
+  },
+  {
+    "name": "two_names_first_wins",
+    "input": {
+      "filename": "a.prod",
+      "xml": "<product><name>FIRST</name><name>SECOND</name><version>1</version><arch>x86_64</arch></product>"
+    },
+    "expected": {
+      "name": "FIRST",
+      "version": "1",
+      "arch": "x86_64"
+    }
+  },
+  {
+    "name": "entity_in_name",
+    "input": {
+      "filename": "a.prod",
+      "xml": "<product><name>A&amp;B</name><version>1</version><arch>x86_64</arch></product>"
+    },
+    "expected": {
+      "name": "A&B",
+      "version": "1",
+      "arch": "x86_64"
+    }
+  },
+  {
+    "name": "comment_splits_name_text",
+    "input": {
+      "filename": "a.prod",
+      "xml": "<product><name>A<!-- c -->B</name><version>1</version><arch>x86_64</arch></product>"
+    },
+    "expected": {
+      "name": "AB",
+      "version": "1",
+      "arch": "x86_64"
+    }
+  },
+  {
+    "name": "cdata_name",
+    "input": {
+      "filename": "a.prod",
+      "xml": "<product><name><![CDATA[SLES]]></name><version>1</version><arch>x86_64</arch></product>"
+    },
+    "expected": {
+      "name": "SLES",
+      "version": "1",
+      "arch": "x86_64"
+    }
+  },
+  {
+    "name": "cdata_mixed_with_text",
+    "input": {
+      "filename": "a.prod",
+      "xml": "<product><name>SL<![CDATA[ES]]></name><version>1</version><arch>x86_64</arch></product>"
+    },
+    "expected": {
+      "name": "SLES",
+      "version": "1",
+      "arch": "x86_64"
+    }
+  },
+  {
+    "name": "numeric_charref_in_name",
+    "input": {
+      "filename": "a.prod",
+      "xml": "<product><name>S&#76;ES</name><version>1</version><arch>x86_64</arch></product>"
+    },
+    "expected": {
+      "name": "SLES",
+      "version": "1",
+      "arch": "x86_64"
+    }
+  },
+  {
+    "name": "nested_product_element_ignored",
+    "input": {
+      "filename": "a.prod",
+      "xml": "<product><product><name>X</name><version>2</version></product><name>REAL</name><version>1</version><arch>x86_64</arch></product>"
+    },
+    "expected": {
+      "name": "REAL",
+      "version": "1",
+      "arch": "x86_64"
+    }
+  }
+]

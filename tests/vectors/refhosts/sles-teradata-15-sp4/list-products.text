@@ -1,0 +1,15 @@
+Host: sles-teradata-15-sp4:22
+  Base product: SLES_TERADATA-15-SP4-x86_64
+  Installed Extensions and Modules:
+      Addon: SLES                                                  - version: 15-SP4
+      Addon: SLES-LTSS                                             - version: 15-SP4
+      Addon: qa                                                    - version: 15-SP4
+      Addon: sle-module-basesystem                                 - version: 15-SP4
+      Addon: sle-module-containers                                 - version: 15-SP4
+      Addon: sle-module-hpc                                        - version: 15-SP4
+      Addon: sle-module-legacy                                     - version: 15-SP4
+      Addon: sle-module-public-cloud                               - version: 15-SP4
+      Addon: sle-module-python3                                    - version: 15-SP4
+      Addon: sle-module-server-applications                        - version: 15-SP4
+      Addon: sle-module-web-scripting                              - version: 15-SP4
+

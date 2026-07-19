@@ -1,192 +1,74 @@
-# AGENTS.md
-# Guidelines for Agentic Coding in the Repose Repository
+# Rust Workspace Guidelines
 
-## Table of Contents
-- [Build/Lint/Test Commands](#buildlinttest-commands)
-- [Code Style Guidelines](#code-style-guidelines)
-  - [Imports](#imports)
-  - [Formatting](#formatting)
-  - [Type Hints](#type-hints)
-  - [Naming Conventions](#naming-conventions)
-  - [Error Handling](#error-handling)
-  - [Documentation](#documentation)
-- [Testing](#testing)
-- [Git Workflow](#git-workflow)
+These instructions apply to this repository — a Rust workspace
+(sources under `crates/`).
 
-## Build/Lint/Test Commands
+## Workspace Commands
 
-### Installing Dependencies
+Run commands from `crates/`:
+
 ```bash
-uv sync                                     # All deps + dev group (pyproject.toml is authoritative)
+cargo fmt --check
+cargo clippy --workspace --all-targets -- -D warnings
+cargo test --workspace --all-targets --locked
+cargo deny check
 ```
 
-Note: `requirements.txt` and `requirements-test.txt` are deprecated and
-retained only for downstream packaging compatibility.
+Use the toolchain pinned in `rust-toolchain.toml` (repo root). The workspace MSRV is
+declared once in `Cargo.toml` (`rust-version = "1.96"`); do not introduce APIs
+or dependencies which require a newer compiler without deliberately updating
+both the pin and the MSRV policy. CI and reproducible local checks use the
+committed `Cargo.lock`, so use `--locked` for verification.
 
-### Running Tests
-- **All tests**: `python3 -m pytest -v --cov=repose`
-- **Single test file**: `python3 -m pytest tests/test_add_command.py -v`
-- **Single test function**: `python3 -m pytest tests/test_add_command.py::test_add_command_run -v`
-- **With coverage**: `python3 -m pytest --cov=repose --cov-report=term-missing`
+## Workspace Architecture
 
-### Linting and Formatting
-- **Check formatting**: `ruff format --diff .`
-- **Apply formatting**: `ruff format .`
-- **Lint code**: `ruff check .`
+- `repose-core` is the portable domain layer. It must not depend on `russh`,
+  `repose-ssh`, or transport-specific types.
+- `repose-ssh` implements the `repose-core` traits and is the only SSH
+  transport. Keep all russh/russh-sftp code here.
+- `repose-cli` owns clap parsing, process exit mapping, and wiring. It must
+  not duplicate command algorithms.
+- Keep the dependency direction acyclic:
+  `repose-cli -> repose-core`, `repose-cli -> repose-ssh`, and
+  `repose-ssh -> repose-core`.
 
-### Code Quality
-The project uses Ruff for linting and formatting. All code should pass:
-- `ruff format --diff .` (no differences)
-- `ruff check .` (no linting errors)
+Run `../scripts/check-rust-layering.sh` after changing Cargo dependencies or
+crate boundaries.
 
-## Code Style Guidelines
+## Rust Style and APIs
 
-### Imports
-- **Absolute imports**: Always use absolute imports (e.g., `from repose.command.add import Add`)
-- **Standard library first**: Group imports in this order:
-  1. Standard library
-  2. Third-party libraries
-  3. Local application imports
-- **No wildcard imports**: Never use `from module import *`
-- **Sort alphabetically**: Within each group, sort imports alphabetically
+- Follow `rustfmt`; use idiomatic ownership and borrowing rather than cloning
+  to resolve a lifetime issue by default.
+- Public items need rustdoc that explains purpose, relevant errors, and
+  behavioral constraints. Keep crate documentation accurate.
+- Return the project's typed errors with actionable context. Do not use
+  `unwrap`, `expect`, or panics in recoverable production paths.
+- Keep `unsafe` forbidden. Do not weaken workspace lint configuration merely
+  to silence a new warning.
+- Prefer small, focused functions and exhaustive `match` expressions for
+  externally meaningful enums and protocol states.
 
-Example:
-```python
-import concurrent.futures
-from argparse import Namespace
-from unittest.mock import MagicMock, call
+## Async, SSH, and Security
 
-import pytest
-from conftest import ImmediateExecutor
+- Do not block Tokio worker threads with synchronous I/O, sleeps, or process
+  calls. Bound network operations with the configured timeout.
+- Preserve per-host failure isolation: one target failure must not cancel the
+  rest of a host group.
+- Treat host-key policy as security-sensitive: `yes` rejects unknown/changed
+  keys; `accept-new` persists only first-contact keys; `no`/`off` explicitly
+  disable validation. Never log passwords, private keys, or secret material.
+- Use the cached SFTP subsystem for remote filesystem operations. Do not
+  replace file operations with remote shell commands.
+- All user- or template-derived remote command arguments must use the shared
+  `repose_core::shell` quoting/joining helpers and their golden tests.
 
-import repose.command._command
-from repose.command.add import Add
-from repose.types.repa import Repa
-```
+## Tests and Dependencies
 
-### Formatting
-- **Line length**: 79 characters (PEP 8 standard)
-- **Indentation**: 4 spaces (no tabs)
-- **Blank lines**: 
-  - 2 blank lines around top-level functions/classes
-  - 1 blank line within functions/classes between logical sections
-- **Spaces**: Follow PEP 8 spacing rules (e.g., `function(arg1, arg2)` not `function(arg1,arg2)`)
-
-### Type Hints
-- **Required**: All functions and methods should have type hints
-- **Variable annotations**: Use when it improves clarity (especially for complex types)
-- **Return types**: Always specify return types
-- **Exception**: Simple internal functions may omit hints if the context is clear
-
-Example:
-```python
-def solve_repa(self, repa: Repa, base: str) -> dict:
-    """Solve repository pattern to actual repositories."""
-    # Implementation
-```
-
-### Naming Conventions
-- **Snake_case**: For variables, functions, and methods (e.g., `solve_repa`)
-- **CamelCase**: For class names (e.g., `class AddCommand`)
-- **UPPER_CASE**: For constants and environment variables
-- **Descriptive names**: Avoid abbreviations unless widely understood (e.g., `repo` not `rep`)
-- **Private members**: Prefix with underscore (e.g., `_init_repoq`)
-
-### Error Handling
-- **Specific exceptions**: Catch specific exceptions, not bare `Exception`
-- **Context**: Include relevant context in error messages
-- **Logging**: Use the logger for debug/info/warning messages
-- **Propagate**: Let exceptions bubble up when appropriate (don't swallow them)
-
-Example:
-```python
-try:
-    result = self._execute_command(cmd)
-except paramiko.ssh_exception.SSHException as e:
-    logger.error(f"SSH command failed: {e}")
-    raise
-```
-
-### Documentation
-- **Docstrings**: All public functions/classes should have docstrings
-- **Format**: Follow Google style or reST format
-- **Examples**: Include usage examples when helpful
-- **Type information**: Document parameters and return values
-
-Example:
-```python
-def solve_repa(self, repa: Repa, base: str) -> dict:
-    """Solve repository pattern to actual repositories.
-
-    Args:
-        repa: Repository pattern to solve
-        base: Base product identifier
-
-    Returns:
-        Dictionary mapping products to repository lists
-
-    Raises:
-        ValueError: If the repository pattern is invalid
-    """
-```
-
-## Testing
-- **Test location**: All tests in `tests/` directory
-- **Framework**: pytest (with pytest-cov for coverage)
-- **Fixtures**: Use conftest.py for shared fixtures
-- **Mocking**: Use unittest.mock.MagicMock for external dependencies
-- **Test names**: Descriptive names (e.g., `test_add_command_run`)
-
-### Test Structure
-```python
-def test_function_name(monkeypatch, fixture1, fixture2):
-    # Setup
-    setup_data = prepare_test_data()
-
-    # Exercise
-    result = function_under_test(setup_data)
-
-    # Verify
-    assert result == expected_value
-```
-
-### Common Patterns
-- **Mock SSH connections**: Use `mock_ssh_client` fixture from conftest.py
-- **Immediate executor**: Use `ImmediateExecutor` for concurrent operations
-- **Assertions**: Use pytest assertions (no unittest.TestCase)
-
-## Git Workflow
-- **Branch naming**: Use descriptive names (e.g., `feature/add-sdk-support`)
-- **Commit messages**: Follow conventional commits format
-  - `feat: add new command`
-  - `fix: handle SSH timeout`
-  - `docs: update README`
-- **Rebasing**: Rebase feature branches before merging
-- **Testing**: Run tests before committing (`python3 -m pytest`)
-- **Linting**: Run linters before committing (`ruff check .`)
-
-## Continuous Integration
-The project uses GitHub Actions (`.github/workflows/ci.yml`), which runs
-on pushes to `master`/tags and on pull requests:
-- **lint**: `ruff format --diff` and `ruff check`
-- **typecheck**: `ty check repose`
-- **test**: pytest on Python 3.11 and 3.13, coverage gated at 80%
-  (`--cov-fail-under=80`)
-- **docs**: `sphinx-build -W` (warnings are errors) so a broken `.rst`
-  fails the PR
-- **man-drift**: regenerates `docs/man/*.1` via `repose-mangen` and fails
-  if the committed pages drift
-
-A separate **CodeQL** workflow (`codeql-analysis.yml`) runs static
-security analysis on `master` and pull requests plus a weekly schedule.
-
-## Architecture Overview
-- **Commands**: In `repose/command/` (add, remove, install, etc.)
-- **Types**: In `repose/types/` (data structures)
-- **Target**: In `repose/target/` (host operations)
-- **Main entry point**: `repose/main.py`
-
-## Key Dependencies
-- **paramiko**: SSH client library
-- **ruamel.yaml**: YAML parsing (supports round-trip)
-- **pytest**: Testing framework
+- Add focused unit tests alongside changed modules. Command algorithms test
+  against `repose_core::traits::{Host, HostGroup, Probe}` using mocks; reserve
+  live transport behavior for `repose-ssh` integration tests.
+- The committed vectors in `tests/vectors/` define the binary's expected
+  output; update them only for an intentional, documented behavior change.
+- A dependency change must update `Cargo.lock`, preserve the MSRV, and pass
+  `cargo deny check`. Prefer the smallest compatible version change; do not
+  run a broad `cargo update` as part of an unrelated change.

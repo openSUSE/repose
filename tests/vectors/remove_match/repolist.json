@@ -1,0 +1,130 @@
+[
+  {
+    "name": "exact_match_single",
+    "patterns": [
+      "SLES:15-SP4::repo1"
+    ],
+    "aliases": [
+      "SLES:15-SP4::repo1",
+      "SLES:15-SP4::repo2",
+      "other:repo"
+    ],
+    "expected": [
+      "SLES:15-SP4::repo1"
+    ]
+  },
+  {
+    "name": "exact_not_prefix_repo10",
+    "patterns": [
+      "SLES:15-SP3::repo1"
+    ],
+    "aliases": [
+      "SLES:15-SP3::repo1",
+      "SLES:15-SP3::repo10",
+      "SLES:15-SP3::repo1-debuginfo"
+    ],
+    "expected": [
+      "SLES:15-SP3::repo1"
+    ]
+  },
+  {
+    "name": "double_colon_matches_product",
+    "patterns": [
+      "SLES:15-SP4::"
+    ],
+    "aliases": [
+      "SLES:15-SP4::repo1",
+      "SLES:15-SP4::repo10",
+      "other:repo"
+    ],
+    "expected": [
+      "SLES:15-SP4::repo1",
+      "SLES:15-SP4::repo10"
+    ]
+  },
+  {
+    "name": "double_colon_no_match",
+    "patterns": [
+      "QA:15-SP4::"
+    ],
+    "aliases": [
+      "SLES:15-SP4::repo1",
+      "other:repo"
+    ],
+    "expected": []
+  },
+  {
+    "name": "exact_no_match",
+    "patterns": [
+      "SLES:15-SP4::repo-missing"
+    ],
+    "aliases": [
+      "SLES:15-SP4::repo-other"
+    ],
+    "expected": []
+  },
+  {
+    "name": "multiple_patterns_union",
+    "patterns": [
+      "SLES:15-SP4::repo1",
+      "SLES:15-SP4::repo2"
+    ],
+    "aliases": [
+      "SLES:15-SP4::repo1",
+      "SLES:15-SP4::repo2",
+      "SLES:15-SP4::repo3"
+    ],
+    "expected": [
+      "SLES:15-SP4::repo1",
+      "SLES:15-SP4::repo2"
+    ]
+  },
+  {
+    "name": "mixed_exact_and_double_colon",
+    "patterns": [
+      "SLES:15-SP4::",
+      "QA:15-SP4::tools"
+    ],
+    "aliases": [
+      "SLES:15-SP4::repo1",
+      "SLES:15-SP4::repo2",
+      "QA:15-SP4::tools",
+      "QA:15-SP4::tools-extra"
+    ],
+    "expected": [
+      "QA:15-SP4::tools",
+      "SLES:15-SP4::repo1",
+      "SLES:15-SP4::repo2"
+    ]
+  },
+  {
+    "name": "substring_is_contains_not_prefix",
+    "patterns": [
+      "SLES:15-SP4::"
+    ],
+    "aliases": [
+      "mirror-SLES:15-SP4::repo",
+      "SLES:15-SP4::repo1"
+    ],
+    "expected": [
+      "SLES:15-SP4::repo1",
+      "mirror-SLES:15-SP4::repo"
+    ]
+  },
+  {
+    "name": "empty_patterns",
+    "patterns": [],
+    "aliases": [
+      "SLES:15-SP4::repo1"
+    ],
+    "expected": []
+  },
+  {
+    "name": "empty_aliases",
+    "patterns": [
+      "SLES:15-SP4::repo1"
+    ],
+    "aliases": [],
+    "expected": []
+  }
+]

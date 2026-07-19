@@ -1,0 +1,40 @@
+---
+addons:
+- name: PackageHub
+  version:
+    major: 15
+    minor: SP5
+- name: SLES-LTSS
+  version:
+    major: 15
+    minor: SP5
+- name: qa
+  version:
+    major: 15
+    minor: SP5
+- name: sle-module-basesystem
+  version:
+    major: 15
+    minor: SP5
+- name: sle-module-hpc
+  version:
+    major: 15
+    minor: SP5
+- name: sle-module-python3
+  version:
+    major: 15
+    minor: SP5
+- name: sle-module-server-applications
+  version:
+    major: 15
+    minor: SP5
+arch: x86_64
+location:
+- some location
+name: sle-hpc-15-sp5
+product:
+  name: SLE_HPC
+  version:
+    major: 15
+    minor: SP5
+...

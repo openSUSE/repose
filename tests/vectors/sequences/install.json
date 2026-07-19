@@ -1,0 +1,91 @@
+[
+  {
+    "name": "live_non_transactional",
+    "description": "One product, two live repos: per-repo `ar` then unreported `refcmd`, then reported product install (ipdcmd). No reboot.",
+    "exit": "ok",
+    "ran": [
+      "zypper -n ar -cfkn SLES:15-SP3::update http://example.com/15-SP3/x86_64/update/ SLES:15-SP3::update",
+      "zypper -n --gpg-auto-import-keys ref -f",
+      "zypper -n ar -ckn SLES:15-SP3::pool http://example.com/15-SP3/x86_64/pool/ SLES:15-SP3::pool",
+      "zypper -n --gpg-auto-import-keys ref -f",
+      "zypper -n in -t product -l -f SLES"
+    ],
+    "dry": []
+  },
+  {
+    "name": "dry_non_transactional",
+    "description": "Dry-run: `ar` only per live repo (NO per-repo refcmd dry line), then the product install line.",
+    "exit": "ok",
+    "ran": [],
+    "dry": [
+      "zypper -n ar -cfkn SLES:15-SP3::update http://example.com/15-SP3/x86_64/update/ SLES:15-SP3::update",
+      "zypper -n ar -ckn SLES:15-SP3::pool http://example.com/15-SP3/x86_64/pool/ SLES:15-SP3::pool",
+      "zypper -n in -t product -l -f SLES"
+    ]
+  },
+  {
+    "name": "product_insertion_order",
+    "description": "Two REPAs (SLES then QA): product argv and ar order follow REPA/dict insertion order (SLES QA), not sorted (QA SLES).",
+    "exit": "ok",
+    "ran": [
+      "zypper -n ar -ckn SLES:15-SP3::pool http://example.com/15-SP3/x86_64/pool/ SLES:15-SP3::pool",
+      "zypper -n --gpg-auto-import-keys ref -f",
+      "zypper -n ar -ckn QA:15-SP3::tools http://qa/15-SP3/ QA:15-SP3::tools",
+      "zypper -n --gpg-auto-import-keys ref -f",
+      "zypper -n in -t product -l -f SLES QA"
+    ],
+    "dry": []
+  },
+  {
+    "name": "all_dead_still_installs",
+    "description": "All repo probes dead: no `ar`, no per-repo refcmd, but the product is still installed.",
+    "exit": "ok",
+    "ran": [
+      "zypper -n in -t product -l -f SLES"
+    ],
+    "dry": []
+  },
+  {
+    "name": "transactional_live",
+    "description": "Transactional host: per-repo ar+refcmd, then REFTCMD before ipdtcmd (reported), then reboot; verify passes.",
+    "exit": "ok",
+    "ran": [
+      "zypper -n ar -cfkn SLES:15-SP3::update http://example.com/15-SP3/x86_64/update/ SLES:15-SP3::update",
+      "zypper -n --gpg-auto-import-keys ref -f",
+      "transactional-update -n run zypper -n --gpg-auto-import-keys ref -f",
+      "transactional-update -n pkg in -t product -l -f SLES",
+      "systemctl reboot"
+    ],
+    "dry": []
+  },
+  {
+    "name": "dry_transactional",
+    "description": "Dry transactional: ar (no refcmd line), REFTCMD, ipdtcmd, then reboot (because !no_reboot).",
+    "exit": "ok",
+    "ran": [],
+    "dry": [
+      "zypper -n ar -cfkn SLES:15-SP3::update http://example.com/15-SP3/x86_64/update/ SLES:15-SP3::update",
+      "transactional-update -n run zypper -n --gpg-auto-import-keys ref -f",
+      "transactional-update -n pkg in -t product -l -f SLES",
+      "systemctl reboot"
+    ]
+  },
+  {
+    "name": "dry_transactional_no_reboot",
+    "description": "Dry transactional with --no-reboot: same as dry_transactional but no `systemctl reboot` dry line.",
+    "exit": "ok",
+    "ran": [],
+    "dry": [
+      "zypper -n ar -cfkn SLES:15-SP3::update http://example.com/15-SP3/x86_64/update/ SLES:15-SP3::update",
+      "transactional-update -n run zypper -n --gpg-auto-import-keys ref -f",
+      "transactional-update -n pkg in -t product -l -f SLES"
+    ]
+  },
+  {
+    "name": "no_products",
+    "description": "REPA resolves to no products: error, nothing run, worker fails.",
+    "exit": "allfailed",
+    "ran": [],
+    "dry": []
+  }
+]

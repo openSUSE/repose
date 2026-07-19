@@ -1,0 +1,17 @@
+{"event": "product", "host": "sles-sap-12-sp5", "port": 22, "kind": "base", "name": "SLES_SAP", "version": "12-SP5", "arch": "x86_64"}
+{"event": "product", "host": "sles-sap-12-sp5", "port": 22, "kind": "addon", "name": "PackageHub", "version": "12-SP5", "arch": "x86_64"}
+{"event": "product", "host": "sles-sap-12-sp5", "port": 22, "kind": "addon", "name": "SLES-LTSS", "version": "12-SP5", "arch": "x86_64"}
+{"event": "product", "host": "sles-sap-12-sp5", "port": 22, "kind": "addon", "name": "SUSE-Linux-Enterprise-RT", "version": "12-SP5", "arch": "x86_64"}
+{"event": "product", "host": "sles-sap-12-sp5", "port": 22, "kind": "addon", "name": "qa", "version": "12-SP5", "arch": "x86_64"}
+{"event": "product", "host": "sles-sap-12-sp5", "port": 22, "kind": "addon", "name": "sle-ha", "version": "12-SP5", "arch": "x86_64"}
+{"event": "product", "host": "sles-sap-12-sp5", "port": 22, "kind": "addon", "name": "sle-ha-geo", "version": "12-SP5", "arch": "x86_64"}
+{"event": "product", "host": "sles-sap-12-sp5", "port": 22, "kind": "addon", "name": "sle-live-patching", "version": "12-SP5", "arch": "x86_64"}
+{"event": "product", "host": "sles-sap-12-sp5", "port": 22, "kind": "addon", "name": "sle-module-adv-systems-management", "version": "12", "arch": "x86_64"}
+{"event": "product", "host": "sles-sap-12-sp5", "port": 22, "kind": "addon", "name": "sle-module-containers", "version": "12", "arch": "x86_64"}
+{"event": "product", "host": "sles-sap-12-sp5", "port": 22, "kind": "addon", "name": "sle-module-hpc", "version": "12", "arch": "x86_64"}
+{"event": "product", "host": "sles-sap-12-sp5", "port": 22, "kind": "addon", "name": "sle-module-legacy", "version": "12", "arch": "x86_64"}
+{"event": "product", "host": "sles-sap-12-sp5", "port": 22, "kind": "addon", "name": "sle-module-public-cloud", "version": "12", "arch": "x86_64"}
+{"event": "product", "host": "sles-sap-12-sp5", "port": 22, "kind": "addon", "name": "sle-module-toolchain", "version": "12", "arch": "x86_64"}
+{"event": "product", "host": "sles-sap-12-sp5", "port": 22, "kind": "addon", "name": "sle-module-web-scripting", "version": "12", "arch": "x86_64"}
+{"event": "product", "host": "sles-sap-12-sp5", "port": 22, "kind": "addon", "name": "sle-sdk", "version": "12-SP5", "arch": "x86_64"}
+{"event": "product", "host": "sles-sap-12-sp5", "port": 22, "kind": "addon", "name": "sle-we", "version": "12-SP5", "arch": "x86_64"}

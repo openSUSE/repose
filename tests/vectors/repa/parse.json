@@ -1,0 +1,107 @@
+[
+  {
+    "input": "SLES",
+    "ok": true,
+    "product": "SLES",
+    "version": null,
+    "arch": null,
+    "repo": null,
+    "baseversion": null,
+    "smallver": null
+  },
+  {
+    "input": "SLES:15-SP3",
+    "ok": true,
+    "product": "SLES",
+    "version": "15-SP3",
+    "arch": null,
+    "repo": null,
+    "baseversion": "15",
+    "smallver": "-SP3"
+  },
+  {
+    "input": "SLES:15-SP3:x86_64",
+    "ok": true,
+    "product": "SLES",
+    "version": "15-SP3",
+    "arch": "x86_64",
+    "repo": null,
+    "baseversion": "15",
+    "smallver": "-SP3"
+  },
+  {
+    "input": "SLES:15-SP3:x86_64:update",
+    "ok": true,
+    "product": "SLES",
+    "version": "15-SP3",
+    "arch": "x86_64",
+    "repo": "update",
+    "baseversion": "15",
+    "smallver": "-SP3"
+  },
+  {
+    "input": "SLES:15",
+    "ok": true,
+    "product": "SLES",
+    "version": "15",
+    "arch": null,
+    "repo": null,
+    "baseversion": "15",
+    "smallver": null
+  },
+  {
+    "input": "SLES::x86_64",
+    "ok": true,
+    "product": "SLES",
+    "version": null,
+    "arch": "x86_64",
+    "repo": null,
+    "baseversion": null,
+    "smallver": null
+  },
+  {
+    "input": "prod:",
+    "ok": true,
+    "product": "prod",
+    "version": null,
+    "arch": null,
+    "repo": null,
+    "baseversion": null,
+    "smallver": null
+  },
+  {
+    "input": ":ver",
+    "ok": true,
+    "product": null,
+    "version": "ver",
+    "arch": null,
+    "repo": null,
+    "baseversion": "ver",
+    "smallver": null
+  },
+  {
+    "input": "a:b:c:d",
+    "ok": true,
+    "product": "a",
+    "version": "b",
+    "arch": "c",
+    "repo": "d",
+    "baseversion": "b",
+    "smallver": null
+  },
+  {
+    "input": "",
+    "ok": true,
+    "product": null,
+    "version": null,
+    "arch": null,
+    "repo": null,
+    "baseversion": null,
+    "smallver": null
+  },
+  {
+    "input": "a:b:c:d:e",
+    "ok": false,
+    "error": "REPA can't have more than 4 components"
+  }
+]

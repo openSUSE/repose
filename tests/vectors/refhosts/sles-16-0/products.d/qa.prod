@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<product schemeversion="0">
+  <vendor>SUSE</vendor>
+  <name>qa</name>
+  <version>16.0</version>
+  <baseversion>16.0</baseversion>
+  <patchlevel>0</patchlevel>
+  <release>0</release>
+  <endoflife>2038-10-31</endoflife>
+  <arch>x86_64</arch>
+  <cpeid>cpe:/o:suse:qa:16.0</cpeid>
+  <register>
+      <target>sle-16.0-x86_64</target>
+    <flavor>extension</flavor>
+    <updates>
+      <repository repoid="obsrepository://example.invalid/scrubbed"/>
+      <repository repoid="obsrepository://example.invalid/scrubbed"/>
+    </updates>
+  </register>
+  <upgrades/>
+  <summary>QA packages for SLE 16.0</summary>
+  <shortsummary>sle-qa</shortsummary>
+  <description>QA packages for SLES maintenance testing</description>
+  <urls>
+    <url name="bugtracker">https://example.invalid/</url>
+  </urls>
+  <installconfig>
+    <releasepackage name="qa-release" flag="EQ" version="16.0" release="qa.1.24"/>
+  </installconfig>
+</product>
+

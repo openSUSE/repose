@@ -15,79 +15,122 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  lint:
+  # Rust workspace (crates/) — the sole implementation since the Python
+  # cutover . Python and its jobs were removed.
+  rust:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: crates
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
-      - uses: astral-sh/ruff-action@278981a28ce3188b1e39527901f38254bf3aac89  # v4.1.0
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
         with:
-          args: "--version"
-      - name: Check style
-        run: ruff format --diff .
-      - name: Lint - ruff
-        run: ruff check .
-  typecheck:
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
-      - uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990  # v8.3.2
+          components: rustfmt, clippy
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32  # v2
         with:
-          python-version: '3.13'
-          cache-suffix: typecheck
-      - name: Install dependencies
-        run: uv sync --locked
-      - name: Type check - ty
-        run: uv run ty check repose
-  test:
+          workspaces: crates -> target
+      - name: Format
+        run: cargo fmt --all -- --check
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
+      - name: Layering (core ↛ ssh/russh)
+        # Script lives at repo root; job working-directory is crates/.
+        run: bash ../scripts/check-rust-layering.sh
+      - name: Test
+        run: cargo test --workspace --all-targets --locked
+      - name: Binary version line
+        # Shape matches the historical Python line: `repose version: X.Y.Z`
+        # (value is the crate version). Do not hard-code a version.
+        run: |
+          out="$(cargo run -q --locked -p repose-cli --bin repose -- --version)"
+          echo "got: $out"
+          echo "$out" | grep -E '^repose version: [0-9]+\.[0-9]+\.[0-9]+$'
+
+  rust-deny:
+    # Dependency policy for the Rust workspace. Config: crates/deny.toml
+    # next to the workspace manifest (auto-discovered by cargo-deny).
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    strategy:
-      matrix:
-        python-version: ['3.13', '3.14']
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
-      - uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990  # v8.3.2
+      - name: cargo-deny
+        uses: EmbarkStudios/cargo-deny-action@v2
         with:
-          python-version: ${{ matrix.python-version }}
-          cache-suffix: test-${{ matrix.python-version }}
-      - name: Install dependencies
-        run: uv sync --locked
-      - name: Test with pytest
-        run: uv run pytest --cov=repose --cov-fail-under=80
-  docs:
-    # Builds the Sphinx HTML docs with warnings-as-errors so a broken
-    # .rst reference or config warning fails the PR instead of merging
-    # silently. Previously only man-page drift was checked.
+          manifest-path: crates/Cargo.toml
+          command: check
+          # Empty arguments: do not force --all-features on an empty graph.
+          arguments: ""
+
+  rust-cli:
+    # CLI consistency self-check: known-products byte-identity vs the committed
+    # expected output (tests/vectors/cli/known_products.txt) + CLI-surface
+    # invariants (no --ssh-backend, version-line shape, all nine subcommands).
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
-      - uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990  # v8.3.2
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32  # v2
         with:
-          python-version: '3.13'
-          cache-suffix: docs
-      - name: Build docs
-        run: >-
-          uv run --locked --group doc
-          sphinx-build -b html -W --keep-going docs docs/_build/html
-  man-drift:
-    # Regenerates docs/man/*.1 from the Typer CLI and fails if the
-    # committed pages drift from what `uv run repose-mangen` produces.
-    # Catches the case where a contributor edits a subcommand's help
-    # text or flags but forgets to refresh the man pages.
+          workspaces: crates -> target
+      - name: Build Rust binary
+        run: cargo build --locked -p repose-cli --manifest-path crates/Cargo.toml
+      - name: CLI consistency self-check
+        env:
+          REPOSE_RS: crates/target/debug/repose
+        run: bash scripts/check-cli.sh
+
+  rust-assets-drift:
+    # Regenerate the committed man pages + shell completions from the clap CLI
+    # and fail if they drift.
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: crates
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
-      - uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990  # v8.3.2
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32  # v2
         with:
-          python-version: '3.13'
-          cache-suffix: man-drift
-      - name: Install dependencies
-        run: uv sync --locked
-      - name: Regenerate man pages
-        run: uv run repose-mangen
+          workspaces: crates -> target
+      - name: Regenerate man pages + completions
+        run: cargo run --locked -p repose-cli --features gen --bin repose-gen -- repose-cli
       - name: Check for drift
-        run: git diff --exit-code -- docs/man/
+        # Fail on modified tracked assets AND on untracked leftovers (e.g. a
+        # renamed page that regeneration no longer produces/overwrites).
+        run: |
+          git diff --exit-code -- repose-cli/man repose-cli/completions
+          untracked="$(git status --porcelain -- repose-cli/man repose-cli/completions)"
+          if [ -n "$untracked" ]; then
+            echo "::error::untracked generated assets:"
+            echo "$untracked"
+            exit 1
+          fi
+
+  rust-msrv:
+    # Build with the minimum supported Rust version (rust-version in
+    # crates/Cargo.toml) so MSRV cannot silently drift.
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: crates
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+      - name: Install Rust toolchain (MSRV)
+        uses: dtolnay/rust-toolchain@1.96
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32  # v2
+        with:
+          workspaces: crates -> target
+      - name: Build (MSRV)
+        run: cargo build --workspace --locked

@@ -1,0 +1,31 @@
+
+SLES:
+  "15-SP3":
+    pool:
+      url: http://example.com/$version/$arch/pool/
+    update:
+      url: http://example.com/${version}/$arch/update/
+      enabled: true
+    default_repos:
+      - update
+      - pool
+  "15":
+    pool:
+      url: http://example.com/$shortver/$arch/
+    default_repos:
+      - pool
+QA:
+  "15-SP3":
+    tools:
+      url: http://qa/$version/
+    default_repos:
+      - tools
+PackageHub:
+  "15": &ph
+    pool:
+      url: http://example.invalid/product/$version/$arch/
+      enabled: true
+    default_repos:
+      - pool
+  "15-SP6":
+    <<: *ph

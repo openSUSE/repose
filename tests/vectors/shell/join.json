@@ -1,0 +1,10 @@
+{
+  "parts": [
+    "zypper",
+    "-n",
+    "rr",
+    "evil alias's",
+    "other"
+  ],
+  "joined": "zypper -n rr 'evil alias'\"'\"'s' other"
+}

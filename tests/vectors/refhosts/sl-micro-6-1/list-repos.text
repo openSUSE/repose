@@ -1,0 +1,8 @@
+Repositories on sl-micro-6-1:22
+REPO name: SL-Micro-Extras:6.1::pool
+REPO URL: https://example.invalid/scrubbed/SUSE/Products/SL-Micro-Extras/6.1/x86_64/product/
+REPO name: SL-Micro:6.1::pool
+REPO URL: https://example.invalid/scrubbed/SUSE/Products/SL-Micro/6.1/x86_64/product/
+REPO name: qa:16.0::pool
+REPO URL: https://example.invalid/scrubbed/QA:/SLE16.0/update/
+

@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<product schemeversion="0">
+  <vendor>SUSE</vendor>
+  <name>PackageHub</name>
+  <version>15.5</version>
+  <baseversion>15</baseversion>
+  <patchlevel>5</patchlevel>
+  <release>0</release>
+  <endoflife></endoflife>
+  <arch>x86_64</arch>
+  <cpeid>cpe:/o:suse:packagehub:15:sp5</cpeid>
+  <register>
+      <target>sle-15-x86_64</target>
+    <flavor>module</flavor>
+  </register>
+  <repositories>
+      <repository type="update" repoid="obsrepository://example.invalid/scrubbed" />
+      <repository type="update" repoid="obsrepository://example.invalid/scrubbed" />
+      <repository type="update" repoid="obsrepository://example.invalid/scrubbed" />
+      <repository type="update" repoid="obsrepository://example.invalid/scrubbed" />
+      <repository type="pool" repoid="obsproduct://example.invalid/SUSE:Backports:SLE-15-SP5_x86_64/PackageHub/15.5/x86_64" />
+      <repository type="pool" repoid="obsproduct://example.invalid/SUSE:Products:SLE-Module-Packagehub-Subpackages:15-SP5:x86_64/PackageHub/15.5/x86_64" />
+  </repositories>
+  <summary>SUSE Package Hub 15</summary>
+  <shortsummary>SUSE-PackageHub-15</shortsummary>
+  <description>SUSE Package Hub is a free of charge module providing access to
+community maintained packages built to run on SUSE Linux Enterprise
+Server. Built from the same sources used in the openSUSE distributions,
+these quality packages provide additional software to what is found in
+the SUSE Linux Enterprise Server product.
+
+Packages from the Package Hub are delivered without L3 support from
+SUSE. General updates and fixes to the packages in SUSE Package Hub are
+provided by the openSUSE community based on their discretion, though
+SUSE will monitor and ensure that any known critical security issues
+will be addressed. Packages in the Package Hub are approved by SUSE for
+use with SUSE Linux Enterprise Server 15-SP5 and to not interfere with the
+supportability of SUSE Linux Enterprise Server, its modules and
+extensions.
+
+For more information about SUSE Package Hub please visit https://example.invalid</description>
+  <urls>
+    <url name="bugtracker">https://example.invalid/</url>
+  </urls>
+  <installconfig>
+    <releasepackage name="PackageHub-release" flag="EQ" version="15.5" release="150500.3.1"/>
+  </installconfig>
+</product>
+

@@ -1,0 +1,55 @@
+[
+  {
+    "name": "live_success",
+    "description": "SLES 15-SP3 host, current repos present, all replacements probe live. repose emits rr aliases and ar commands in nondeterministic set-iteration order; Rust applies the stable-sort delta, so aliases sort ascending and full ar strings sort (params-first: -cfkn update before -ckn pool). Order is zypper-irrelevant.",
+    "exit": "ok",
+    "ran": [
+      "zypper -n rr existing-repo1 existing-repo2",
+      "zypper -n ar -cfkn SLES:15-SP3::update http://example.com/15-SP3/x86_64/update/ SLES:15-SP3::update",
+      "zypper -n ar -ckn SLES:15-SP3::pool http://example.com/15-SP3/x86_64/pool/ SLES:15-SP3::pool"
+    ],
+    "dry": []
+  },
+  {
+    "name": "dry_success",
+    "description": "Dry-run of live_success: same lines previewed, nothing executed.",
+    "exit": "ok",
+    "ran": [],
+    "dry": [
+      "zypper -n rr existing-repo1 existing-repo2",
+      "zypper -n ar -cfkn SLES:15-SP3::update http://example.com/15-SP3/x86_64/update/ SLES:15-SP3::update",
+      "zypper -n ar -ckn SLES:15-SP3::pool http://example.com/15-SP3/x86_64/pool/ SLES:15-SP3::pool"
+    ]
+  },
+  {
+    "name": "empty_aliases_skip_rr",
+    "description": "No current repos: skip rr (never a bare `zypper -n rr`), still add replacements.",
+    "exit": "ok",
+    "ran": [
+      "zypper -n ar -cfkn SLES:15-SP3::update http://example.com/15-SP3/x86_64/update/ SLES:15-SP3::update",
+      "zypper -n ar -ckn SLES:15-SP3::pool http://example.com/15-SP3/x86_64/pool/ SLES:15-SP3::pool"
+    ],
+    "dry": []
+  },
+  {
+    "name": "abort_no_live",
+    "description": "All replacement URLs dead: empty-cmds guard aborts before any rr/ar or dry preview.",
+    "exit": "allfailed",
+    "ran": [],
+    "dry": []
+  },
+  {
+    "name": "abort_partial_drop",
+    "description": "One replacement URL (pool) dead: dropped guard aborts before any rr/ar. Safety-critical.",
+    "exit": "allfailed",
+    "ran": [],
+    "dry": []
+  },
+  {
+    "name": "abort_partial_drop_dry",
+    "description": "Dry-run partial drop: guards run before the dry preview, so no dry lines are emitted either.",
+    "exit": "allfailed",
+    "ran": [],
+    "dry": []
+  }
+]

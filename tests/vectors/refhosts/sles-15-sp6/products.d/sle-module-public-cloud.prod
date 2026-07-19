@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<product schemeversion="0">
+  <vendor>SUSE</vendor>
+  <name>sle-module-public-cloud</name>
+  <version>15.6</version>
+  <baseversion>15</baseversion>
+  <patchlevel>6</patchlevel>
+  <release>0</release>
+  <endoflife></endoflife>
+  <arch>x86_64</arch>
+  <cpeid>cpe:/o:suse:sle-module-public-cloud:15:sp6</cpeid>
+  <productline>sle-module-public-cloud</productline>
+  <register>
+      <target>sle-15-x86_64</target>
+    <flavor>module</flavor>
+  </register>
+  <repositories>
+      <repository type="update" repoid="obsrepository://example.invalid/scrubbed" />
+      <repository type="update" repoid="obsrepository://example.invalid/scrubbed" />
+      <repository type="pool" repoid="obsproduct://example.invalid/scrubbed" />
+  </repositories>
+  <summary>Public Cloud Module</summary>
+  <shortsummary>Public-Cloud-Module</shortsummary>
+  <description>&lt;p&gt;
+	The Public Cloud Module is a collection of tools that enables you to
+	create and manage cloud images from the commandline on SUSE Linux
+	Enterprise Server. When building your own images with KIWI or SUSE
+	Studio, initialization code specific to the target cloud is included in
+	that image.
+	&lt;/p&gt;
+	&lt;p&gt;
+	Access to the Public Cloud Module is included in your SUSE Linux
+	Enterprise Server subscription. The module has a different lifecycle
+	than SUSE Linux Enterprise Server itself; please check the Release
+	Notes for further details.
+	&lt;/p&gt;</description>
+  <urls>
+    <url name="bugtracker">https://example.invalid/scrubbed</url>
+  </urls>
+  <buildconfig>
+    <producttheme>SLES</producttheme>
+  </buildconfig>
+  <installconfig>
+    <defaultlang>en_US</defaultlang>
+    <releasepackage name="sle-module-public-cloud-release" flag="EQ" version="15.6" release="150600.37.2"/>
+    <distribution>SUSE_SLE</distribution>
+  </installconfig>
+  <runtimeconfig/>
+  <productdependency relationship="requires" name="SUSE_SLE" baseversion="15" patchlevel="6" flag="GE"/>
+  <productdependency relationship="conflicts" name="SLED" baseversion="15" patchlevel="6" flag="GE"/>
+  <productdependency relationship="requires" name="sle-module-server-applications" baseversion="15" patchlevel="6" flag="GE"/>
+</product>
+

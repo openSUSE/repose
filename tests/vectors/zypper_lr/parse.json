@@ -1,0 +1,126 @@
+[
+  {
+    "name": "two_repos_mixed_state",
+    "xml": "<?xml version=\"1.0\"?><stream><repo-list><repo alias=\"repo-one\" name=\"Repo One\" enabled=\"1\" autorefresh=\"0\" gpgcheck=\"1\"><url>http://example.com/one/</url></repo><repo alias=\"repo-two\" name=\"Repo Two\" enabled=\"0\" autorefresh=\"0\" gpgcheck=\"1\"><url>http://example.com/two/</url></repo></repo-list></stream>",
+    "expected": [
+      {
+        "alias": "repo-one",
+        "name": "Repo One",
+        "url": "http://example.com/one/",
+        "state": true
+      },
+      {
+        "alias": "repo-two",
+        "name": "Repo Two",
+        "url": "http://example.com/two/",
+        "state": false
+      }
+    ]
+  },
+  {
+    "name": "enabled_two_is_false",
+    "xml": "<stream><repo-list><repo alias=\"a\" name=\"A\" enabled=\"2\"><url>http://e</url></repo></repo-list></stream>",
+    "expected": [
+      {
+        "alias": "a",
+        "name": "A",
+        "url": "http://e",
+        "state": false
+      }
+    ]
+  },
+  {
+    "name": "missing_optional_attrs",
+    "xml": "<stream><repo-list><repo alias=\"min\" name=\"Min\" enabled=\"1\"><url>http://min/</url></repo></repo-list></stream>",
+    "expected": [
+      {
+        "alias": "min",
+        "name": "Min",
+        "url": "http://min/",
+        "state": true
+      }
+    ]
+  },
+  {
+    "name": "missing_alias_skipped",
+    "xml": "<stream><repo-list><repo name=\"Bad\" enabled=\"1\"><url>http://e</url></repo><repo alias=\"good\" name=\"Good\" enabled=\"1\"><url>http://example.com/good/</url></repo></repo-list></stream>",
+    "expected": [
+      {
+        "alias": "good",
+        "name": "Good",
+        "url": "http://example.com/good/",
+        "state": true
+      }
+    ]
+  },
+  {
+    "name": "empty_repo_list",
+    "xml": "<stream><repo-list></repo-list></stream>",
+    "expected": []
+  },
+  {
+    "name": "url_attr_ignored_child_used",
+    "xml": "<stream><repo-list><repo alias=\"a\" name=\"A\" enabled=\"1\" url=\"http://attr-ignored/\"><url>http://child/</url></repo></repo-list></stream>",
+    "expected": [
+      {
+        "alias": "a",
+        "name": "A",
+        "url": "http://child/",
+        "state": true
+      }
+    ]
+  },
+  {
+    "name": "empty_and_missing_url_skipped",
+    "xml": "<stream><repo-list><repo alias=\"e\" name=\"E\" enabled=\"1\"><url/></repo><repo alias=\"nou\" name=\"NoUrl\" enabled=\"1\"></repo><repo alias=\"good\" name=\"Good\" enabled=\"1\"><url>http://example.com/good/</url></repo></repo-list></stream>",
+    "expected": [
+      {
+        "alias": "good",
+        "name": "Good",
+        "url": "http://example.com/good/",
+        "state": true
+      }
+    ]
+  },
+  {
+    "name": "malformed_xml",
+    "xml": "not <xml",
+    "raises": true
+  },
+  {
+    "name": "entities_in_attrs_and_url",
+    "xml": "<stream><repo-list><repo alias=\"r1\" name=\"A &amp; B\" enabled=\"1\"><url>http://example.invalid/?a=1&amp;b=2</url></repo></repo-list></stream>",
+    "expected": [
+      {
+        "alias": "r1",
+        "name": "A & B",
+        "url": "http://example.invalid/?a=1&b=2",
+        "state": true
+      }
+    ]
+  },
+  {
+    "name": "cdata_and_charref_in_url",
+    "xml": "<stream><repo-list><repo alias=\"a\" name=\"n\" enabled=\"1\"><url>http&#58;//example.invalid<![CDATA[/cdata/]]>end</url></repo></repo-list></stream>",
+    "expected": [
+      {
+        "alias": "a",
+        "name": "n",
+        "url": "http://example.invalid/cdata/end",
+        "state": true
+      }
+    ]
+  },
+  {
+    "name": "first_url_child_wins",
+    "xml": "<stream><repo-list><repo alias=\"a\" name=\"n\" enabled=\"1\"><url>http://example.invalid/first/</url><url>http://example.invalid/second/</url></repo></repo-list></stream>",
+    "expected": [
+      {
+        "alias": "a",
+        "name": "n",
+        "url": "http://example.invalid/first/",
+        "state": true
+      }
+    ]
+  }
+]

@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<product schemeversion="0">
+  <vendor>SUSE</vendor>
+  <name>SLES</name>
+  <version>16.0</version>
+  <release>0</release>
+  <endoflife>2027-11-30</endoflife>
+  <arch>x86_64</arch>
+  <cpeid>cpe:/o:suse:sles:16:16.0:server</cpeid>
+  <productline>SLES</productline>
+  <codestream>
+    <name>SUSE Linux Enterprise Server 16</name>
+    <endoflife>2035-11-30</endoflife>
+  </codestream>
+  <register>
+    <pool>
+      <repository project="SUSE:Products:SLES:16.0:x86_64" name="images" medium="product" arch="x86_64">
+        <zypp name="SLES-16.0-Pool" alias="SLES-16.0-Pool"/>
+      </repository>
+      <repository project="SUSE:Products:SLES:16.0:s390x" name="images" medium="product" arch="s390x">
+        <zypp name="SLES-16.0-Pool" alias="SLES-16.0-Pool"/>
+      </repository>
+      <repository project="SUSE:Products:SLES:16.0:aarch64" name="images" medium="product" arch="aarch64">
+        <zypp name="SLES-16.0-Pool" alias="SLES-16.0-Pool"/>
+      </repository>
+      <repository project="SUSE:Products:SLES:16.0:ppc64le" name="images" medium="product" arch="ppc64le">
+        <zypp name="SLES-16.0-Pool" alias="SLES-16.0-Pool"/>
+      </repository>
+      <repository project="SUSE:Products:SLES:16.0:x86_64" name="images" medium="product_debug" arch="x86_64">
+        <zypp name="SLES-16.0-Debuginfo-Pool" alias="SLES-16.0-Debuginfo-Pool"/>
+      </repository>
+      <repository project="SUSE:Products:SLES:16.0:s390x" name="images" medium="product_debug" arch="s390x">
+        <zypp name="SLES-16.0-Debuginfo-Pool" alias="SLES-16.0-Debuginfo-Pool"/>
+      </repository>
+      <repository project="SUSE:Products:SLES:16.0:aarch64" name="images" medium="product_debug" arch="aarch64">
+        <zypp name="SLES-16.0-Debuginfo-Pool" alias="SLES-16.0-Debuginfo-Pool"/>
+      </repository>
+      <repository project="SUSE:Products:SLES:16.0:ppc64le" name="images" medium="product_debug" arch="ppc64le">
+        <zypp name="SLES-16.0-Debuginfo-Pool" alias="SLES-16.0-Debuginfo-Pool"/>
+      </repository>
+      <repository project="SUSE:Products:SLES:16.0:x86_64" name="images" medium="product_source" arch="x86_64">
+        <zypp name="SLES-16.0-Source-Pool" alias="SLES-16.0-Source-Pool"/>
+      </repository>
+      <repository project="SUSE:Products:SLES:16.0:s390x" name="images" medium="product_source" arch="s390x">
+        <zypp name="SLES-16.0-Source-Pool" alias="SLES-16.0-Source-Pool"/>
+      </repository>
+      <repository project="SUSE:Products:SLES:16.0:aarch64" name="images" medium="product_source" arch="aarch64">
+        <zypp name="SLES-16.0-Source-Pool" alias="SLES-16.0-Source-Pool"/>
+      </repository>
+      <repository project="SUSE:Products:SLES:16.0:ppc64le" name="images" medium="product_source" arch="ppc64le">
+        <zypp name="SLES-16.0-Source-Pool" alias="SLES-16.0-Source-Pool"/>
+      </repository>
+    </pool>
+    <updates>
+      <distrotarget arch="x86_64">sle-15-x86_64</distrotarget>
+      <distrotarget arch="s390x">sle-15-s390x</distrotarget>
+      <distrotarget arch="aarch64">sle-15-aarch64</distrotarget>
+      <distrotarget arch="ppc64le">sle-15-ppc64le</distrotarget>
+    </updates>
+  </register>
+  <repositories>
+      <repository type="pool" repoid="obsproduct://example.invalid/SUSE:Products:SLES:16.0:x86_64/SLES/16.0/x86_64" />
+  </repositories>
+  <summary>SUSE Linux Enterprise Server 16.0</summary>
+  <shortsummary>SUSE Linux Enterprise Server</shortsummary>
+  <description>SUSE Linux Enterprise Server 16.0</description>
+  <linguas>
+    <language>en</language>
+  </linguas>
+  <urls>
+    <url name="releasenotes">https://example.invalid/releasenotes/x86_64/SLES/16.0/release-notes-sles.rpm</url>
+  </urls>
+  <buildconfig>
+    <producttheme>SLES</producttheme>
+  </buildconfig>
+  <installconfig>
+    <defaultlang>en_US</defaultlang>
+    <releasepackage name="SLES-release" flag="EQ" version="16.0" release="160000.43.1"/>
+    <distribution>SUSE</distribution>
+  </installconfig>
+  <runtimeconfig/>
+  <productdependency relationship="requires" name="SLES" baseversion="16.0" flag="EQ"/>
+</product>
+

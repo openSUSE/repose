@@ -1,0 +1,16 @@
+---
+addons:
+- name: SL-Micro-Extras
+  version:
+    major: 6
+    minor: 1
+arch: x86_64
+location:
+- some location
+name: sl-micro-6-1
+product:
+  name: SL-Micro
+  version:
+    major: 6
+    minor: 1
+...

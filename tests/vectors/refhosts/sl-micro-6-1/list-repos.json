@@ -1,0 +1,3 @@
+{"event": "repo", "host": "sl-micro-6-1", "port": 22, "alias": "SL-Micro-Extras:6.1::pool", "name": "SL-Micro-Extras:6.1::pool", "url": "https://example.invalid/scrubbed/SUSE/Products/SL-Micro-Extras/6.1/x86_64/product/", "state": true}
+{"event": "repo", "host": "sl-micro-6-1", "port": 22, "alias": "SL-Micro:6.1::pool", "name": "SL-Micro:6.1::pool", "url": "https://example.invalid/scrubbed/SUSE/Products/SL-Micro/6.1/x86_64/product/", "state": true}
+{"event": "repo", "host": "sl-micro-6-1", "port": 22, "alias": "qa:16.0::pool", "name": "qa:16.0::pool", "url": "https://example.invalid/scrubbed/QA:/SLE16.0/update/", "state": true}

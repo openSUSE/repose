@@ -1,0 +1,77 @@
+<?xml version='1.0'?>
+<stream>
+<repo-list>
+<repo alias="SLES-LTSS:15-SP4::update" name="SLES-LTSS:15-SP4::update" type="rpm-md" priority="99" enabled="1" autorefresh="1" gpgcheck="1" repo_gpgcheck="1" pkg_gpgcheck="0">
+<url>https://example.invalid/scrubbed/SUSE/Updates/SLE-Product-SLES/15-SP4-LTSS/x86_64/update/</url>
+</repo>
+<repo alias="SLES:15-SP4::pool" name="SLES:15-SP4::pool" type="rpm-md" priority="99" enabled="1" autorefresh="0" gpgcheck="1" repo_gpgcheck="1" pkg_gpgcheck="0">
+<url>https://example.invalid/scrubbed/SUSE/Products/SLE-Product-SLES/15-SP4/x86_64/product/</url>
+</repo>
+<repo alias="SLES:15-SP4::update" name="SLES:15-SP4::update" type="rpm-md" priority="99" enabled="1" autorefresh="1" gpgcheck="1" repo_gpgcheck="1" pkg_gpgcheck="0">
+<url>https://example.invalid/scrubbed/SUSE/Updates/SLE-Product-SLES/15-SP4/x86_64/update/</url>
+</repo>
+<repo alias="SLES_TERADATA:15-SP4::pool" name="SLES_TERADATA:15-SP4::pool" type="rpm-md" priority="99" enabled="1" autorefresh="0" gpgcheck="1" repo_gpgcheck="1" pkg_gpgcheck="0">
+<url>https://example.invalid/scrubbed/SUSE/Products/SLE-Product-SLES/15-SP4-TERADATA/x86_64/product/</url>
+</repo>
+<repo alias="SLES_TERADATA:15-SP4::update" name="SLES_TERADATA:15-SP4::update" type="rpm-md" priority="99" enabled="1" autorefresh="1" gpgcheck="1" repo_gpgcheck="1" pkg_gpgcheck="0">
+<url>https://example.invalid/scrubbed/SUSE/Updates/SLE-Product-SLES/15-SP4-TERADATA/x86_64/update/</url>
+</repo>
+<repo alias="SUSE_SLE-15-SP4_GA" name="Code 15 SP4 GA platform (standard)" type="rpm-md" priority="99" enabled="1" autorefresh="1" gpgcheck="1" repo_gpgcheck="1" pkg_gpgcheck="0" raw_gpgcheck="1" gpgkey="https://example.invalid/scrubbed/SUSE:/SLE-15-SP4:/GA/standard/repodata/repomd.xml.key">
+<url>https://example.invalid/scrubbed/SUSE:/SLE-15-SP4:/GA/standard/</url>
+</repo>
+<repo alias="qa:15-SP4::pool" name="qa:15-SP4::pool" type="rpm-md" priority="99" enabled="1" autorefresh="1" gpgcheck="1" repo_gpgcheck="1" pkg_gpgcheck="0">
+<url>https://example.invalid/scrubbed/QA:/SLE15SP4/update/</url>
+</repo>
+<repo alias="sle-module-basesystem:15-SP4::pool" name="sle-module-basesystem:15-SP4::pool" type="rpm-md" priority="99" enabled="1" autorefresh="0" gpgcheck="1" repo_gpgcheck="1" pkg_gpgcheck="0">
+<url>https://example.invalid/scrubbed/SUSE/Products/SLE-Module-Basesystem/15-SP4/x86_64/product/</url>
+</repo>
+<repo alias="sle-module-basesystem:15-SP4::update" name="sle-module-basesystem:15-SP4::update" type="rpm-md" priority="99" enabled="1" autorefresh="1" gpgcheck="1" repo_gpgcheck="1" pkg_gpgcheck="0">
+<url>https://example.invalid/scrubbed/SUSE/Updates/SLE-Module-Basesystem/15-SP4/x86_64/update/</url>
+</repo>
+<repo alias="sle-module-containers:15-SP4::pool" name="sle-module-containers:15-SP4::pool" type="rpm-md" priority="99" enabled="1" autorefresh="0" gpgcheck="1" repo_gpgcheck="1" pkg_gpgcheck="0">
+<url>https://example.invalid/scrubbed/SUSE/Products/SLE-Module-Containers/15-SP4/x86_64/product/</url>
+</repo>
+<repo alias="sle-module-containers:15-SP4::update" name="sle-module-containers:15-SP4::update" type="rpm-md" priority="99" enabled="1" autorefresh="1" gpgcheck="1" repo_gpgcheck="1" pkg_gpgcheck="0">
+<url>https://example.invalid/scrubbed/SUSE/Updates/SLE-Module-Containers/15-SP4/x86_64/update/</url>
+</repo>
+<repo alias="sle-module-hpc:15-SP4::pool" name="sle-module-hpc:15-SP4::pool" type="rpm-md" priority="99" enabled="1" autorefresh="0" gpgcheck="1" repo_gpgcheck="1" pkg_gpgcheck="0">
+<url>https://example.invalid/scrubbed/SUSE/Products/SLE-Module-HPC/15-SP4/x86_64/product/</url>
+</repo>
+<repo alias="sle-module-hpc:15-SP4::update" name="sle-module-hpc:15-SP4::update" type="rpm-md" priority="99" enabled="1" autorefresh="1" gpgcheck="1" repo_gpgcheck="1" pkg_gpgcheck="0">
+<url>https://example.invalid/scrubbed/SUSE/Updates/SLE-Module-HPC/15-SP4/x86_64/update/</url>
+</repo>
+<repo alias="sle-module-legacy:15-SP4::pool" name="sle-module-legacy:15-SP4::pool" type="rpm-md" priority="99" enabled="1" autorefresh="0" gpgcheck="1" repo_gpgcheck="1" pkg_gpgcheck="0">
+<url>https://example.invalid/scrubbed/SUSE/Products/SLE-Module-Legacy/15-SP4/x86_64/product/</url>
+</repo>
+<repo alias="sle-module-legacy:15-SP4::update" name="sle-module-legacy:15-SP4::update" type="rpm-md" priority="99" enabled="1" autorefresh="1" gpgcheck="1" repo_gpgcheck="1" pkg_gpgcheck="0">
+<url>https://example.invalid/scrubbed/SUSE/Updates/SLE-Module-Legacy/15-SP4/x86_64/update/</url>
+</repo>
+<repo alias="sle-module-public-cloud:15-SP4::pool" name="sle-module-public-cloud:15-SP4::pool" type="rpm-md" priority="99" enabled="1" autorefresh="0" gpgcheck="1" repo_gpgcheck="1" pkg_gpgcheck="0">
+<url>https://example.invalid/scrubbed/SUSE/Products/SLE-Module-Public-Cloud/15-SP4/x86_64/product/</url>
+</repo>
+<repo alias="sle-module-public-cloud:15-SP4::update" name="sle-module-public-cloud:15-SP4::update" type="rpm-md" priority="99" enabled="1" autorefresh="1" gpgcheck="1" repo_gpgcheck="1" pkg_gpgcheck="0">
+<url>https://example.invalid/scrubbed/SUSE/Updates/SLE-Module-Public-Cloud/15-SP4/x86_64/update/</url>
+</repo>
+<repo alias="sle-module-python3:15-SP4::pool" name="sle-module-python3:15-SP4::pool" type="rpm-md" priority="99" enabled="1" autorefresh="0" gpgcheck="1" repo_gpgcheck="1" pkg_gpgcheck="0">
+<url>https://example.invalid/scrubbed/SUSE/Products/SLE-Module-Python3/15-SP4/x86_64/product/</url>
+</repo>
+<repo alias="sle-module-python3:15-SP4::update" name="sle-module-python3:15-SP4::update" type="rpm-md" priority="99" enabled="1" autorefresh="1" gpgcheck="1" repo_gpgcheck="1" pkg_gpgcheck="0">
+<url>https://example.invalid/scrubbed/SUSE/Updates/SLE-Module-Python3/15-SP4/x86_64/update/</url>
+</repo>
+<repo alias="sle-module-server-applications:15-SP4::pool" name="sle-module-server-applications:15-SP4::pool" type="rpm-md" priority="99" enabled="1" autorefresh="0" gpgcheck="1" repo_gpgcheck="1" pkg_gpgcheck="0">
+<url>https://example.invalid/scrubbed/SUSE/Products/SLE-Module-Server-Applications/15-SP4/x86_64/product/</url>
+</repo>
+<repo alias="sle-module-server-applications:15-SP4::update" name="sle-module-server-applications:15-SP4::update" type="rpm-md" priority="99" enabled="1" autorefresh="1" gpgcheck="1" repo_gpgcheck="1" pkg_gpgcheck="0">
+<url>https://example.invalid/scrubbed/SUSE/Updates/SLE-Module-Server-Applications/15-SP4/x86_64/update/</url>
+</repo>
+<repo alias="sle-module-web-scripting:15-SP4::pool" name="sle-module-web-scripting:15-SP4::pool" type="rpm-md" priority="99" enabled="1" autorefresh="0" gpgcheck="1" repo_gpgcheck="1" pkg_gpgcheck="0">
+<url>https://example.invalid/scrubbed/SUSE/Products/SLE-Module-Web-Scripting/15-SP4/x86_64/product/</url>
+</repo>
+<repo alias="sle-module-web-scripting:15-SP4::update" name="sle-module-web-scripting:15-SP4::update" type="rpm-md" priority="99" enabled="1" autorefresh="1" gpgcheck="1" repo_gpgcheck="1" pkg_gpgcheck="0">
+<url>https://example.invalid/scrubbed/SUSE/Updates/SLE-Module-Web-Scripting/15-SP4/x86_64/update/</url>
+</repo>
+<repo alias="zabbix" name="Zabbix 7.4 for SLES 15 - UPSTREAM" type="rpm-md" priority="99" enabled="1" autorefresh="1" gpgcheck="1" repo_gpgcheck="1" pkg_gpgcheck="0" raw_gpgcheck="1">
+<url>https://example.invalid/zabbix/7.4/stable/sles/15/x86_64/</url>
+</repo>
+</repo-list>
+</stream>

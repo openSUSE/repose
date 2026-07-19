@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<product schemeversion="0">
+  <vendor>SUSE</vendor>
+  <name>sle-module-containers</name>
+  <version>15.6</version>
+  <baseversion>15</baseversion>
+  <patchlevel>6</patchlevel>
+  <release>0</release>
+  <endoflife></endoflife>
+  <arch>x86_64</arch>
+  <cpeid>cpe:/o:suse:sle-module-containers:15:sp6</cpeid>
+  <productline>sle-module-containers</productline>
+  <register>
+      <target>sle-15-x86_64</target>
+    <flavor>module</flavor>
+  </register>
+  <repositories>
+      <repository type="update" repoid="obsrepository://example.invalid/scrubbed" />
+      <repository type="update" repoid="obsrepository://example.invalid/scrubbed" />
+      <repository type="pool" repoid="obsproduct://example.invalid/scrubbed" />
+  </repositories>
+  <summary>Containers Module</summary>
+  <shortsummary>Containers-Module</shortsummary>
+  <description>&lt;p&gt;This Module contains several packages revolving around containers 
+        and related tools. &lt;/p&gt;</description>
+  <urls>
+    <url name="bugtracker">https://example.invalid/scrubbed</url>
+  </urls>
+  <buildconfig>
+    <producttheme>SLES</producttheme>
+  </buildconfig>
+  <installconfig>
+    <defaultlang>en_US</defaultlang>
+    <releasepackage name="sle-module-containers-release" flag="EQ" version="15.6" release="150600.37.2"/>
+    <distribution>SUSE_SLE</distribution>
+  </installconfig>
+  <runtimeconfig/>
+  <productdependency relationship="requires" name="SUSE_SLE" baseversion="15" patchlevel="6" flag="GE"/>
+  <productdependency relationship="requires" name="sle-module-basesystem" baseversion="15" patchlevel="6" flag="GE"/>
+</product>
+

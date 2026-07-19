@@ -1,0 +1,5 @@
+Host: sl-micro-6-1:22
+  Base product: SL-Micro-6.1-x86_64
+  Installed Extensions and Modules:
+      Addon: SL-Micro-Extras                                       - version: 6.1
+

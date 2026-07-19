@@ -1,0 +1,12 @@
+{"event": "product", "host": "sles-teradata-15-sp4", "port": 22, "kind": "base", "name": "SLES_TERADATA", "version": "15-SP4", "arch": "x86_64"}
+{"event": "product", "host": "sles-teradata-15-sp4", "port": 22, "kind": "addon", "name": "SLES", "version": "15-SP4", "arch": "x86_64"}
+{"event": "product", "host": "sles-teradata-15-sp4", "port": 22, "kind": "addon", "name": "SLES-LTSS", "version": "15-SP4", "arch": "x86_64"}
+{"event": "product", "host": "sles-teradata-15-sp4", "port": 22, "kind": "addon", "name": "qa", "version": "15-SP4", "arch": "x86_64"}
+{"event": "product", "host": "sles-teradata-15-sp4", "port": 22, "kind": "addon", "name": "sle-module-basesystem", "version": "15-SP4", "arch": "x86_64"}
+{"event": "product", "host": "sles-teradata-15-sp4", "port": 22, "kind": "addon", "name": "sle-module-containers", "version": "15-SP4", "arch": "x86_64"}
+{"event": "product", "host": "sles-teradata-15-sp4", "port": 22, "kind": "addon", "name": "sle-module-hpc", "version": "15-SP4", "arch": "x86_64"}
+{"event": "product", "host": "sles-teradata-15-sp4", "port": 22, "kind": "addon", "name": "sle-module-legacy", "version": "15-SP4", "arch": "x86_64"}
+{"event": "product", "host": "sles-teradata-15-sp4", "port": 22, "kind": "addon", "name": "sle-module-public-cloud", "version": "15-SP4", "arch": "x86_64"}
+{"event": "product", "host": "sles-teradata-15-sp4", "port": 22, "kind": "addon", "name": "sle-module-python3", "version": "15-SP4", "arch": "x86_64"}
+{"event": "product", "host": "sles-teradata-15-sp4", "port": 22, "kind": "addon", "name": "sle-module-server-applications", "version": "15-SP4", "arch": "x86_64"}
+{"event": "product", "host": "sles-teradata-15-sp4", "port": 22, "kind": "addon", "name": "sle-module-web-scripting", "version": "15-SP4", "arch": "x86_64"}

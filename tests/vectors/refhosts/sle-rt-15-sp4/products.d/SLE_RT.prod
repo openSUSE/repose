@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<product schemeversion="0">
+  <vendor>SUSE</vendor>
+  <name>SLE_RT</name>
+  <version>15.4</version>
+  <baseversion>15</baseversion>
+  <patchlevel>4</patchlevel>
+  <release>0</release>
+  <endoflife></endoflife>
+  <arch>x86_64</arch>
+  <cpeid>cpe:/o:suse:sle_rt:15:sp4</cpeid>
+  <productline>sles</productline>
+  <codestream>
+    <name>SUSE Linux Enterprise Real Time 15</name>
+    <endoflife>2028-07-31</endoflife>
+  </codestream>
+  <register>
+      <target>sle-15-x86_64</target>
+  </register>
+  <repositories>
+      <repository type="update" repoid="obsrepository://example.invalid/scrubbed" />
+      <repository type="update" repoid="obsrepository://example.invalid/scrubbed" />
+      <repository type="pool" repoid="obsproduct://example.invalid/SUSE:Products:SLE-Product-RT:15-SP4:x86_64/SLE_RT/15.4/x86_64" />
+  </repositories>
+  <summary>SUSE Linux Enterprise Real Time 15 SP4</summary>
+  <shortsummary>SLE-15-SP4-RT</shortsummary>
+  <description>&lt;p&gt;
+	The SUSE Linux Enterprise Real Time aims to reduce 
+        the latency and increase the predictability and reliability 
+        of time-sensitive mission-critical applications.
+	&lt;/p&gt;</description>
+  <linguas>
+    <language>cs</language>
+    <language>da</language>
+    <language>de</language>
+    <language>en</language>
+    <language>en_GB</language>
+    <language>en_US</language>
+    <language>es</language>
+    <language>fi</language>
+    <language>fr</language>
+    <language>hu</language>
+    <language>it</language>
+    <language>ja</language>
+    <language>nb</language>
+    <language>nl</language>
+    <language>pl</language>
+    <language>pt</language>
+    <language>pt_BR</language>
+    <language>ru</language>
+    <language>sv</language>
+    <language>zh</language>
+    <language>zh_CN</language>
+    <language>zh_TW</language>
+  </linguas>
+  <urls>
+    <url name="releasenotes">https://example.invalid/releasenotes/x86_64/SLE-RT/15-SP4/release-notes-sle_rt.rpm</url>
+  </urls>
+  <buildconfig>
+    <producttheme>SLES</producttheme>
+  </buildconfig>
+  <installconfig>
+    <defaultlang>en_US</defaultlang>
+    <releasepackage name="SLE_RT-release" flag="EQ" version="15.4" release="150400.5.12"/>
+    <distribution>SUSE_SLE</distribution>
+  </installconfig>
+  <runtimeconfig/>
+  <productdependency relationship="provides" name="SUSE_SLE" baseversion="15" patchlevel="4" flag="EQ"/>
+  <productdependency relationship="provides" name="SUSE_SLE-SP4" baseversion="15" patchlevel="4" flag="EQ"/>
+</product>
+

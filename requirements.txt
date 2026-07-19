@@ -1,5 +1,0 @@
-# DEPRECATED: CI uses `uv sync`. See pyproject.toml [project].dependencies.
-# Retained for one release cycle for downstream packaging compatibility
-# (openSUSE rpm spec).
-paramiko
-ruamel.yaml

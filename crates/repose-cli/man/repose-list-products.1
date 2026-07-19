@@ -1,0 +1,72 @@
+.ie \n(.g .ds Aq \(aq
+.el .ds Aq '
+.TH repose-list-products 1  "repose-list-products 3.0.0" 
+.SH NAME
+repose\-list\-products \- list products on target
+.SH SYNOPSIS
+\fBrepose list\-products\fR [\fB\-n\fR|\fB\-\-print\fR] <\fB\-t\fR|\fB\-\-target\fR> [\fB\-V\fR|\fB\-\-version\fR] [\fB\-\-yaml\fR] [\fB\-c\fR|\fB\-\-config\fR] [\fB\-d\fR|\fB\-\-debug\fR] [\fB\-q\fR|\fB\-\-quiet\fR] [\fB\-\-no\-color\fR] [\fB\-\-format\fR] [\fB\-\-strict\-host\-key\-checking\fR] [\fB\-\-known\-hosts\fR] [\fB\-h\fR|\fB\-\-help\fR] 
+.SH DESCRIPTION
+list products on target
+.SH OPTIONS
+.TP
+\fB\-n\fR, \fB\-\-print\fR
+print commands for host and exit
+.TP
+\fB\-t\fR, \fB\-\-target\fR \fI<TARGETS>\fR
+target to operate on
+.TP
+\fB\-V\fR, \fB\-\-version\fR
+show program\*(Aqs version number and exit
+.TP
+\fB\-\-yaml\fR
+Generate YAML host spec for refhosts.yml generator without normalization. Default for SLE 12\-SP5 and SLE 15\-SP3+ products
+.TP
+\fB\-c\fR, \fB\-\-config\fR \fI<CONFIG>\fR [default: /etc/repose/products.yml]
+path to repose configuration
+.TP
+\fB\-d\fR, \fB\-\-debug\fR
+enable debug logging
+.TP
+\fB\-q\fR, \fB\-\-quiet\fR
+suppress messages from repose
+.TP
+\fB\-\-no\-color\fR
+disable ANSI color in console output (honors NO_COLOR)
+.TP
+\fB\-\-format\fR \fI<FORMAT>\fR [default: text]
+console output format: \*(Aqtext\*(Aq (default) or \*(Aqjson\*(Aq (one event per line)
+.br
+
+.br
+\fIPossible values:\fR
+.RS 14
+.IP \(bu 2
+text
+.IP \(bu 2
+json
+.RE
+.TP
+\fB\-\-strict\-host\-key\-checking\fR \fI<STRICT_HOST_KEY_CHECKING>\fR [default: accept\-new]
+SSH host\-key policy (OpenSSH semantics): \*(Aqyes\*(Aq refuses unknown hosts; \*(Aqaccept\-new\*(Aq (default) accepts unknown hosts on first contact but rejects changed keys; \*(Aqno\*(Aq/\*(Aqoff\*(Aq accepts both unknown and changed keys (pre\-1.12 behaviour)
+.br
+
+.br
+\fIPossible values:\fR
+.RS 14
+.IP \(bu 2
+yes
+.IP \(bu 2
+accept\-new
+.IP \(bu 2
+no
+.IP \(bu 2
+off
+.RE
+.TP
+\fB\-\-known\-hosts\fR \fI<KNOWN_HOSTS>\fR
+path to a custom known_hosts file (overrides ~/.ssh/known_hosts)
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Print help
+.SH VERSION
+v3.0.0

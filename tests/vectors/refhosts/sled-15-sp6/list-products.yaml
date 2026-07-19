@@ -1,0 +1,44 @@
+---
+addons:
+- name: SLES-LTSS
+  version:
+    major: 15
+    minor: SP6
+- name: qa
+  version:
+    major: 15
+    minor: SP6
+- name: sle-module-basesystem
+  version:
+    major: 15
+    minor: SP6
+- name: sle-module-containers
+  version:
+    major: 15
+    minor: SP6
+- name: sle-module-desktop-applications
+  version:
+    major: 15
+    minor: SP6
+- name: sle-module-development-tools
+  version:
+    major: 15
+    minor: SP6
+- name: sle-module-python3
+  version:
+    major: 15
+    minor: SP6
+- name: sle-we
+  version:
+    major: 15
+    minor: SP6
+arch: x86_64
+location:
+- some location
+name: sled-15-sp6
+product:
+  name: SLED
+  version:
+    major: 15
+    minor: SP6
+...

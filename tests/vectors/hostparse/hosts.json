@@ -1,0 +1,50 @@
+[
+  {
+    "input": "example.com",
+    "ok": true,
+    "key": "example.com",
+    "hostname": "example.com",
+    "port": 22,
+    "username": "root"
+  },
+  {
+    "input": "alice@example.com",
+    "ok": true,
+    "key": "example.com",
+    "hostname": "example.com",
+    "port": 22,
+    "username": "alice"
+  },
+  {
+    "input": "admin@example.com:2222",
+    "ok": true,
+    "key": "example.com:2222",
+    "hostname": "example.com",
+    "port": 2222,
+    "username": "admin"
+  },
+  {
+    "input": "root@host",
+    "ok": true,
+    "key": "host",
+    "hostname": "host",
+    "port": 22,
+    "username": "root"
+  },
+  {
+    "input": "Alice@Host.Example.ORG",
+    "ok": true,
+    "key": "host.example.org",
+    "hostname": "host.example.org",
+    "port": 22,
+    "username": "Alice"
+  },
+  {
+    "input": "bad:port",
+    "ok": false
+  },
+  {
+    "input": "host:99999",
+    "ok": false
+  }
+]

@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<product schemeversion="0">
+  <vendor>SUSE</vendor>
+  <name>sle-module-hpc</name>
+  <version>15.4</version>
+  <baseversion>15</baseversion>
+  <patchlevel>4</patchlevel>
+  <release>0</release>
+  <endoflife></endoflife>
+  <arch>x86_64</arch>
+  <cpeid>cpe:/o:suse:sle-module-hpc:15:sp4</cpeid>
+  <productline>sle-module-hpc</productline>
+  <register>
+      <target>sle-15-x86_64</target>
+    <flavor>module</flavor>
+  </register>
+  <repositories>
+      <repository type="update" repoid="obsrepository://example.invalid/scrubbed" />
+      <repository type="update" repoid="obsrepository://example.invalid/scrubbed" />
+      <repository type="pool" repoid="obsproduct://example.invalid/SUSE:Products:SLE-Module-HPC:15-SP4:x86_64/sle-module-hpc/15.4/x86_64" />
+  </repositories>
+  <summary>HPC Module</summary>
+  <shortsummary>HPC-Module</shortsummary>
+  <description>&lt;p&gt;
+	The SUSE Linux Enterprise Server High Performance Computing (HPC) module
+	delivers specific tools commonly used for high performance, numerically
+	intensive workloads.
+	&lt;/p&gt;
+	&lt;p&gt;
+	SUSE packages these tools in the SLES HPC Module to provide greater
+	flexibility to deliver new versions or new tools more rapidly than the
+	standard SUSE Linux Enterprise lifecycle would permit.
+	&lt;/p&gt;
+	&lt;p&gt;
+	Packages in this module are generally supported until a newer version of
+	the package is released or the package is dropped from the module.
+	&lt;/p&gt;</description>
+  <urls>
+    <url name="bugtracker">https://example.invalid/</url>
+  </urls>
+  <buildconfig>
+    <producttheme>SLES</producttheme>
+  </buildconfig>
+  <installconfig>
+    <defaultlang>en_US</defaultlang>
+    <releasepackage name="sle-module-hpc-release" flag="EQ" version="15.4" release="150400.55.1"/>
+    <distribution>SUSE_SLE</distribution>
+  </installconfig>
+  <runtimeconfig/>
+  <productdependency relationship="requires" name="SUSE_SLE" baseversion="15" patchlevel="4" flag="GE"/>
+  <productdependency relationship="requires" name="sle-module-server-applications" baseversion="15" patchlevel="4" flag="GE"/>
+</product>
+

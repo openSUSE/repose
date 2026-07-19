@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<product schemeversion="0">
+  <vendor>SUSE</vendor>
+  <name>sle-module-development-tools-obs</name>
+  <version>15.6</version>
+  <baseversion>15</baseversion>
+  <patchlevel>6</patchlevel>
+  <release>0</release>
+  <endoflife></endoflife>
+  <arch>x86_64</arch>
+  <cpeid>cpe:/o:suse:sle-module-development-tools-obs:15:sp6</cpeid>
+  <productline>sle-module-development-tools-obs</productline>
+  <register>
+    <target/>
+  </register>
+  <repositories>
+  </repositories>
+  <summary>Development Tools for OBS Module</summary>
+  <shortsummary>Development-Tools-OBS-Module</shortsummary>
+  <description>&lt;p&gt;
+      The Development Tools OBS Module helps you developing applications and
+      containers inside of an Open Build Service instance for SUSE Linux Enterprise 15.
+  &lt;/p&gt;</description>
+  <urls>
+    <url name="bugtracker">https://example.invalid/scrubbed</url>
+  </urls>
+  <buildconfig>
+    <producttheme>SLES</producttheme>
+  </buildconfig>
+  <installconfig>
+    <defaultlang>en_US</defaultlang>
+    <releasepackage name="sle-module-development-tools-obs-release" flag="EQ" version="15.6" release="150600.37.2"/>
+    <distribution>SUSE_SLE</distribution>
+  </installconfig>
+  <runtimeconfig/>
+  <productdependency relationship="requires" name="SUSE_SLE" baseversion="15" patchlevel="6" flag="GE"/>
+  <productdependency relationship="requires" name="sle-module-development-tools" baseversion="15" patchlevel="6" flag="GE"/>
+</product>
+

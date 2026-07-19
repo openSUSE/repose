@@ -1,0 +1,32 @@
+[workspace]
+resolver = "2"
+members = [
+    "repose-core",
+    "repose-ssh",
+    "repose-cli",
+]
+
+[workspace.package]
+version = "3.0.0"
+edition = "2021"
+license = "GPL-3.0-or-later"
+repository = "https://github.com/openSUSE/repose"
+rust-version = "1.96"
+
+# Optimize dependencies (not workspace crates) in dev builds. Without this, the
+# unoptimized bignum modpow in russh's DH group-exchange
+# (diffie-hellman-group-exchange-sha256, 4096-bit primes) that old sshds
+# negotiate takes ~30s per handshake; the release path is already fast. This
+# keeps fast incremental rebuilds of our own crates while making the debug
+# binary usable against real refhosts.
+[profile.dev.package."*"]
+opt-level = 2
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+# Pedantic is informative locally; CI uses -D warnings on the default set only
+# (do not enable pedantic as warn-as-error — it blocks scaffolding with style nits).
+pedantic = { level = "allow", priority = -1 }

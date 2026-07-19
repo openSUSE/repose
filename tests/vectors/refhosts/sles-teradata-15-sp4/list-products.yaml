@@ -1,0 +1,56 @@
+---
+addons:
+- name: SLES
+  version:
+    major: 15
+    minor: SP4
+- name: SLES-LTSS
+  version:
+    major: 15
+    minor: SP4
+- name: qa
+  version:
+    major: 15
+    minor: SP4
+- name: sle-module-basesystem
+  version:
+    major: 15
+    minor: SP4
+- name: sle-module-containers
+  version:
+    major: 15
+    minor: SP4
+- name: sle-module-hpc
+  version:
+    major: 15
+    minor: SP4
+- name: sle-module-legacy
+  version:
+    major: 15
+    minor: SP4
+- name: sle-module-public-cloud
+  version:
+    major: 15
+    minor: SP4
+- name: sle-module-python3
+  version:
+    major: 15
+    minor: SP4
+- name: sle-module-server-applications
+  version:
+    major: 15
+    minor: SP4
+- name: sle-module-web-scripting
+  version:
+    major: 15
+    minor: SP4
+arch: x86_64
+location:
+- some location
+name: sles-teradata-15-sp4
+product:
+  name: SLES_TERADATA
+  version:
+    major: 15
+    minor: SP4
+...

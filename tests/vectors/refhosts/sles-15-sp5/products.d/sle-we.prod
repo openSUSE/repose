@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<product schemeversion="0">
+  <vendor>SUSE</vendor>
+  <name>sle-we</name>
+  <version>15.5</version>
+  <baseversion>15</baseversion>
+  <patchlevel>5</patchlevel>
+  <release>0</release>
+  <endoflife></endoflife>
+  <arch>x86_64</arch>
+  <cpeid>cpe:/o:suse:sle-we:15:sp5</cpeid>
+  <productline>sle-we</productline>
+  <register>
+      <target>sle-15-x86_64</target>
+    <flavor>extension</flavor>
+  </register>
+  <repositories>
+      <repository type="update" repoid="obsrepository://example.invalid/scrubbed" />
+      <repository type="update" repoid="obsrepository://example.invalid/scrubbed" />
+      <repository type="pool" repoid="obsproduct://example.invalid/SUSE:Products:SLE-Product-WE:15-SP5:x86_64/sle-we/15.5/x86_64" />
+  </repositories>
+  <summary>SUSE Linux Enterprise Workstation Extension 15 SP5</summary>
+  <shortsummary>SLEWE15-SP5</shortsummary>
+  <description>SUSE Linux Enterprise Workstation Extension adds additional functionality
+	to a base SUSE Linux Enterprise installation. The Workstation Extension
+	offers additional desktop applications (office suite, email client,
+	graphical editor, multimedia tools) and libraries.
+
+	Workstation Extension is enabled and installed by default on SUSE Linux 
+	Enterprise Desktop installation.
+
+	Adding the Workstation Extension to a SUSE Linux Enterprise Server
+	installation allows to seamlessly combine both products to create
+       	a full featured server workstation.</description>
+  <urls>
+    <url name="bugtracker">https://example.invalid/</url>
+    <url name="releasenotes">https://example.invalid/releasenotes/x86_64/SLE-SLED/15-SP5/release-notes-sled.rpm</url>
+  </urls>
+  <buildconfig>
+    <producttheme>SLED</producttheme>
+  </buildconfig>
+  <installconfig>
+    <defaultlang>en_US</defaultlang>
+    <releasepackage name="sle-we-release" flag="EQ" version="15.5" release="150500.43.2"/>
+    <distribution>SUSE_SLE</distribution>
+  </installconfig>
+  <runtimeconfig/>
+  <productdependency relationship="requires" name="SUSE_SLE" baseversion="15" patchlevel="5" flag="EQ"/>
+  <productdependency relationship="requires" name="sle-module-desktop-applications" baseversion="15" patchlevel="5" flag="GE"/>
+</product>
+

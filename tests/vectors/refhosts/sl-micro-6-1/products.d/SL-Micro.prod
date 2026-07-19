@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<product schemeversion="0">
+  <vendor>SUSE</vendor>
+  <name>SL-Micro</name>
+  <version>6.1</version>
+  <release>1</release>
+  <endoflife>2026-10-31</endoflife>
+  <arch>x86_64</arch>
+  <cpeid>cpe:/o:suse:sl-micro:6.1</cpeid>
+  <productline>SL-Micro</productline>
+  <codestream>
+    <name>SUSE Linux Micro 6.1</name>
+    <endoflife>2026-10-31</endoflife>
+  </codestream>
+  <register>
+    <pool>
+      <repository project="SUSE:Products:SL-Micro:6.1:x86_64" name="images" medium="product" arch="x86_64">
+        <zypp name="SL-Micro-6.1-Pool" alias="SL-Micro-6.1-Pool"/>
+      </repository>
+      <repository project="SUSE:Products:SL-Micro:6.1:s390x" name="images" medium="product" arch="s390x">
+        <zypp name="SL-Micro-6.1-Pool" alias="SL-Micro-6.1-Pool"/>
+      </repository>
+      <repository project="SUSE:Products:SL-Micro:6.1:aarch64" name="images" medium="product" arch="aarch64">
+        <zypp name="SL-Micro-6.1-Pool" alias="SL-Micro-6.1-Pool"/>
+      </repository>
+      <repository project="SUSE:Products:SL-Micro:6.1:ppc64le" name="images" medium="product" arch="ppc64le">
+        <zypp name="SL-Micro-6.1-Pool" alias="SL-Micro-6.1-Pool"/>
+      </repository>
+      <repository project="SUSE:Products:SL-Micro:6.1:x86_64" name="images" medium="product_debug" arch="x86_64">
+        <zypp name="SL-Micro-6.1-Debuginfo-Pool" alias="SL-Micro-6.1-Debuginfo-Pool"/>
+      </repository>
+      <repository project="SUSE:Products:SL-Micro:6.1:s390x" name="images" medium="product_debug" arch="s390x">
+        <zypp name="SL-Micro-6.1-Debuginfo-Pool" alias="SL-Micro-6.1-Debuginfo-Pool"/>
+      </repository>
+      <repository project="SUSE:Products:SL-Micro:6.1:aarch64" name="images" medium="product_debug" arch="aarch64">
+        <zypp name="SL-Micro-6.1-Debuginfo-Pool" alias="SL-Micro-6.1-Debuginfo-Pool"/>
+      </repository>
+      <repository project="SUSE:Products:SL-Micro:6.1:ppc64le" name="images" medium="product_debug" arch="ppc64le">
+        <zypp name="SL-Micro-6.1-Debuginfo-Pool" alias="SL-Micro-6.1-Debuginfo-Pool"/>
+      </repository>
+      <repository project="SUSE:Products:SL-Micro:6.1:x86_64" name="images" medium="product_source" arch="x86_64">
+        <zypp name="SL-Micro-6.1-Source-Pool" alias="SL-Micro-6.1-Source-Pool"/>
+      </repository>
+      <repository project="SUSE:Products:SL-Micro:6.1:s390x" name="images" medium="product_source" arch="s390x">
+        <zypp name="SL-Micro-6.1-Source-Pool" alias="SL-Micro-6.1-Source-Pool"/>
+      </repository>
+      <repository project="SUSE:Products:SL-Micro:6.1:aarch64" name="images" medium="product_source" arch="aarch64">
+        <zypp name="SL-Micro-6.1-Source-Pool" alias="SL-Micro-6.1-Source-Pool"/>
+      </repository>
+      <repository project="SUSE:Products:SL-Micro:6.1:ppc64le" name="images" medium="product_source" arch="ppc64le">
+        <zypp name="SL-Micro-6.1-Source-Pool" alias="SL-Micro-6.1-Source-Pool"/>
+      </repository>
+    </pool>
+    <updates>
+      <distrotarget arch="x86_64">sle-15-x86_64</distrotarget>
+      <distrotarget arch="s390x">sle-15-s390x</distrotarget>
+      <distrotarget arch="aarch64">sle-15-aarch64</distrotarget>
+      <distrotarget arch="ppc64le">sle-15-ppc64le</distrotarget>
+    </updates>
+  </register>
+  <repositories>
+      <repository type="pool" repoid="obsproduct://example.invalid/scrubbed" />
+  </repositories>
+  <summary>SUSE Linux Micro 6.1</summary>
+  <shortsummary>SUSE Linux Micro</shortsummary>
+  <description>SUSE Linux Micro 6.1</description>
+  <linguas>
+    <language>en</language>
+  </linguas>
+  <urls>
+    <url name="releasenotes">https://example.invalid/scrubbed</url>
+  </urls>
+  <buildconfig>
+    <producttheme>SL-Micro</producttheme>
+  </buildconfig>
+  <installconfig>
+    <defaultlang>en_US</defaultlang>
+    <releasepackage name="SL-Micro-release" flag="EQ" version="6.1" release="slfo.1.12.10"/>
+    <distribution>SUSE</distribution>
+  </installconfig>
+  <runtimeconfig/>
+</product>
+

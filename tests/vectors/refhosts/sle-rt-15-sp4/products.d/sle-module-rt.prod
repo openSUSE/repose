@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<product schemeversion="0">
+  <vendor>SUSE</vendor>
+  <name>sle-module-rt</name>
+  <version>15.4</version>
+  <baseversion>15</baseversion>
+  <patchlevel>4</patchlevel>
+  <release>0</release>
+  <endoflife></endoflife>
+  <arch>x86_64</arch>
+  <cpeid>cpe:/o:suse:sle-module-rt:15:sp4</cpeid>
+  <productline>sle-module-rt</productline>
+  <register>
+      <target>sle-15-x86_64</target>
+    <flavor>module</flavor>
+  </register>
+  <repositories>
+      <repository type="update" repoid="obsrepository://example.invalid/scrubbed" />
+      <repository type="update" repoid="obsrepository://example.invalid/scrubbed" />
+      <repository type="pool" repoid="obsproduct://example.invalid/SUSE:Products:SLE-Module-RT:15-SP4:x86_64/sle-module-rt/15.4/x86_64" />
+  </repositories>
+  <summary>SUSE Real Time Module</summary>
+  <shortsummary>SUSE-Real-Time-Module</shortsummary>
+  <description>&lt;p&gt;
+	The SUSE Linux Enterprise Real Time aims to reduce the latency and increase
+    the predictability and reliability of time-sensitive mission-critical applications.
+	&lt;/p&gt;
+	
+	&lt;p&gt;
+	Packages in this module are generally supported until a newer version of
+	the package is released or the package is dropped from the module.
+	&lt;/p&gt;</description>
+  <urls>
+    <url name="bugtracker">https://example.invalid/</url>
+  </urls>
+  <buildconfig>
+    <producttheme>SLES</producttheme>
+  </buildconfig>
+  <installconfig>
+    <defaultlang>en_US</defaultlang>
+    <releasepackage name="sle-module-rt-release" flag="EQ" version="15.4" release="150400.5.12"/>
+    <distribution>SUSE_SLE</distribution>
+  </installconfig>
+  <runtimeconfig/>
+  <productdependency relationship="requires" name="SUSE_SLE" baseversion="15" patchlevel="4" flag="GE"/>
+  <productdependency relationship="requires" name="sle-module-basesystem" baseversion="15" patchlevel="4" flag="GE"/>
+</product>
+

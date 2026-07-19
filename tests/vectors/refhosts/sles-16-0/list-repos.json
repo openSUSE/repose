@@ -1,0 +1,2 @@
+{"event": "repo", "host": "sles-16-0", "port": 22, "alias": "SLES:16.0::pool", "name": "SLES:16.0::pool", "url": "https://example.invalid/scrubbed/SUSE/Products/SLE-Product-SLES/16.0/x86_64/product/", "state": true}
+{"event": "repo", "host": "sles-16-0", "port": 22, "alias": "qa:16.0::pool", "name": "qa:16.0::pool", "url": "https://example.invalid/scrubbed/QA:/SLE16.0/update/", "state": true}

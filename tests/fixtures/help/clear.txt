@@ -1,7 +1,0 @@
-Usage: repose clear [OPTIONS]
-
-  clear all repositories from target
-
-Options:
-  -t, --target HOST  target to operate on  [required]
-  -h, --help         Show this message and exit.
