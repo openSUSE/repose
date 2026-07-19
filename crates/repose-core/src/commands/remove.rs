@@ -1,6 +1,6 @@
 //! `repose remove` — pattern match aliases, zypper rr.
 
-use crate::commands::{aggregate, report_target, CommandOptions};
+use crate::commands::{aggregate, run_reported, CommandOptions};
 use crate::console::Console;
 use crate::repa::Repa;
 use crate::shell::cmd;
@@ -70,9 +70,16 @@ pub async fn run_remove<W: Write>(
             results.push(false);
             continue;
         };
-        let products = host.products().map(|s| s.flatten()).unwrap_or_default();
+        // Python dereferences `products.flatten()` unguarded — a host whose
+        // product read failed raises in the worker and counts as failed.
+        let Some(system) = host.products() else {
+            results.push(false);
+            continue;
+        };
+        let products = system.flatten();
         let patterns = calculate_patterns(&opts.repa, &products);
         if patterns.is_empty() {
+            let _ = console.info(&format!("For {} no repos for remove found", host.key()));
             results.push(true);
             continue;
         }
@@ -82,6 +89,7 @@ pub async fn run_remove<W: Write>(
             .unwrap_or_default();
         let repolist = calculate_repolist(aliases.into_iter(), &patterns);
         if repolist.is_empty() {
+            let _ = console.info(&format!("For {} no repos for remove found", host.key()));
             results.push(true);
             continue;
         }
@@ -92,10 +100,7 @@ pub async fn run_remove<W: Write>(
             results.push(true);
             continue;
         }
-        let ok = match host.run(&c).await {
-            Ok(()) => report_target(host),
-            Err(_) => false,
-        };
+        let ok = run_reported(host, &c, console).await;
         results.push(ok);
     }
 
@@ -106,7 +111,46 @@ pub async fn run_remove<W: Write>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::types::Product;
+    use crate::console::Buffer;
+    use crate::mock::{MockHost, MockHostGroup};
+    use crate::types::{Product, System};
+
+    async fn run(host: MockHost, repas: &[&str]) -> (ExitCode, String) {
+        let mut g = MockHostGroup::new();
+        g.insert(host);
+        let opts = CommandOptions {
+            repa: repas.iter().map(|r| Repa::parse(r).unwrap()).collect(),
+            ..Default::default()
+        };
+        let mut buf = Buffer::default();
+        let mut c = Console::new(&mut buf);
+        let code = run_remove(&opts, &mut g, &mut c).await;
+        (code, buf.0)
+    }
+
+    #[tokio::test]
+    async fn no_products_fails_host() {
+        // Python dereferences `products.flatten()` → worker raises → host
+        // failed; unreadable product state must NOT count as success.
+        let (code, _) = run(MockHost::new("h1"), &["SLES:15-SP3"]).await;
+        assert_eq!(code, ExitCode::AllFailed);
+    }
+
+    #[tokio::test]
+    async fn no_matching_repos_is_info_noop() {
+        let host = MockHost::new("h1").with_products(System {
+            base: Product {
+                name: "SLES".into(),
+                version: "15-SP3".into(),
+                arch: "x86_64".into(),
+            },
+            addons: vec![],
+            transactional: false,
+        });
+        let (code, buf) = run(host, &["OTHER:1.0"]).await;
+        assert_eq!(code, ExitCode::Ok);
+        assert!(buf.contains("For h1 no repos for remove found"));
+    }
 
     #[test]
     fn exact_not_prefix_repo10() {

@@ -1,6 +1,8 @@
 //! `repose install` — ar + ref + product install; transactional path.
 
-use crate::commands::{aggregate, filter_live, load_repoq, report_target, CommandOptions};
+use crate::commands::{
+    aggregate, filter_live, load_repoq, reboot_and_verify, run_reported, CommandOptions,
+};
 use crate::console::Console;
 use crate::repoq::Repos;
 use crate::shell::cmd;
@@ -97,11 +99,7 @@ async fn install_one<W: Write>(
         if opts.dry {
             let _ = console.dry(host.key(), &addcmd);
         } else {
-            if host.run(&addcmd).await.is_ok() {
-                if !report_target(host) {
-                    ok = false;
-                }
-            } else {
+            if !run_reported(host, &addcmd, console).await {
                 ok = false;
             }
             // Per-repo ref without report_target (Python parity trap).
@@ -137,28 +135,12 @@ async fn install_one<W: Write>(
     if transactional {
         let _ = host.run(cmd::REFTCMD).await;
     }
-    if host.run(&inscmd).await.is_ok() {
-        if !report_target(host) {
-            ok = false;
-        } else if transactional && !opts.no_reboot {
-            match host.reboot(cmd::REBOOT).await {
-                Ok(true) => {
-                    // verify present — products should still list names
-                    if host.read_products().await.is_err() {
-                        ok = false;
-                    } else if let Some(sys) = host.products() {
-                        let flat = sys.flatten();
-                        for n in &product_names {
-                            if !flat.iter().any(|p| &p.name == n) {
-                                ok = false;
-                            }
-                        }
-                    }
-                }
-                _ => ok = false,
-            }
-        }
-    } else {
+    // Short-circuit: a failed install report skips the reboot+verify
+    // (Python `elif transactional`).
+    if !run_reported(host, &inscmd, console).await
+        || (transactional
+            && !reboot_and_verify(host, &product_names, true, opts.no_reboot, console).await)
+    {
         ok = false;
     }
     ok
@@ -286,13 +268,15 @@ mod tests {
     async fn transactional_live() {
         let c = seq::case("install", "transactional_live");
         let host = MockHost::new("h1").with_products(system("SLES", true));
-        let (code, ran, _) = run(
+        let (code, ran, buf) = run(
             host,
             opts(&["SLES:15-SP3:x86_64:update"], false, false),
             &ConstProbe { live: true },
         )
         .await;
         assert_eq!(ran, c.ran);
+        // Python `_check_products` reports the successful verify.
+        assert!(buf.contains("h1: verified product(s) SLES after reboot"));
         assert_eq!(code, c.exit_code());
     }
 
@@ -302,14 +286,48 @@ mod tests {
         let host = MockHost::new("h1")
             .with_products(system("SLES", true))
             .with_post_reboot_products(system("OTHER", true));
-        let (code, ran, _) = run(
+        let (code, ran, buf) = run(
             host,
             opts(&["SLES:15-SP3:x86_64:update"], false, false),
             &ConstProbe { live: true },
         )
         .await;
         assert_eq!(ran, seq::case("install", "transactional_live").ran);
+        assert!(buf.contains("product SLES not installed after reboot"));
         assert_eq!(code, ExitCode::AllFailed);
+    }
+
+    #[tokio::test]
+    async fn transactional_verify_fails_when_products_unreadable_after_reboot() {
+        // Re-read succeeded but yielded no product state: Python's
+        // `installed = set()` fails every present-check — must NOT pass.
+        let host = MockHost::new("h1")
+            .with_products(system("SLES", true))
+            .with_post_reboot_no_products();
+        let (code, ran, buf) = run(
+            host,
+            opts(&["SLES:15-SP3:x86_64:update"], false, false),
+            &ConstProbe { live: true },
+        )
+        .await;
+        assert_eq!(ran, seq::case("install", "transactional_live").ran);
+        assert!(buf.contains("product SLES not installed after reboot"));
+        assert_eq!(code, ExitCode::AllFailed);
+    }
+
+    #[tokio::test]
+    async fn transactional_no_reboot_prints_reminder() {
+        // --no-reboot leaves the snapshot staged: reminder, no reboot, success.
+        let host = MockHost::new("h1").with_products(system("SLES", true));
+        let (code, ran, buf) = run(
+            host,
+            opts(&["SLES:15-SP3:x86_64:update"], false, true),
+            &ConstProbe { live: true },
+        )
+        .await;
+        assert!(!ran.iter().any(|c| c == cmd::REBOOT));
+        assert!(buf.contains("Reboot h1 to activate the staged snapshot (--no-reboot set)"));
+        assert_eq!(code, ExitCode::Ok);
     }
 
     #[tokio::test]

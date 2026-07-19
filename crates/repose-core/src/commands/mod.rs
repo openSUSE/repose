@@ -16,15 +16,17 @@ pub use remove::run_remove;
 pub use reset::run_reset;
 pub use uninstall::run_uninstall;
 
+use std::io::Write;
 use std::path::PathBuf;
 use std::time::Duration;
 
-use crate::console::OutputFormat;
+use crate::console::{Console, Level, OutputFormat};
 use crate::probe::HttpProbe;
 use crate::repa::Repa;
 use crate::repoq::Repoq;
+use crate::shell::cmd;
 use crate::template::{load_template, TemplateError};
-use crate::traits::{last_out_succeeded, Host, Probe};
+use crate::traits::{Host, Probe};
 use crate::types::ExitCode;
 
 /// Shared options for mutation / list commands.
@@ -59,8 +61,127 @@ pub(crate) fn load_repoq(config: &std::path::Path) -> Result<Repoq, TemplateErro
     Ok(Repoq::new(load_template(config)?))
 }
 
-pub(crate) fn report_target(host: &dyn Host) -> bool {
-    last_out_succeeded(host.out()).unwrap_or(false)
+/// Report the last command's output for `host` via the console and classify
+/// its exit code (Python `_report_target`).
+///
+/// - exit `0`: stdout lines at info level, success.
+/// - informational success codes (100-103, 106, 107): the work completed but
+///   the code carries a follow-up note that zypper may write to *either*
+///   stream, so surface both at warning level rather than dropping it.
+/// - any other exit: both streams at error level, failure — some diagnostics
+///   (e.g. "repository already exists") go to stdout, so reporting stderr
+///   alone would leave a non-zero exit unexplained.
+pub(crate) fn report_target<W: Write>(host: &dyn Host, console: &mut Console<W>) -> bool {
+    let Some((_, stdout, stderr, exitcode, _)) = host.out().last() else {
+        return false;
+    };
+    if *exitcode == 0 {
+        for line in stdout.lines() {
+            let _ = console.report(host.key(), line, true, Level::Info);
+        }
+        return true;
+    }
+    if crate::types::zypper_exit_ok(*exitcode) {
+        for stream in [stdout, stderr] {
+            for line in stream.lines() {
+                let _ = console.report(host.key(), line, true, Level::Warning);
+            }
+        }
+        return true;
+    }
+    for stream in [stdout, stderr] {
+        for line in stream.lines() {
+            let _ = console.report(host.key(), line, false, Level::Error);
+        }
+    }
+    false
+}
+
+/// Run `command` on `host` and report the result (the Python
+/// `targets[host].run(cmd)` + `_report_target` pair).
+///
+/// A transport-level `Err` (no `out` entry appended) counts as host failure,
+/// mirroring the Python worker-exception path into `_aggregate`.
+pub(crate) async fn run_reported<W: Write>(
+    host: &mut dyn Host,
+    command: &str,
+    console: &mut Console<W>,
+) -> bool {
+    match host.run(command).await {
+        Ok(()) => report_target(host, console),
+        Err(_) => false,
+    }
+}
+
+/// Verify `products` are present/absent in the host's re-read state
+/// (Python `_check_products`). Caller must have refreshed products.
+fn check_products<W: Write>(
+    host: &dyn Host,
+    products: &[String],
+    present: bool,
+    console: &mut Console<W>,
+) -> bool {
+    // Python: `installed = {...} if system else set()` — an unreadable /
+    // empty product state fails every `present` check instead of passing.
+    let installed: std::collections::BTreeSet<String> = host
+        .products()
+        .map(|s| s.flatten().into_iter().map(|p| p.name).collect())
+        .unwrap_or_default();
+    let mut ok = true;
+    for product in products {
+        if present && !installed.contains(product) {
+            let _ = console.error(
+                host.key(),
+                &format!("product {product} not installed after reboot"),
+            );
+            ok = false;
+        } else if !present && installed.contains(product) {
+            let _ = console.error(
+                host.key(),
+                &format!("product {product} still present after reboot"),
+            );
+            ok = false;
+        }
+    }
+    if ok {
+        let _ = console.info(&format!(
+            "{}: verified product(s) {} after reboot",
+            host.key(),
+            products.join(", ")
+        ));
+    }
+    ok
+}
+
+/// Reboot a transactional host, then verify the change took
+/// (Python `_reboot_and_verify`). Shared by install (`present=true`)
+/// and uninstall (`present=false`).
+///
+/// With `no_reboot` the change is left staged and only a reminder is
+/// printed (returns `true`). Otherwise the host is rebooted + reconnected
+/// and its products are re-read and checked.
+pub(crate) async fn reboot_and_verify<W: Write>(
+    host: &mut dyn Host,
+    products: &[String],
+    present: bool,
+    no_reboot: bool,
+    console: &mut Console<W>,
+) -> bool {
+    if no_reboot {
+        let _ = console.info(&format!(
+            "Reboot {} to activate the staged snapshot (--no-reboot set)",
+            host.key()
+        ));
+        return true;
+    }
+    if !matches!(host.reboot(cmd::REBOOT).await, Ok(true)) {
+        return false;
+    }
+    if host.read_products().await.is_err() {
+        let _ = console.error(host.key(), "could not re-read products after reboot");
+        return false;
+    }
+    check_products(host, products, present, console)
 }
 
 /// Aggregate per-host bool results (Python `_aggregate`).
@@ -94,6 +215,10 @@ pub(crate) async fn filter_live(
 }
 
 /// Default HTTP probe; tests inject [`crate::mock::ConstProbe`].
+///
+/// Never panics: if the HTTP client cannot be built (e.g. unloadable native
+/// root store) a disabled probe is returned that reports every URL dead
+/// (see [`HttpProbe::default`]).
 #[must_use]
 pub fn default_probe() -> HttpProbe {
     HttpProbe::default()
@@ -138,6 +263,115 @@ mod filter_tests {
         )
         .await;
         assert_eq!(live.len(), 2);
+    }
+}
+
+#[cfg(test)]
+mod report_tests {
+    use super::*;
+    use crate::console::Buffer;
+    use crate::mock::{MockHost, MockRunOutcome};
+
+    async fn host_after(outcome: MockRunOutcome) -> MockHost {
+        let mut h = MockHost::new("h1");
+        h.connect().await.unwrap();
+        h.push_run(outcome);
+        h.run("zypper -n ar x").await.unwrap();
+        h
+    }
+
+    #[tokio::test]
+    async fn report_exit_zero_prints_stdout_only_at_info() {
+        let h = host_after(MockRunOutcome::Complete {
+            stdout: "line1\nline2".into(),
+            stderr: "noise".into(),
+            exitcode: 0,
+            runtime_secs: 0,
+        })
+        .await;
+        let mut buf = Buffer::default();
+        let mut c = Console::new(&mut buf);
+        assert!(report_target(&h, &mut c));
+        // stderr is NOT reported on exit 0 (Python `_report_target`).
+        assert_eq!(buf.0, "h1 - line1\nh1 - line2\n");
+    }
+
+    #[tokio::test]
+    async fn report_informational_exit_warns_both_streams() {
+        let h = host_after(MockRunOutcome::Complete {
+            stdout: "did work".into(),
+            stderr: "repository skipped".into(),
+            exitcode: 106,
+            runtime_secs: 0,
+        })
+        .await;
+        let mut buf = Buffer::default();
+        let mut c = Console::new(&mut buf);
+        assert!(report_target(&h, &mut c));
+        assert_eq!(buf.0, "h1 - did work\nh1 - repository skipped\n");
+    }
+
+    #[tokio::test]
+    async fn report_failure_emits_error_report_events_json() {
+        let h = host_after(MockRunOutcome::Complete {
+            stdout: "already exists".into(),
+            stderr: "boom".into(),
+            exitcode: 4,
+            runtime_secs: 0,
+        })
+        .await;
+        let mut buf = Buffer::default();
+        let mut c = Console::new(&mut buf);
+        c.format = OutputFormat::Json;
+        assert!(!report_target(&h, &mut c));
+        let lines: Vec<serde_json::Value> = buf
+            .0
+            .lines()
+            .map(|l| serde_json::from_str(l).unwrap())
+            .collect();
+        assert_eq!(lines.len(), 2);
+        for v in &lines {
+            assert_eq!(v["event"], "report");
+            assert_eq!(v["level"], "error");
+            assert_eq!(v["ok"], false);
+            assert_eq!(v["host"], "h1");
+        }
+        assert_eq!(lines[0]["line"], "already exists");
+        assert_eq!(lines[1]["line"], "boom");
+    }
+
+    #[tokio::test]
+    async fn report_empty_out_history_is_failure() {
+        let h = MockHost::new("h1");
+        let mut buf = Buffer::default();
+        let mut c = Console::new(&mut buf);
+        assert!(!report_target(&h, &mut c));
+        assert!(buf.0.is_empty());
+    }
+
+    #[tokio::test]
+    async fn run_reported_transport_err_is_failure() {
+        let mut h = MockHost::new("h1");
+        h.connect().await.unwrap();
+        h.push_run(MockRunOutcome::TransportErr("wire cut".into()));
+        let mut buf = Buffer::default();
+        let mut c = Console::new(&mut buf);
+        assert!(!run_reported(&mut h, "zypper -n lr", &mut c).await);
+    }
+
+    #[tokio::test]
+    async fn reboot_verify_no_reboot_prints_reminder_and_skips_reboot() {
+        let mut h = MockHost::new("h1");
+        h.connect().await.unwrap();
+        let mut buf = Buffer::default();
+        let mut c = Console::new(&mut buf);
+        let ok = reboot_and_verify(&mut h, &["SLES".into()], true, true, &mut c).await;
+        assert!(ok);
+        assert!(h.ran.is_empty(), "no reboot command with --no-reboot");
+        assert_eq!(
+            buf.0,
+            "Reboot h1 to activate the staged snapshot (--no-reboot set)\n"
+        );
     }
 }
 

@@ -1,7 +1,7 @@
 //! `repose uninstall` — strip repos + remove products.
 
 use crate::commands::remove::{calculate_patterns, calculate_repolist};
-use crate::commands::{aggregate, report_target, CommandOptions};
+use crate::commands::{aggregate, reboot_and_verify, run_reported, CommandOptions};
 use crate::console::Console;
 use crate::repa::Repa;
 use crate::shell::cmd;
@@ -44,13 +44,17 @@ async fn uninstall_one<W: Write>(
     orepa: &[Repa],
     console: &mut Console<W>,
 ) -> bool {
-    let products = host.products().map(|s| s.flatten()).unwrap_or_default();
-    let transactional = host
-        .products()
-        .map(|s| s.is_transactional())
-        .unwrap_or(false);
+    // Python dereferences `products.flatten()` / `.is_transactional()`
+    // unguarded — a host whose product read failed raises in the worker
+    // and counts as failed.
+    let Some(system) = host.products() else {
+        return false;
+    };
+    let products = system.flatten();
+    let transactional = system.is_transactional();
     let patterns = calculate_patterns(orepa, &products);
     if patterns.is_empty() {
+        let _ = console.info(&format!("For {} no products for remove found", host.key()));
         return true;
     }
 
@@ -67,6 +71,9 @@ async fn uninstall_one<W: Write>(
         .unwrap_or_default();
     // Patterns already end with `::` (repo forced None) → substring match.
     let repolist = calculate_repolist(aliases.into_iter(), &patterns);
+    if repolist.is_empty() {
+        let _ = console.info(&format!("For {} no repos for remove found", host.key()));
+    }
 
     // Duplicates are intentional: Python `[x.split(":")[0] for x in patterns]`
     // passes duplicate product names straight to `shlex.join` (two patterns
@@ -98,34 +105,16 @@ async fn uninstall_one<W: Write>(
     if !repolist.is_empty() {
         let refs: Vec<&str> = repolist.iter().map(String::as_str).collect();
         let rr = cmd::zypper_rr(&refs);
-        if host.run(&rr).await.is_ok() {
-            if !report_target(host) {
-                ok = false;
-            }
-        } else {
+        if !run_reported(host, &rr, console).await {
             ok = false;
         }
     }
-    if host.run(&pdcmd).await.is_ok() {
-        if !report_target(host) {
-            ok = false;
-        } else if transactional && !opts.no_reboot {
-            match host.reboot(cmd::REBOOT).await {
-                Ok(true) => {
-                    let _ = host.read_products().await;
-                    if let Some(sys) = host.products() {
-                        let flat = sys.flatten();
-                        for n in &product_names {
-                            if flat.iter().any(|p| &p.name == n) {
-                                ok = false; // still present
-                            }
-                        }
-                    }
-                }
-                _ => ok = false,
-            }
-        }
-    } else {
+    // Short-circuit: a failed product-removal report skips the reboot+verify
+    // (Python `elif transactional`).
+    if !run_reported(host, &pdcmd, console).await
+        || (transactional
+            && !reboot_and_verify(host, &product_names, false, opts.no_reboot, console).await)
+    {
         ok = false;
     }
     ok
@@ -280,9 +269,35 @@ mod tests {
             .with_products(system(qa.clone(), vec![], true))
             .with_repos(repos(&[("qa:6.0::repo1", Some(qa.clone()))]))
             .with_post_reboot_products(system(product("other", "1"), vec![], true));
-        let (code, ran, _) = run(host, opts(&["qa:6.0"], false, false)).await;
+        let (code, ran, buf) = run(host, opts(&["qa:6.0"], false, false)).await;
         assert_eq!(ran, c.ran);
+        // Python `_check_products` reports the successful verify.
+        assert!(buf.contains("h1: verified product(s) qa after reboot"));
         assert_eq!(code, c.exit_code());
+    }
+
+    #[tokio::test]
+    async fn no_products_fails_host() {
+        // Python dereferences `products.flatten()` → worker raises → host
+        // failed; unreadable product state must NOT count as success.
+        let host = MockHost::new("h1").with_repos(Repositories::new());
+        let (code, _, _) = run(host, opts(&["SLES:15-SP4"], false, false)).await;
+        assert_eq!(code, ExitCode::AllFailed);
+    }
+
+    #[tokio::test]
+    async fn transactional_reread_failure_after_reboot_fails() {
+        // Python `_reboot_and_verify` catches the re-read exception and
+        // fails the host; ignoring the error must not report success.
+        let qa = product("qa", "6.0");
+        let host = MockHost::new("h1")
+            .with_products(system(qa.clone(), vec![], true))
+            .with_repos(repos(&[("qa:6.0::repo1", Some(qa.clone()))]))
+            .with_read_products_err();
+        let (code, ran, buf) = run(host, opts(&["qa:6.0"], false, false)).await;
+        assert!(ran.iter().any(|c| c == cmd::REBOOT));
+        assert!(buf.contains("could not re-read products after reboot"));
+        assert_eq!(code, ExitCode::AllFailed);
     }
 
     #[tokio::test]

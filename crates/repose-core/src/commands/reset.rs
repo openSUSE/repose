@@ -1,6 +1,6 @@
 //! `repose reset` — rr then ar only if full live replacement set.
 
-use crate::commands::{aggregate, filter_live, load_repoq, report_target, CommandOptions};
+use crate::commands::{aggregate, filter_live, load_repoq, run_reported, CommandOptions};
 use crate::console::Console;
 use crate::shell::cmd;
 use crate::traits::{Host, HostGroup, Probe};
@@ -42,10 +42,15 @@ async fn reset_one<W: Write>(
         .raw_repos()
         .map(|r| {
             let mut a: Vec<_> = r.iter().map(|x| x.alias.clone()).collect();
+            // Python `_clear` collects into a set: sorted + unique.
             a.sort();
+            a.dedup();
             a
         })
         .unwrap_or_default();
+    if aliases.is_empty() {
+        let _ = console.info(&format!("No repositories to clear from {}", host.key()));
+    }
 
     let Some(products) = host.products() else {
         let _ = console.error(host.key(), "no products discovered");
@@ -67,11 +72,13 @@ async fn reset_one<W: Write>(
         .iter()
         .map(|r| (r.name.clone(), r.url.clone()))
         .collect();
-    let dropped: Vec<_> = candidates
+    let mut dropped: Vec<_> = candidates
         .iter()
         .filter(|r| !live_keys.contains(&(r.name.clone(), r.url.clone())))
         .map(|r| r.name.clone())
         .collect();
+    // Python reports `", ".join(sorted(dropped))`.
+    dropped.sort();
 
     let mut cmds: Vec<String> = live
         .iter()
@@ -82,11 +89,12 @@ async fn reset_one<W: Write>(
     // key listed twice in `default_repos` is not added (and run) twice.
     cmds.dedup();
 
-    // Guards BEFORE dry-run.
+    // Guards BEFORE dry-run (wording mirrors Python `reset._run`).
     if cmds.is_empty() {
         let _ = console.error(
             host.key(),
-            "no live replacement repositories; aborting reset",
+            "no live replacement repositories resolved; aborting reset to \
+             avoid leaving the host without any repositories",
         );
         return false;
     }
@@ -94,7 +102,9 @@ async fn reset_one<W: Write>(
         let _ = console.error(
             host.key(),
             &format!(
-                "probe dropped {} replacement repos ({}); aborting reset",
+                "live-URL probe dropped {} of the resolved replacement \
+                 repositories ({}); aborting reset to avoid permanently \
+                 losing repositories over a transient mirror failure",
                 dropped.len(),
                 dropped.join(", ")
             ),
@@ -117,20 +127,12 @@ async fn reset_one<W: Write>(
     if !aliases.is_empty() {
         let refs: Vec<&str> = aliases.iter().map(String::as_str).collect();
         let rr = cmd::zypper_rr(&refs);
-        if host.run(&rr).await.is_ok() {
-            if !report_target(host) {
-                ok = false;
-            }
-        } else {
+        if !run_reported(host, &rr, console).await {
             ok = false;
         }
     }
     for c in cmds {
-        if host.run(&c).await.is_ok() {
-            if !report_target(host) {
-                ok = false;
-            }
-        } else {
+        if !run_reported(host, &c, console).await {
             ok = false;
         }
     }
@@ -227,9 +229,11 @@ mod tests {
     async fn empty_aliases_skip_rr() {
         let c = seq::case("reset", "empty_aliases_skip_rr");
         let host = MockHost::new("h1").with_products(sles_system());
-        let (code, ran, _) = run(host, opts(false), &ConstProbe { live: true }).await;
+        let (code, ran, buf) = run(host, opts(false), &ConstProbe { live: true }).await;
         assert_eq!(ran, c.ran);
         assert!(!ran.iter().any(|cmd| cmd.starts_with("zypper -n rr")));
+        // Python logs the INFO no-op for the skipped rr step.
+        assert!(buf.contains("No repositories to clear from h1"));
         assert_eq!(code, c.exit_code());
     }
 

@@ -58,6 +58,11 @@ pub struct MockHost {
     /// System swapped into `products` by `reboot` (models the post-reboot
     /// re-read used by transactional install/uninstall verify).
     post_reboot_products: Option<System>,
+    /// `reboot` clears `products` to `None` (models a post-reboot re-read
+    /// that returned nothing parseable).
+    post_reboot_clear_products: bool,
+    /// `read_products` returns `Err` (models a re-read failure).
+    read_products_err: bool,
     out: Vec<OutEntry>,
     /// FIFO outcomes for successive `run` calls. Empty → default exit 0.
     run_queue: Vec<MockRunOutcome>,
@@ -99,6 +104,21 @@ impl MockHost {
     #[must_use]
     pub fn with_post_reboot_products(mut self, system: System) -> Self {
         self.post_reboot_products = Some(system);
+        self
+    }
+
+    /// After `reboot`, clear `products` to `None` (post-reboot re-read
+    /// succeeded but yielded no product state).
+    #[must_use]
+    pub fn with_post_reboot_no_products(mut self) -> Self {
+        self.post_reboot_clear_products = true;
+        self
+    }
+
+    /// Make `read_products` fail (models a re-read failure after reboot).
+    #[must_use]
+    pub fn with_read_products_err(mut self) -> Self {
+        self.read_products_err = true;
         self
     }
 
@@ -197,6 +217,12 @@ impl Host for MockHost {
         if !self.connected {
             return Err(SshError::NotConnected(self.key.clone()));
         }
+        if self.read_products_err {
+            return Err(SshError::Transport(format!(
+                "mock read_products failed for {}",
+                self.key
+            )));
+        }
         // Products are injected by the test; nothing to fetch.
         Ok(())
     }
@@ -228,6 +254,9 @@ impl Host for MockHost {
         // Model the post-reboot product change (e.g. product now removed).
         if let Some(sys) = self.post_reboot_products.take() {
             self.products = Some(sys);
+        }
+        if self.post_reboot_clear_products {
+            self.products = None;
         }
         Ok(true)
     }

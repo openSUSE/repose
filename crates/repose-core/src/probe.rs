@@ -16,7 +16,10 @@ const SUFFIXES: &[&str] = &["repodata/repomd.xml", "suse/repodata/repomd.xml"];
 /// real hosts also carry the Mozilla roots in their system store.
 #[derive(Debug, Clone)]
 pub struct HttpProbe {
-    client: Client,
+    /// `None` when client construction failed (e.g. the native root store
+    /// could not be loaded): every probe then reports dead instead of the
+    /// process aborting — see [`HttpProbe::default`].
+    client: Option<Client>,
 }
 
 impl HttpProbe {
@@ -24,18 +27,30 @@ impl HttpProbe {
         let client = Client::builder()
             .redirect(reqwest::redirect::Policy::limited(10))
             .build()?;
-        Ok(Self { client })
+        Ok(Self {
+            client: Some(client),
+        })
+    }
+
+    /// Probe that treats every URL as dead. Fallback when the HTTP client
+    /// cannot be built; also usable in tests.
+    #[must_use]
+    pub fn disabled() -> Self {
+        Self { client: None }
     }
 
     /// Probe one base URL with HEAD→GET fallback per suffix.
     pub async fn check_url(&self, url: &str, timeout: Duration) -> bool {
+        let Some(client) = &self.client else {
+            return false;
+        };
         for suffix in SUFFIXES {
             let target = format!("{url}{suffix}");
-            match self.client.head(&target).timeout(timeout).send().await {
+            match client.head(&target).timeout(timeout).send().await {
                 Ok(resp) if resp.status().as_u16() < 400 => return true,
                 Ok(_) => {
                     // Non-success HEAD *status* (>=400) retries with GET.
-                    if let Ok(resp) = self.client.get(&target).timeout(timeout).send().await {
+                    if let Ok(resp) = client.get(&target).timeout(timeout).send().await {
                         if resp.status().as_u16() < 400 {
                             return true;
                         }
@@ -54,8 +69,18 @@ impl HttpProbe {
 }
 
 impl Default for HttpProbe {
+    /// Never panics: when the HTTP client cannot be built (e.g. unloadable
+    /// native root store) the error is reported on stderr and a disabled
+    /// probe is returned, so every URL probes dead instead of aborting the
+    /// process mid-command.
     fn default() -> Self {
-        Self::new().expect("reqwest client")
+        match Self::new() {
+            Ok(probe) => probe,
+            Err(e) => {
+                eprintln!("error: URL probe disabled, treating all repositories as dead: {e}");
+                Self::disabled()
+            }
+        }
     }
 }
 
@@ -91,6 +116,17 @@ mod tests {
     use crate::mock::ConstProbe;
     use wiremock::matchers::{method, path};
     use wiremock::{Mock, MockServer, ResponseTemplate};
+
+    #[tokio::test]
+    async fn disabled_probe_reports_dead() {
+        // Client-construction failure degrades to all-probes-dead, no panic.
+        let probe = HttpProbe::disabled();
+        assert!(
+            !probe
+                .check_url("http://example.invalid/", Duration::from_secs(1))
+                .await
+        );
+    }
 
     #[tokio::test]
     async fn const_probe_order_preserved() {

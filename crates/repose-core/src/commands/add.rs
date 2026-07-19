@@ -1,6 +1,6 @@
 //! `repose add` — resolve REPA, probe, zypper ar, cohort refresh.
 
-use crate::commands::{aggregate, filter_live, load_repoq, report_target, CommandOptions};
+use crate::commands::{aggregate, filter_live, load_repoq, run_reported, CommandOptions};
 use crate::console::Console;
 use crate::shell::cmd;
 use crate::traits::{Host, HostGroup, Probe};
@@ -71,14 +71,14 @@ async fn add_one<W: Write>(
         .map(|r| cmd::zypper_ar(r.refresh, &r.name, &r.url))
         .collect();
     cmds.sort();
+    // Python `_add` collects into a set; dedup identical ar strings so a
+    // duplicate REPA does not issue the same `zypper ar` twice (the second
+    // run fails with "repository already exists" and wrongly fails the host).
+    cmds.dedup();
     for c in cmds {
         if opts.dry {
             let _ = console.dry(host.key(), &c);
-        } else if host.run(&c).await.is_ok() {
-            if !report_target(host) {
-                ok = false;
-            }
-        } else {
+        } else if !run_reported(host, &c, console).await {
             ok = false;
         }
     }
@@ -97,6 +97,69 @@ mod tests {
 
     fn sample_config() -> PathBuf {
         PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tests/oracle/template/sample.yml")
+    }
+
+    fn sles_host() -> MockHost {
+        MockHost::new("h1").with_products(System {
+            base: Product {
+                name: "SLES".into(),
+                version: "15-SP3".into(),
+                arch: "x86_64".into(),
+            },
+            addons: vec![],
+            transactional: false,
+        })
+    }
+
+    async fn run_live(host: MockHost, repas: &[&str]) -> (ExitCode, Vec<String>, String) {
+        let mut g = MockHostGroup::new();
+        g.insert(host);
+        let opts = CommandOptions {
+            config: sample_config(),
+            repa: repas.iter().map(|r| Repa::parse(r).unwrap()).collect(),
+            no_probe: true,
+            ..Default::default()
+        };
+        let mut buf = Buffer::default();
+        let mut c = Console::new(&mut buf);
+        let probe = ConstProbe { live: true };
+        let code = run_add(&opts, &mut g, &probe, &mut c).await.unwrap();
+        let ran = g
+            .get_mock_mut("h1")
+            .map(|h| h.ran.clone())
+            .unwrap_or_default();
+        (code, ran, buf.0)
+    }
+
+    #[tokio::test]
+    async fn duplicate_repa_issues_each_ar_once() {
+        // Python collected commands into a set; a REPA given twice must not
+        // run the same `zypper ar` twice (2nd run fails → host wrongly FAILED).
+        let (code1, ran1, _) = run_live(sles_host(), &["SLES:15-SP3:x86_64:update"]).await;
+        let (code2, ran2, _) = run_live(
+            sles_host(),
+            &["SLES:15-SP3:x86_64:update", "SLES:15-SP3:x86_64:update"],
+        )
+        .await;
+        assert_eq!(code1, ExitCode::Ok);
+        assert_eq!(code2, ExitCode::Ok);
+        assert!(ran1.iter().any(|c| c.starts_with("zypper -n ar")));
+        assert_eq!(ran1, ran2, "duplicate REPA must not add extra commands");
+    }
+
+    #[tokio::test]
+    async fn live_add_reports_zypper_stdout() {
+        // Fix: live mutations must surface zypper's output via Console::report.
+        let mut host = sles_host();
+        host.push_run(crate::mock::MockRunOutcome::ok_stdout(
+            "Repository 'update' successfully added",
+        ));
+        let (code, _, buf) = run_live(host, &["SLES:15-SP3:x86_64:update"]).await;
+        assert_eq!(code, ExitCode::Ok);
+        assert!(
+            buf.contains("h1 - Repository 'update' successfully added\n"),
+            "live run must report stdout lines, got: {buf:?}"
+        );
     }
 
     #[tokio::test]
