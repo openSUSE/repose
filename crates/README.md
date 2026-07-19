@@ -1,6 +1,7 @@
 # repose Rust workspace
 
-In-progress rewrite of openSUSE/repose (see `docs/design/rust-rewrite.md`).
+The openSUSE/repose implementation — a Rust workspace (`repose-core` domain
+layer, `repose-ssh` transport, `repose-cli` binary).
 
 ## SSH configuration compatibility
 
@@ -84,5 +85,5 @@ files to the distro convention):
 
 **OBS/Factory:** package per [openSUSE Rust packaging](https://en.opensuse.org/openSUSE:Packaging_Rust_Software);
 the Rust `repose` replaces the Python one under the same name (no `Provides`
-for parallel install). Cutover (PR19) also moves man-page ownership from the
-Python `docs/man/` + `man-drift` job to the Rust generator + `rust-assets-drift`.
+for parallel install). Man pages and completions are owned by the Rust
+generator (`repose-gen`) and guarded by the `rust-assets-drift` CI job.

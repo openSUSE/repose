@@ -16,7 +16,7 @@ concurrency:
 
 jobs:
   # Rust workspace (crates/) — the sole implementation since the Python
-  # cutover (docs/design/rust-rewrite.md). Python and its jobs were removed.
+  # cutover . Python and its jobs were removed.
   rust:
     runs-on: ubuntu-latest
     timeout-minutes: 20
