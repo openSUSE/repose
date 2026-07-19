@@ -11,7 +11,7 @@ version = "3.0.0"
 edition = "2021"
 license = "GPL-3.0-or-later"
 repository = "https://github.com/openSUSE/repose"
-rust-version = "1.85"
+rust-version = "1.96"
 
 # Optimize dependencies (not workspace crates) in dev builds. Without this, the
 # unoptimized bignum modpow in russh's DH group-exchange
