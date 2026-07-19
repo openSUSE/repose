@@ -5,7 +5,6 @@
 //! `ProxyJump` are deliberately not interpreted; callers receive a warning so
 //! an operator can replace a jump-only configuration with `ProxyCommand`.
 
-use std::fs;
 use std::path::{Path, PathBuf};
 
 /// Connection options selected for one host alias.
@@ -20,10 +19,12 @@ pub(crate) struct OpenSshOptions {
 
 impl OpenSshOptions {
     /// Load the user's `~/.ssh/config` and select options for `host`.
-    #[must_use]
-    pub(crate) fn lookup(host: &str) -> Self {
+    ///
+    /// Reads via `tokio::fs` so the lookup never blocks an async worker;
+    /// [`crate::session::RusshSession`] caches the result per session.
+    pub(crate) async fn lookup(host: &str) -> Self {
         let path = default_config_path();
-        let contents = match fs::read_to_string(&path) {
+        let contents = match tokio::fs::read_to_string(&path).await {
             Ok(contents) => contents,
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Self::default(),
             Err(error) => {

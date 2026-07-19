@@ -9,6 +9,7 @@ use std::task::{Context, Poll};
 use std::time::Duration;
 
 use async_trait::async_trait;
+use futures_util::future::join_all;
 use repose_core::config::ConnectionConfig;
 use repose_core::error::SshError;
 use repose_core::traits::SshSession;
@@ -112,6 +113,9 @@ pub struct RusshSession {
     handle: Option<client::Handle<ClientHandler>>,
     sftp: Option<SftpSession>,
     identity: Option<PathBuf>,
+    /// `~/.ssh/config` options resolved once at first connect; reconnect
+    /// attempts reuse them instead of re-reading and re-parsing the file.
+    openssh_options: Option<OpenSshOptions>,
 }
 
 impl RusshSession {
@@ -130,6 +134,7 @@ impl RusshSession {
             handle: None,
             sftp: None,
             identity: None,
+            openssh_options: None,
         }
     }
 
@@ -163,7 +168,17 @@ impl RusshSession {
     async fn connect_inner(&mut self) -> Result<(), SshError> {
         // Any cached SFTP channel rode on the previous transport.
         self.sftp = None;
-        let options = OpenSshOptions::lookup(&self.hostname);
+        // Resolve ~/.ssh/config once per session: each of the up-to-10
+        // wait_reconnect attempts goes through connect_inner, and the
+        // options for a fixed hostname cannot change meaningfully mid-run.
+        let options = match &self.openssh_options {
+            Some(options) => options.clone(),
+            None => {
+                let options = OpenSshOptions::lookup(&self.hostname).await;
+                self.openssh_options = Some(options.clone());
+                options
+            }
+        };
         // With a ProxyCommand the proxy resolves the name on its side, so
         // the known-hosts identity stays the CLI alias (paramiko parity).
         let target_host = if options.proxy_command.is_some() {
@@ -192,13 +207,20 @@ impl RusshSession {
             ..Default::default()
         };
         let conf = Arc::new(conf);
-        let verifier = HostKeyVerifier::new(
-            self.config.host_key_policy,
-            self.config.known_hosts.clone(),
-            target_host.clone(),
-            target_port,
-        )
-        .map(|verifier| verifier.with_alias(self.hostname.clone()))?;
+        // known_hosts is deliberately re-read on every connect — accept-new
+        // may have appended entries since the previous attempt — but the
+        // file I/O runs on the blocking pool, not an async worker.
+        let verifier = {
+            let policy = self.config.host_key_policy;
+            let known_hosts = self.config.known_hosts.clone();
+            let host = target_host.clone();
+            tokio::task::spawn_blocking(move || {
+                HostKeyVerifier::new(policy, known_hosts, host, target_port)
+            })
+            .await
+            .map_err(|error| SshError::Other(format!("known_hosts load failed: {error}")))?
+            .map(|verifier| verifier.with_alias(self.hostname.clone()))?
+        };
         let handler = ClientHandler { verifier };
         let mut session = if let Some(command) =
             proxy_command_line(&options, &self.hostname, self.port, &target_user)
@@ -227,7 +249,7 @@ impl RusshSession {
             let key_pair = match load_secret_key(&key_path, None) {
                 Ok(k) => k,
                 Err(russh::keys::Error::KeyIsEncrypted) if std::io::stdin().is_terminal() => {
-                    match load_encrypted_key(&key_path) {
+                    match load_encrypted_key(&key_path).await {
                         Ok(k) => k,
                         Err(e) => {
                             last_err = e;
@@ -269,9 +291,13 @@ impl RusshSession {
             )));
         }
 
-        let mut password =
-            rpassword::prompt_password(format!("Password for {}@{}: ", target_user, target_host))
-                .map_err(|e| SshError::Transport(format!("could not read SSH password: {e}")))?;
+        // The interactive prompt blocks; keep it off the async worker so
+        // other hosts' progress continues on a current_thread runtime.
+        let prompt = format!("Password for {}@{}: ", target_user, target_host);
+        let mut password = tokio::task::spawn_blocking(move || rpassword::prompt_password(prompt))
+            .await
+            .map_err(|e| SshError::Transport(format!("password prompt task failed: {e}")))?
+            .map_err(|e| SshError::Transport(format!("could not read SSH password: {e}")))?;
         let auth = session
             .authenticate_password(target_user.clone(), &password)
             .await;
@@ -371,6 +397,24 @@ impl RusshSession {
             .as_ref()
             .ok_or_else(|| SshError::Other("SFTP session was not initialized".into()))
     }
+
+    /// Read many remote files concurrently over the shared SFTP channel.
+    ///
+    /// Results keep the order of `paths`; a missing or unreadable file (or a
+    /// failed SFTP setup) yields `None` — the same per-file `.ok()` semantics
+    /// as awaiting [`SshSession::read_file`] for each path in turn.
+    pub(crate) async fn read_files(&mut self, paths: Vec<String>) -> Vec<Option<Vec<u8>>> {
+        let sftp = match self.sftp_session().await {
+            Ok(sftp) => sftp,
+            Err(_) => return vec![None; paths.len()],
+        };
+        join_all(
+            paths
+                .into_iter()
+                .map(|path| async move { sftp.read(path).await.ok() }),
+        )
+        .await
+    }
 }
 
 /// Try every ssh-agent identity before touching key files (asyncssh's
@@ -417,14 +461,20 @@ async fn try_agent_auth(
 }
 
 /// Prompt once for the passphrase of an encrypted key and load it.
-/// Only called when stdin is a TTY.
-fn load_encrypted_key(key_path: &Path) -> Result<russh::keys::PrivateKey, String> {
-    let mut passphrase =
-        rpassword::prompt_password(format!("Enter passphrase for {}: ", key_path.display()))
+/// Only called when stdin is a TTY. The blocking prompt runs on the
+/// blocking pool so a current_thread runtime keeps making progress.
+async fn load_encrypted_key(key_path: &Path) -> Result<russh::keys::PrivateKey, String> {
+    let prompt = format!("Enter passphrase for {}: ", key_path.display());
+    let path = key_path.to_path_buf();
+    tokio::task::spawn_blocking(move || {
+        let mut passphrase = rpassword::prompt_password(prompt)
             .map_err(|error| format!("could not read passphrase: {error}"))?;
-    let loaded = load_secret_key(key_path, Some(&passphrase));
-    passphrase.zeroize();
-    loaded.map_err(|error| format!("{}: {error}", key_path.display()))
+        let loaded = load_secret_key(&path, Some(&passphrase));
+        passphrase.zeroize();
+        loaded.map_err(|error| format!("{}: {error}", path.display()))
+    })
+    .await
+    .map_err(|error| format!("passphrase prompt task failed: {error}"))?
 }
 
 /// Build the ProxyCommand line. OpenSSH expands `%h` with the

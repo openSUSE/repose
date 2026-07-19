@@ -215,7 +215,12 @@ fn parse_probe_timeout(s: &str) -> Result<f64, String> {
 
 /// Run the `repose` CLI (entry point behind the thin `main.rs` shim).
 pub fn run() -> ExitCode {
-    let rt = match tokio::runtime::Runtime::new() {
+    // I/O-bound concurrency (join_all fan-out) needs no thread pool; blocking
+    // work (password prompts, known_hosts parsing) runs via spawn_blocking.
+    let rt = match tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+    {
         Ok(rt) => rt,
         Err(e) => {
             eprintln!("error: tokio runtime: {e}");
@@ -276,7 +281,7 @@ async fn async_main() -> ExitCode {
 
 /// Map `-d`/`-q` to a tracing level (default INFO), matching Python
 /// `create_logger` (INFO) + `-d`→DEBUG / `-q`→WARNING.
-fn log_level(debug: bool, quiet: bool) -> Level {
+const fn log_level(debug: bool, quiet: bool) -> Level {
     if debug {
         Level::DEBUG
     } else if quiet {

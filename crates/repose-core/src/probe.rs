@@ -35,7 +35,7 @@ impl HttpProbe {
     /// Probe that treats every URL as dead. Fallback when the HTTP client
     /// cannot be built; also usable in tests.
     #[must_use]
-    pub fn disabled() -> Self {
+    pub const fn disabled() -> Self {
         Self { client: None }
     }
 
@@ -91,29 +91,9 @@ impl Probe for HttpProbe {
     }
 }
 
-/// Filter URLs preserving order; drop dead ones.
-pub async fn filter_live_urls(
-    probe: &dyn Probe,
-    urls: &[String],
-    timeout: Duration,
-    no_probe: bool,
-) -> Vec<String> {
-    if no_probe {
-        return urls.to_vec();
-    }
-    let mut out = Vec::new();
-    for u in urls {
-        if probe.is_live(u, timeout).await {
-            out.push(u.clone());
-        }
-    }
-    out
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::mock::ConstProbe;
     use wiremock::matchers::{method, path};
     use wiremock::{Mock, MockServer, ResponseTemplate};
 
@@ -126,22 +106,6 @@ mod tests {
                 .check_url("http://example.invalid/", Duration::from_secs(1))
                 .await
         );
-    }
-
-    #[tokio::test]
-    async fn const_probe_order_preserved() {
-        let p = ConstProbe { live: true };
-        let urls = vec!["http://a/".into(), "http://b/".into()];
-        let live = filter_live_urls(&p, &urls, Duration::from_secs(1), false).await;
-        assert_eq!(live, urls);
-    }
-
-    #[tokio::test]
-    async fn no_probe_short_circuit() {
-        let p = ConstProbe { live: false };
-        let urls = vec!["http://a/".into()];
-        let live = filter_live_urls(&p, &urls, Duration::from_secs(1), true).await;
-        assert_eq!(live, urls);
     }
 
     #[tokio::test]

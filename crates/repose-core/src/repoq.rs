@@ -32,7 +32,7 @@ pub struct Repoq {
 
 impl Repoq {
     #[must_use]
-    pub fn new(template: Value) -> Self {
+    pub const fn new(template: Value) -> Self {
         Self { template }
     }
 
@@ -45,8 +45,10 @@ impl Repoq {
         // Do not mutate caller's Repa — fill arch/version locally.
         let product = orepa.product.clone().unwrap_or_default();
         let arch = orepa.arch.clone().unwrap_or_else(|| base.arch.clone());
-        let version_opt = orepa.version.clone().or_else(|| Some(base.version.clone()));
-        let version = version_opt.clone().unwrap_or_default();
+        let version = orepa
+            .version
+            .clone()
+            .unwrap_or_else(|| base.version.clone());
         // Python derives `baseversion` only at Repa construction (from the
         // REPA's own version component) and never recomputes it after the
         // version is inherited from the host base product. A version-less
@@ -232,41 +234,35 @@ fn flatten_system(system: &System) -> Vec<Product> {
 }
 
 /// Minimal `string.Template.substitute` for `$foo` / `${foo}`.
+///
+/// Scans string slices in place (all delimiters and key characters are
+/// ASCII, so every split index is a char boundary) instead of collecting
+/// the template into a `Vec<char>`.
 fn substitute(template: &str, version: &str, arch: &str, shortver: &str) -> Result<String, String> {
-    let mut out = String::new();
-    let chars: Vec<char> = template.chars().collect();
-    let mut i = 0;
-    while i < chars.len() {
-        if chars[i] == '$' {
-            if i + 1 < chars.len() && chars[i + 1] == '{' {
-                let end = chars[i + 2..]
-                    .iter()
-                    .position(|&c| c == '}')
-                    .ok_or_else(|| "'{'".to_string())?;
-                let key: String = chars[i + 2..i + 2 + end].iter().collect();
-                out.push_str(lookup(&key, version, arch, shortver)?);
-                i += 3 + end;
-            } else {
-                let start = i + 1;
-                let mut end = start;
-                while end < chars.len() && (chars[end].is_ascii_alphanumeric() || chars[end] == '_')
-                {
-                    end += 1;
-                }
-                if end == start {
-                    out.push('$');
-                    i += 1;
-                    continue;
-                }
-                let key: String = chars[start..end].iter().collect();
-                out.push_str(lookup(&key, version, arch, shortver)?);
-                i = end;
-            }
+    let mut out = String::with_capacity(template.len());
+    let mut rest = template;
+    while let Some(dollar) = rest.find('$') {
+        out.push_str(&rest[..dollar]);
+        let after = &rest[dollar + 1..];
+        if let Some(braced) = after.strip_prefix('{') {
+            let end = braced.find('}').ok_or_else(|| "'{'".to_string())?;
+            out.push_str(lookup(&braced[..end], version, arch, shortver)?);
+            rest = &braced[end + 1..];
         } else {
-            out.push(chars[i]);
-            i += 1;
+            let end = after
+                .find(|c: char| !c.is_ascii_alphanumeric() && c != '_')
+                .unwrap_or(after.len());
+            if end == 0 {
+                // Bare `$` (including `$$`) stays literal, as before.
+                out.push('$');
+                rest = after;
+            } else {
+                out.push_str(lookup(&after[..end], version, arch, shortver)?);
+                rest = &after[end..];
+            }
         }
     }
+    out.push_str(rest);
     Ok(out)
 }
 

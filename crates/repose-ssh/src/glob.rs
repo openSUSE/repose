@@ -62,7 +62,7 @@ mod tests {
         let value = "a".repeat(200);
         let start = std::time::Instant::now();
         assert!(!glob_matches(&pattern, &value));
-        assert!(glob_matches(&(pattern.clone() + "*"), &(value + "z")));
+        assert!(glob_matches(&(pattern + "*"), &(value + "z")));
         assert!(start.elapsed() < std::time::Duration::from_millis(200));
     }
 }

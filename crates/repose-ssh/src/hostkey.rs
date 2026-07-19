@@ -58,7 +58,7 @@ impl KnownHostEntry {
     // `@cert-authority` entries are intentionally not interpreted (repose
     // does not authenticate hosts via OpenSSH CA certificates); they are
     // neither trusted pins nor revocations, so they are simply ignored.
-    fn is_trusted(&self) -> bool {
+    const fn is_trusted(&self) -> bool {
         self.marker.is_none()
     }
 }
