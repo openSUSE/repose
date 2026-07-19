@@ -6,6 +6,14 @@ use quick_xml::Reader;
 use crate::types::{Product, System};
 
 /// Parse one `.prod` XML document into a product, or `None` if malformed.
+///
+/// Mirrors Python `__parse_product`, which selects fields with
+/// `root.find("./name")` (and `./arch`, `./version`, `./baseversion`,
+/// `./patchlevel`) — i.e. the **first direct child** of the root `<product>`
+/// element. Real `.prod` files carry a second, nested `<codestream><name>`
+/// (the friendly/summary name); it must NOT clobber the canonical one, so we
+/// only consider elements whose parent is the root (depth 1) and keep the
+/// first occurrence of each field.
 pub fn parse_prod_xml(xml: &str, _filename: &str) -> Option<Product> {
     let mut reader = Reader::from_str(xml);
     reader.config_mut().trim_text(true);
@@ -15,25 +23,45 @@ pub fn parse_prod_xml(xml: &str, _filename: &str) -> Option<Product> {
     let mut baseversion = None;
     let mut patchlevel = None;
     let mut version = None;
+    // Depth of the element we're currently inside a text node of. The root
+    // `<product>` is at depth 0, so its direct children sit at depth 1.
+    let mut depth: i32 = 0;
     let mut cur = String::new();
+    let mut cur_depth: i32 = -1;
 
     loop {
         match reader.read_event_into(&mut buf) {
-            Ok(Event::Start(e)) | Ok(Event::Empty(e)) => {
+            Ok(Event::Start(e)) => {
                 cur = String::from_utf8_lossy(e.name().as_ref()).into_owned();
+                cur_depth = depth;
+                depth += 1;
+            }
+            Ok(Event::Empty(e)) => {
+                // Self-closing element: carries no text, so it can only
+                // satisfy Python's `find(...).text is None` (malformed) path.
+                cur = String::from_utf8_lossy(e.name().as_ref()).into_owned();
+                cur_depth = depth;
             }
             Ok(Event::Text(t)) => {
-                let text = t.decode().map(|c| c.into_owned()).unwrap_or_default();
-                match cur.as_str() {
-                    "name" => name = Some(text),
-                    "arch" => arch = Some(text),
-                    "baseversion" => baseversion = Some(text),
-                    "patchlevel" => patchlevel = Some(text),
-                    "version" => version = Some(text),
-                    _ => {}
+                // Only direct children of the root count (Python `find("./X")`);
+                // keep the first occurrence, matching `find`'s first-match.
+                if cur_depth == 1 {
+                    let text = t.decode().map(|c| c.into_owned()).unwrap_or_default();
+                    match cur.as_str() {
+                        "name" if name.is_none() => name = Some(text),
+                        "arch" if arch.is_none() => arch = Some(text),
+                        "baseversion" if baseversion.is_none() => baseversion = Some(text),
+                        "patchlevel" if patchlevel.is_none() => patchlevel = Some(text),
+                        "version" if version.is_none() => version = Some(text),
+                        _ => {}
+                    }
                 }
             }
-            Ok(Event::End(_)) => cur.clear(),
+            Ok(Event::End(_)) => {
+                depth -= 1;
+                cur.clear();
+                cur_depth = -1;
+            }
             Ok(Event::Eof) => break,
             Err(_) => return None,
             _ => {}
@@ -245,6 +273,52 @@ mod tests {
     }
 
     #[test]
+    fn codestream_name_does_not_clobber_canonical_simple_version() {
+        // Real `.prod` shape (SL-Micro): canonical <name> at depth 1 plus a
+        // nested <codestream><name> friendly name. The direct child must win.
+        let xml = r#"<?xml version="1.0" encoding="UTF-8"?>
+<product schemeversion="0">
+  <vendor>SUSE</vendor>
+  <name>SL-Micro</name>
+  <version>6.1</version>
+  <arch>x86_64</arch>
+  <productline>SL-Micro</productline>
+  <codestream>
+    <name>SUSE Linux Micro 6.1</name>
+    <endoflife>2026-10-31</endoflife>
+  </codestream>
+  <summary>SUSE Linux Micro 6.1</summary>
+</product>"#;
+        let p = parse_prod_xml(xml, "SL-Micro.prod").unwrap();
+        assert_eq!(p.name, "SL-Micro");
+        assert_eq!(p.version, "6.1");
+        assert_eq!(p.arch, "x86_64");
+    }
+
+    #[test]
+    fn codestream_name_does_not_clobber_canonical_baseversion() {
+        // Real `.prod` shape (SLES_SAP): depth-1 <baseversion>/<patchlevel>
+        // win over the depth-1 <version>, and the nested <codestream><name>
+        // must not overwrite the canonical <name>.
+        let xml = r#"<product schemeversion="0">
+  <name>SLES_SAP</name>
+  <version>12.5</version>
+  <baseversion>12</baseversion>
+  <patchlevel>5</patchlevel>
+  <arch>x86_64</arch>
+  <productline>sles</productline>
+  <codestream>
+    <name>SUSE Linux Enterprise Server 12</name>
+  </codestream>
+  <summary>SUSE Linux Enterprise Server for SAP Applications 12 SP5</summary>
+</product>"#;
+        let p = parse_prod_xml(xml, "SLES_SAP.prod").unwrap();
+        assert_eq!(p.name, "SLES_SAP");
+        assert_eq!(p.version, "12-SP5");
+        assert_eq!(p.arch, "x86_64");
+    }
+
+    #[test]
     fn caasp_all() {
         let xml = r#"<?xml version="1.0"?>
 <product><name>CAASP</name><version>4.0</version><arch>x86_64</arch></product>"#;
@@ -344,6 +418,28 @@ ARCHITECTURE="x86_64"
             ["sle-module-basesystem", "sle-module-server-applications"]
         );
         assert!(!sys.transactional);
+    }
+
+    #[test]
+    fn parse_system_uses_canonical_names_with_codestream() {
+        // End-to-end: a base and an addon each carrying a nested
+        // <codestream><name>. The canonical direct-child names must survive.
+        let base_xml = "<product><name>SL-Micro</name><version>6.1</version><arch>x86_64</arch><codestream><name>SUSE Linux Micro 6.1</name></codestream></product>";
+        let extras_xml = "<product><name>SL-Micro-Extras</name><version>6.1</version><arch>x86_64</arch><codestream><name>SUSE Linux Micro 6.1</name></codestream></product>";
+        let files = vec![pf("SL-Micro-Extras.prod", extras_xml.into())];
+        let sys = parse_system(
+            Some(&files),
+            Some("SL-Micro.prod"),
+            Some(base_xml),
+            None,
+            false,
+        )
+        .unwrap();
+        assert_eq!(sys.base.name, "SL-Micro");
+        assert_eq!(sys.base.version, "6.1");
+        assert_eq!(sys.addons.len(), 1);
+        assert_eq!(sys.addons[0].name, "SL-Micro-Extras");
+        assert_eq!(sys.addons[0].version, "6.1");
     }
 
     #[test]

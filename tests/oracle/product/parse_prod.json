@@ -60,6 +60,30 @@
     }
   },
   {
+    "name": "codestream_simple_version",
+    "input": {
+      "filename": "SL-Micro.prod",
+      "xml": "<product><name>SL-Micro</name><version>6.1</version><arch>x86_64</arch><productline>SL-Micro</productline><codestream><name>SUSE Linux Micro 6.1</name></codestream></product>"
+    },
+    "expected": {
+      "name": "SL-Micro",
+      "version": "6.1",
+      "arch": "x86_64"
+    }
+  },
+  {
+    "name": "codestream_baseversion",
+    "input": {
+      "filename": "SLES_SAP.prod",
+      "xml": "<product><name>SLES_SAP</name><version>12.5</version><baseversion>12</baseversion><patchlevel>5</patchlevel><arch>x86_64</arch><codestream><name>SUSE Linux Enterprise Server 12</name></codestream></product>"
+    },
+    "expected": {
+      "name": "SLES_SAP",
+      "version": "12-SP5",
+      "arch": "x86_64"
+    }
+  },
+  {
     "name": "missing_name",
     "input": {
       "filename": "b.prod",

@@ -308,6 +308,20 @@ QA:
             "<product><name>sle-module-basesystem</name><arch>x86_64</arch><baseversion>15</baseversion><patchlevel>3</patchlevel></product>",
         ),
         (
+            # Real .prod files carry a nested <codestream><name> friendly name
+            # that must NOT clobber the canonical direct-child <name>.
+            "codestream_simple_version",
+            "SL-Micro.prod",
+            "<product><name>SL-Micro</name><version>6.1</version><arch>x86_64</arch><productline>SL-Micro</productline><codestream><name>SUSE Linux Micro 6.1</name></codestream></product>",
+        ),
+        (
+            # depth-1 <baseversion>/<patchlevel> win over depth-1 <version>,
+            # and the nested <codestream><name> must not overwrite <name>.
+            "codestream_baseversion",
+            "SLES_SAP.prod",
+            "<product><name>SLES_SAP</name><version>12.5</version><baseversion>12</baseversion><patchlevel>5</patchlevel><arch>x86_64</arch><codestream><name>SUSE Linux Enterprise Server 12</name></codestream></product>",
+        ),
+        (
             "missing_name",
             "b.prod",
             "<product><arch>x86_64</arch><version>1.0</version></product>",
