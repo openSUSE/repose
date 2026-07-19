@@ -41,7 +41,7 @@ jobs:
         # Script lives at repo root; job working-directory is crates/.
         run: bash ../scripts/check-rust-layering.sh
       - name: Test
-        run: cargo test --workspace --locked
+        run: cargo test --workspace --all-targets --locked
       - name: Binary version line
         # Shape matches the historical Python line: `repose version: X.Y.Z`
         # (value is the crate version). Do not hard-code a version.

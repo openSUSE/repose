@@ -174,8 +174,13 @@ impl HostKeyVerifier {
             return true;
         };
         if let Err(error) = append_known_host(path, &self.host, self.port, key) {
-            log::warn!(
-                "accept-new: could not persist host key for {} to {}: {}",
+            // TOFU degrades to trust-without-recording: the session proceeds,
+            // but every future connection will re-accept this host unverified
+            // until the file becomes writable — make that loud, not a warn.
+            log::error!(
+                "accept-new: could not persist host key for {} to {}: {} — \
+                 the key was NOT recorded; future connections will re-accept \
+                 this host without verification",
                 self.host,
                 path.display(),
                 error

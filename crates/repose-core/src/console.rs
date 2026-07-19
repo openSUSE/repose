@@ -132,17 +132,17 @@ impl<W: Write> Console<W> {
         let cmd = fields.get("cmd").and_then(|c| c.as_str());
         let line = fields.get("line").and_then(|l| l.as_str());
 
-        match event {
-            "dry" if host.is_some() && cmd.is_some() => {
-                let h = self.colorize_host(host.unwrap(), Level::Info);
-                writeln!(self.stream, "{h} - {}", cmd.unwrap())?;
+        match (event, host, cmd, line) {
+            ("dry", Some(host), Some(cmd), _) => {
+                let h = self.colorize_host(host, Level::Info);
+                writeln!(self.stream, "{h} - {cmd}")?;
             }
-            "report" | "error" if host.is_some() && line.is_some() => {
-                let h = self.colorize_host(host.unwrap(), level);
-                writeln!(self.stream, "{h} - {}", line.unwrap())?;
+            ("report" | "error", Some(host), _, Some(line)) => {
+                let h = self.colorize_host(host, level);
+                writeln!(self.stream, "{h} - {line}")?;
             }
-            "info" if line.is_some() => {
-                writeln!(self.stream, "{}", line.unwrap())?;
+            ("info", _, _, Some(line)) => {
+                writeln!(self.stream, "{line}")?;
             }
             _ => {}
         }

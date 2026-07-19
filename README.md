@@ -275,6 +275,11 @@ Repose uses a single SSH stack ([russh](https://crates.io/crates/russh)); there
 is no `--ssh-backend` flag. It honours the same `--strict-host-key-checking`,
 `--known-hosts`, and `~/.ssh/config` directives described above.
 
+Authentication tries the ssh-agent first (every agent identity is offered),
+then `IdentityFile` keys from `~/.ssh/config`. Unlike `ssh(1)`, the
+`IdentitiesOnly` directive is not honoured: agent identities are offered even
+when `IdentitiesOnly yes` is set for a host.
+
 ## Building
 
 Repose is a Rust workspace under `crates/`. Build the binary with:

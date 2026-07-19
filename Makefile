@@ -7,7 +7,7 @@ build:        ## debug build (locked)
 release:      ## optimized `repose` binary
 	cd crates && cargo build --release --locked -p repose-cli
 test:         ## workspace tests
-	cd crates && cargo test --workspace --locked
+	cd crates && cargo test --workspace --all-targets --locked
 fmt:          ## check formatting
 	cd crates && cargo fmt --all -- --check
 fmt-fix:      ## apply formatting

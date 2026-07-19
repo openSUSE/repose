@@ -351,7 +351,9 @@ async fn dispatch(cli: Cli, conn: ConnectionConfig, cmd: Commands) -> ExitCode {
         } => (targets.clone(), repa.clone(), 5.0, false, *no_reboot),
         Commands::ListProducts { targets, .. } => (targets.clone(), vec![], 5.0, false, false),
         Commands::ListRepos { targets } => (targets.clone(), vec![], 5.0, false, false),
-        Commands::KnownProducts => unreachable!(),
+        // Intercepted before dispatch (it needs no SSH targets); reaching it
+        // here is a wiring bug — fail like an empty target list, not a panic.
+        Commands::KnownProducts => (vec![], vec![], 5.0, false, false),
     };
 
     let mut specs = Vec::new();
@@ -427,7 +429,12 @@ async fn dispatch(cli: Cli, conn: ConnectionConfig, cmd: Commands) -> ExitCode {
         Commands::ListRepos { .. } => {
             run_list_repos(&opts, &mut group, &mut std::io::stdout()).await
         }
-        Commands::KnownProducts => unreachable!(),
+        // Intercepted before dispatch; treated as a no-op failure rather than
+        // a panic if a refactor ever routes it here.
+        Commands::KnownProducts => {
+            eprintln!("error: known-products does not take targets");
+            repose_core::types::ExitCode::AllFailed
+        }
     };
     exit_from(code)
 }

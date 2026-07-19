@@ -317,7 +317,8 @@ impl RusshSession {
                         stderr.extend_from_slice(data);
                     }
                     ChannelMsg::ExitStatus { exit_status } => {
-                        code = Some(exit_status as i32);
+                        // SSH exit codes fit in 0..=255; make truncation explicit.
+                        code = Some(i32::try_from(exit_status).unwrap_or(-1));
                     }
                     _ => {}
                 }
