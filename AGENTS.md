@@ -1,7 +1,7 @@
 # Rust Workspace Guidelines
 
-These instructions supplement the repository-level `AGENTS.md` for everything
-under `crates/`.
+These instructions apply to this repository — a Rust workspace
+(sources under `crates/`).
 
 ## Workspace Commands
 
@@ -14,7 +14,7 @@ cargo test --workspace --all-targets --locked
 cargo deny check
 ```
 
-Use the toolchain pinned in `../rust-toolchain.toml`. The workspace MSRV is
+Use the toolchain pinned in `rust-toolchain.toml` (repo root). The workspace MSRV is
 declared once in `Cargo.toml` (`rust-version = "1.85"`); do not introduce APIs
 or dependencies which require a newer compiler without deliberately updating
 both the pin and the MSRV policy. CI and reproducible local checks use the
