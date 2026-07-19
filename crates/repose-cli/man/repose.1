@@ -1,6 +1,6 @@
 .ie \n(.g .ds Aq \(aq
 .el .ds Aq '
-.TH repose 1  "repose 0.1.0" 
+.TH repose 1  "repose 3.0.0" 
 .SH NAME
 repose \- Repository manipulation tool for QAM
 .SH SYNOPSIS
@@ -10,24 +10,26 @@ Repository manipulation tool for QAM
 .SH OPTIONS
 .TP
 \fB\-n\fR, \fB\-\-print\fR
-
+print commands for host and exit
 .TP
 \fB\-V\fR, \fB\-\-version\fR
-
+show program\*(Aqs version number and exit
 .TP
 \fB\-c\fR, \fB\-\-config\fR \fI<CONFIG>\fR [default: /etc/repose/products.yml]
-
+path to repose configuration
 .TP
 \fB\-d\fR, \fB\-\-debug\fR
-
+enable debug logging
 .TP
 \fB\-q\fR, \fB\-\-quiet\fR
-
+suppress messages from repose
 .TP
 \fB\-\-no\-color\fR
-
+disable ANSI color in console output (honors NO_COLOR)
 .TP
 \fB\-\-format\fR \fI<FORMAT>\fR [default: text]
+console output format: \*(Aqtext\*(Aq (default) or \*(Aqjson\*(Aq (one event per line)
+.br
 
 .br
 \fIPossible values:\fR
@@ -39,6 +41,8 @@ json
 .RE
 .TP
 \fB\-\-strict\-host\-key\-checking\fR \fI<STRICT_HOST_KEY_CHECKING>\fR [default: accept\-new]
+SSH host\-key policy (OpenSSH semantics): \*(Aqyes\*(Aq refuses unknown hosts; \*(Aqaccept\-new\*(Aq (default) accepts unknown hosts on first contact but rejects changed keys; \*(Aqno\*(Aq/\*(Aqoff\*(Aq accepts both unknown and changed keys (pre\-1.12 behaviour)
+.br
 
 .br
 \fIPossible values:\fR
@@ -54,31 +58,40 @@ off
 .RE
 .TP
 \fB\-\-known\-hosts\fR \fI<KNOWN_HOSTS>\fR
-
+path to a custom known_hosts file (overrides ~/.ssh/known_hosts)
 .TP
 \fB\-h\fR, \fB\-\-help\fR
 Print help
 .SH SUBCOMMANDS
 .TP
 repose\-add(1)
+add specified repository to target
 .TP
 repose\-remove(1)
+remove repository from target
 .TP
 repose\-reset(1)
+reset target repositories to only installed products repositories
 .TP
 repose\-install(1)
+add specified repository to target and install product
 .TP
 repose\-clear(1)
+clear all repositories from target
 .TP
 repose\-uninstall(1)
+remove specified repository from target and uninstall product
 .TP
 repose\-list\-products(1)
+list products on target
 .TP
 repose\-list\-repos(1)
+list repositories on target
 .TP
 repose\-known\-products(1)
+list known products by \*(Aqrepose\*(Aq
 .TP
 repose\-help(1)
 Print this message or the help of the given subcommand(s)
 .SH VERSION
-v0.1.0
+v3.0.0

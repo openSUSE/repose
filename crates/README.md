@@ -37,7 +37,7 @@ cargo test --manifest-path crates/Cargo.toml
 cargo fmt --manifest-path crates/Cargo.toml --all -- --check
 cargo clippy --manifest-path crates/Cargo.toml --workspace --all-targets -- -D warnings
 cargo deny --manifest-path crates/Cargo.toml check   # needs cargo-deny >= 0.18.4 (0.20.x preferred)
-cargo run --manifest-path crates/Cargo.toml -p repose-cli
+cargo run --manifest-path crates/Cargo.toml -p repose-cli --bin repose
 ```
 
 Or `cd crates` and run the same commands without `--manifest-path`.
@@ -46,10 +46,11 @@ Or `cd crates` and run the same commands without `--manifest-path`.
 
 - **Layering:** `repose-core` must never depend on `repose-ssh` or `russh` (enforced more strictly in PR0.5).
 - **Single SSH backend:** `crates/deny.toml` bans `ssh2` / `libssh2-sys` / async-ssh2-* crates.
-- **Path deps** pin `version = "0.1.0"` so `cargo-deny` `wildcards = "deny"` accepts them.
+- **Path deps** pin the workspace version (`version = "3.0.0"`) so `cargo-deny` `wildcards = "deny"` accepts them.
 - **Binary name:** `repose` (replace strategy; no `repose-rs`).
 
-Python sources under `repose/` remain the behavioral oracle until cutover.
+The Python implementation was removed at cutover; behavior is pinned by the
+frozen goldens under `tests/oracle/` (see `scripts/parity-check.sh`).
 
 ## Packaging (Rust)
 
@@ -63,7 +64,8 @@ implementation behind the same package/binary name.
 generator crates):
 
 ```bash
-cargo run -p repose-cli --features gen --bin repose-gen -- crates/repose-cli
+# from repository root (the argument is the output directory)
+cargo run --manifest-path crates/Cargo.toml -p repose-cli --features gen --bin repose-gen -- crates/repose-cli
 ```
 
 CI (`rust-assets-drift`) regenerates and `git diff --exit-code`s these paths,

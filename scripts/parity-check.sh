@@ -3,23 +3,23 @@
 # Parity harness for the Rust `repose` binary. Since the Python cutover the
 # checks are golden-first: Rust known-products must byte-match the committed
 # golden (tests/oracle/parity/known_products.txt), plus CLI-surface invariants
-# (no --ssh-backend, version-line shape, all nine subcommands). If a `repose`
-# command still happens to be on PATH it is compared too, but the Python oracle
-# is no longer part of the tree or CI.
+# (no --ssh-backend, version-line shape, all nine subcommands). The Python
+# oracle is no longer part of the tree or CI; a reference binary is compared
+# only when one is named explicitly via REPOSE_PY — nothing is picked up from
+# PATH.
 #
 # Env:
-#   REPOSE_PY   optional reference `repose` to cross-check against (default:
-#               repose). Compared only if present — the Python oracle is gone.
+#   REPOSE_PY   optional reference `repose` to cross-check against. The
+#               comparison runs only when this variable is set explicitly.
 #   REPOSE_RS   command for the Rust binary (default: crates/target/debug/repose).
 #   FIXTURE     products.yml used for known-products (default: the committed
 #               sample fixture).
-#   PARITY_REQUIRE_PY  when set to 1, fail if the Python oracle is unavailable
-#               instead of skipping the cross-implementation comparison (CI).
+#   PARITY_REQUIRE_PY  when set to 1, fail if no usable reference binary was
+#               provided instead of skipping the cross-implementation compare.
 #
 # Run from the repository root.
 set -euo pipefail
 
-read -ra PY <<<"${REPOSE_PY:-repose}"
 read -ra RS <<<"${REPOSE_RS:-crates/target/debug/repose}"
 FIXTURE="${FIXTURE:-tests/oracle/template/sample.yml}"
 GOLDEN="tests/oracle/parity/known_products.txt"
@@ -75,18 +75,26 @@ for sub in add remove reset install clear uninstall list-products list-repos kno
 done
 ok "all nine subcommands present"
 
-# 5. Cross-implementation: Python oracle == Rust on known-products (if available).
-if "${PY[@]}" --version >/dev/null 2>&1; then
-  known_products "Python" "$tmp/py.txt" "${PY[@]}"
-  if ! cmp -s "$tmp/py.txt" "$tmp/rs.txt"; then
-    diff "$tmp/py.txt" "$tmp/rs.txt" >&2 || true
-    fail "Python vs Rust known-products differ"
+# 5. Cross-implementation: reference binary == Rust on known-products. Runs
+#    only when REPOSE_PY is set explicitly — never auto-detected from PATH.
+if [ -n "${REPOSE_PY:-}" ]; then
+  read -ra PY <<<"$REPOSE_PY"
+  if "${PY[@]}" --version >/dev/null 2>&1; then
+    known_products "Reference" "$tmp/py.txt" "${PY[@]}"
+    if ! cmp -s "$tmp/py.txt" "$tmp/rs.txt"; then
+      diff "$tmp/py.txt" "$tmp/rs.txt" >&2 || true
+      fail "reference vs Rust known-products differ"
+    fi
+    ok "reference repose == Rust known-products (byte-exact)"
+  elif [ "${PARITY_REQUIRE_PY:-}" = "1" ]; then
+    fail "reference repose (${PY[*]}) unusable but PARITY_REQUIRE_PY=1"
+  else
+    echo "  note: reference repose (${PY[*]}) unusable — skipped cross-impl compare"
   fi
-  ok "Python oracle == Rust known-products (byte-exact)"
 elif [ "${PARITY_REQUIRE_PY:-}" = "1" ]; then
-  fail "Python oracle (${PY[*]}) unavailable but PARITY_REQUIRE_PY=1"
+  fail "REPOSE_PY not set but PARITY_REQUIRE_PY=1"
 else
-  echo "  note: Python oracle (${PY[*]}) unavailable — skipped cross-impl compare"
+  echo "  note: REPOSE_PY not set — skipped cross-impl compare"
 fi
 
 echo "PARITY OK"

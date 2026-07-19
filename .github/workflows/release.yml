@@ -37,7 +37,7 @@ jobs:
           fi
 
       - name: Build release binary
-        run: cargo build --release -p repose-cli --manifest-path crates/Cargo.toml
+        run: cargo build --release --locked -p repose-cli --manifest-path crates/Cargo.toml
 
       - name: Create GitHub release
         env:

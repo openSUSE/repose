@@ -62,10 +62,13 @@ impl From<HostKeyMode> for HostKeyPolicy {
     arg_required_else_help = false
 )]
 struct Cli {
+    /// print commands for host and exit
     #[arg(short = 'n', long = "print", global = true)]
     dry: bool,
+    /// show program's version number and exit
     #[arg(short = 'V', long = "version", global = true)]
     version: bool,
+    /// path to repose configuration
     #[arg(
         short = 'c',
         long = "config",
@@ -73,16 +76,22 @@ struct Cli {
         default_value = "/etc/repose/products.yml"
     )]
     config: PathBuf,
+    /// enable debug logging
     #[arg(short = 'd', long = "debug", global = true)]
     debug: bool,
+    /// suppress messages from repose
     #[arg(short = 'q', long = "quiet", global = true)]
     quiet: bool,
+    /// disable ANSI color in console output (honors NO_COLOR)
     #[arg(long = "no-color", global = true)]
     no_color: bool,
+    /// console output format: 'text' (default) or 'json' (one event per line)
     #[arg(long = "format", global = true, value_enum, default_value_t = OutputFormat::Text)]
     format: OutputFormat,
+    /// SSH host-key policy (OpenSSH semantics): 'yes' refuses unknown hosts; 'accept-new' (default) accepts unknown hosts on first contact but rejects changed keys; 'no'/'off' accepts both unknown and changed keys (pre-1.12 behaviour)
     #[arg(long = "strict-host-key-checking", global = true, value_enum, default_value_t = HostKeyMode::AcceptNew)]
     strict_host_key_checking: HostKeyMode,
+    /// path to a custom known_hosts file (overrides ~/.ssh/known_hosts)
     #[arg(long = "known-hosts", global = true)]
     known_hosts: Option<PathBuf>,
     #[command(subcommand)]
@@ -91,68 +100,117 @@ struct Cli {
 
 #[derive(Subcommand, Debug)]
 enum Commands {
+    /// add specified repository to target
     Add {
+        /// target to operate on
         #[arg(short = 't', long = "target", required = true)]
         targets: Vec<String>,
+        /// REPA pattern specification for needed repository
         #[arg(required = true)]
         repa: Vec<String>,
-        #[arg(long = "probe-timeout", default_value_t = 5.0)]
+        /// seconds to wait per repository URL probe (default: 5)
+        #[arg(long = "probe-timeout", default_value_t = 5.0, value_parser = parse_probe_timeout)]
         probe_timeout: f64,
+        /// skip repository URL liveness probes
         #[arg(long = "no-probe", default_value_t = false)]
         no_probe: bool,
     },
+    /// remove repository from target
     Remove {
+        /// target to operate on
         #[arg(short = 't', long = "target", required = true)]
         targets: Vec<String>,
+        /// REPA pattern specification for needed repository
         #[arg(required = true)]
         repa: Vec<String>,
     },
+    /// reset target repositories to only installed products repositories
     Reset {
+        /// target to operate on
         #[arg(short = 't', long = "target", required = true)]
         targets: Vec<String>,
-        #[arg(long = "probe-timeout", default_value_t = 5.0)]
+        /// seconds to wait per repository URL probe (default: 5)
+        #[arg(long = "probe-timeout", default_value_t = 5.0, value_parser = parse_probe_timeout)]
         probe_timeout: f64,
+        /// skip repository URL liveness probes
         #[arg(long = "no-probe", default_value_t = false)]
         no_probe: bool,
     },
+    /// add specified repository to target and install product
     Install {
+        /// target to operate on
         #[arg(short = 't', long = "target", required = true)]
         targets: Vec<String>,
+        /// REPA pattern specification for needed repository
         #[arg(required = true)]
         repa: Vec<String>,
-        #[arg(long = "probe-timeout", default_value_t = 5.0)]
+        /// seconds to wait per repository URL probe (default: 5)
+        #[arg(long = "probe-timeout", default_value_t = 5.0, value_parser = parse_probe_timeout)]
         probe_timeout: f64,
+        /// skip repository URL liveness probes
         #[arg(long = "no-probe", default_value_t = false)]
         no_probe: bool,
+        /// on transactional hosts (SL Micro), stage the package change but do not reboot/reconnect/verify (default: reboot)
         #[arg(long = "no-reboot", default_value_t = false)]
         no_reboot: bool,
     },
+    /// clear all repositories from target
     Clear {
+        /// target to operate on
         #[arg(short = 't', long = "target", required = true)]
         targets: Vec<String>,
     },
+    /// remove specified repository from target and uninstall product
     Uninstall {
+        /// target to operate on
         #[arg(short = 't', long = "target", required = true)]
         targets: Vec<String>,
+        /// REPA pattern specification for needed repository
         #[arg(required = true)]
         repa: Vec<String>,
+        /// on transactional hosts (SL Micro), stage the package change but do not reboot/reconnect/verify (default: reboot)
         #[arg(long = "no-reboot", default_value_t = false)]
         no_reboot: bool,
     },
+    /// list products on target
     #[command(name = "list-products")]
     ListProducts {
+        /// target to operate on
         #[arg(short = 't', long = "target", required = true)]
         targets: Vec<String>,
+        /// Generate YAML host spec for refhosts.yml generator without normalization. Default for SLE 12-SP5 and SLE 15-SP3+ products
         #[arg(long = "yaml", default_value_t = false)]
         yaml: bool,
     },
+    /// list repositories on target
     #[command(name = "list-repos")]
     ListRepos {
+        /// target to operate on
         #[arg(short = 't', long = "target", required = true)]
         targets: Vec<String>,
     },
+    /// list known products by 'repose'
     #[command(name = "known-products")]
     KnownProducts,
+}
+
+/// Validate `--probe-timeout`: a finite, non-negative number of seconds with a
+/// sane upper bound (one day). Rejects `-1`, `NaN`, `inf`, and absurd values
+/// that would otherwise panic in [`Duration::from_secs_f64`].
+fn parse_probe_timeout(s: &str) -> Result<f64, String> {
+    let secs: f64 = s
+        .parse()
+        .map_err(|_| format!("'{s}' is not a number of seconds"))?;
+    if !secs.is_finite() {
+        return Err(format!("'{s}' is not a finite number of seconds"));
+    }
+    if secs < 0.0 {
+        return Err(format!("'{s}' is negative; timeout must be >= 0 seconds"));
+    }
+    if secs > 86400.0 {
+        return Err(format!("'{s}' exceeds the maximum of 86400 seconds"));
+    }
+    Ok(secs)
 }
 
 /// Run the `repose` CLI (entry point behind the thin `main.rs` shim).
@@ -389,5 +447,30 @@ mod tests {
         assert_eq!(log_level(false, true), Level::WARN);
         // -d wins if both slip through (mutex is enforced separately).
         assert_eq!(log_level(true, true), Level::DEBUG);
+    }
+
+    #[test]
+    fn probe_timeout_accepts_sane_values() {
+        assert_eq!(parse_probe_timeout("5"), Ok(5.0));
+        assert_eq!(parse_probe_timeout("0"), Ok(0.0));
+        assert_eq!(parse_probe_timeout("0.5"), Ok(0.5));
+        assert_eq!(parse_probe_timeout("86400"), Ok(86400.0));
+    }
+
+    #[test]
+    fn probe_timeout_rejects_panicking_values() {
+        // Each of these would panic (or hang forever) in Duration::from_secs_f64.
+        assert!(parse_probe_timeout("-1").is_err());
+        assert!(parse_probe_timeout("NaN").is_err());
+        assert!(parse_probe_timeout("inf").is_err());
+        assert!(parse_probe_timeout("1e300").is_err());
+        assert!(parse_probe_timeout("bogus").is_err());
+    }
+
+    #[test]
+    fn probe_timeout_parse_error_exits_with_usage_code() {
+        let err = Cli::try_parse_from(["repose", "add", "-t", "h", "--probe-timeout=-1", "R"])
+            .unwrap_err();
+        assert_eq!(err.exit_code(), 2);
     }
 }

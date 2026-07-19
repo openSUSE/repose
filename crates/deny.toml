@@ -61,16 +61,17 @@ allow = [
     "LGPL-3.0",
     "LGPL-3.0-only",
     "LGPL-3.0-or-later",
-    # Rare but seen in older graphs
-    "GPL-2.0",
-    "GPL-2.0-only",
+    # Rare but seen in older graphs. GPLv2-only (and the deprecated bare
+    # "GPL-2.0" alias) is deliberately absent: it is GPLv3-incompatible and no
+    # dependency needs it. "or-later" is fine (upgradeable to GPLv3).
     "GPL-2.0-or-later",
 ]
 exceptions = []
 
 [bans]
 multiple-versions = "warn"
-# Path deps must pin `version = "0.x"` (see crate Cargo.toml comments).
+# Path deps must pin the workspace version, currently `version = "3.0.0"`
+# (see crate Cargo.toml comments).
 wildcards = "deny"
 highlight = "all"
 workspace-default-features = "allow"

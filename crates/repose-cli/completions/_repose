@@ -15,20 +15,20 @@ _repose() {
 
     local context curcontext="$curcontext" state line
     _arguments "${_arguments_options[@]}" : \
-'-c+[]:CONFIG:_files' \
-'--config=[]:CONFIG:_files' \
-'--format=[]:FORMAT:(text json)' \
-'--strict-host-key-checking=[]:STRICT_HOST_KEY_CHECKING:(yes accept-new no off)' \
-'--known-hosts=[]:KNOWN_HOSTS:_files' \
-'-n[]' \
-'--print[]' \
-'-V[]' \
-'--version[]' \
-'-d[]' \
-'--debug[]' \
-'-q[]' \
-'--quiet[]' \
-'--no-color[]' \
+'-c+[path to repose configuration]:CONFIG:_files' \
+'--config=[path to repose configuration]:CONFIG:_files' \
+'--format=[console output format\: '\''text'\'' (default) or '\''json'\'' (one event per line)]:FORMAT:(text json)' \
+'--strict-host-key-checking=[SSH host-key policy (OpenSSH semantics)\: '\''yes'\'' refuses unknown hosts; '\''accept-new'\'' (default) accepts unknown hosts on first contact but rejects changed keys; '\''no'\''/'\''off'\'' accepts both unknown and changed keys (pre-1.12 behaviour)]:STRICT_HOST_KEY_CHECKING:(yes accept-new no off)' \
+'--known-hosts=[path to a custom known_hosts file (overrides ~/.ssh/known_hosts)]:KNOWN_HOSTS:_files' \
+'-n[print commands for host and exit]' \
+'--print[print commands for host and exit]' \
+'-V[show program'\''s version number and exit]' \
+'--version[show program'\''s version number and exit]' \
+'-d[enable debug logging]' \
+'--debug[enable debug logging]' \
+'-q[suppress messages from repose]' \
+'--quiet[suppress messages from repose]' \
+'--no-color[disable ANSI color in console output (honors NO_COLOR)]' \
 '-h[Print help]' \
 '--help[Print help]' \
 ":: :_repose_commands" \
@@ -42,209 +42,209 @@ _repose() {
         case $line[1] in
             (add)
 _arguments "${_arguments_options[@]}" : \
-'*-t+[]:TARGETS:_default' \
-'*--target=[]:TARGETS:_default' \
-'--probe-timeout=[]:PROBE_TIMEOUT:_default' \
-'-c+[]:CONFIG:_files' \
-'--config=[]:CONFIG:_files' \
-'--format=[]:FORMAT:(text json)' \
-'--strict-host-key-checking=[]:STRICT_HOST_KEY_CHECKING:(yes accept-new no off)' \
-'--known-hosts=[]:KNOWN_HOSTS:_files' \
-'--no-probe[]' \
-'-n[]' \
-'--print[]' \
-'-V[]' \
-'--version[]' \
-'-d[]' \
-'--debug[]' \
-'-q[]' \
-'--quiet[]' \
-'--no-color[]' \
+'*-t+[target to operate on]:TARGETS:_default' \
+'*--target=[target to operate on]:TARGETS:_default' \
+'--probe-timeout=[seconds to wait per repository URL probe (default\: 5)]:PROBE_TIMEOUT:_default' \
+'-c+[path to repose configuration]:CONFIG:_files' \
+'--config=[path to repose configuration]:CONFIG:_files' \
+'--format=[console output format\: '\''text'\'' (default) or '\''json'\'' (one event per line)]:FORMAT:(text json)' \
+'--strict-host-key-checking=[SSH host-key policy (OpenSSH semantics)\: '\''yes'\'' refuses unknown hosts; '\''accept-new'\'' (default) accepts unknown hosts on first contact but rejects changed keys; '\''no'\''/'\''off'\'' accepts both unknown and changed keys (pre-1.12 behaviour)]:STRICT_HOST_KEY_CHECKING:(yes accept-new no off)' \
+'--known-hosts=[path to a custom known_hosts file (overrides ~/.ssh/known_hosts)]:KNOWN_HOSTS:_files' \
+'--no-probe[skip repository URL liveness probes]' \
+'-n[print commands for host and exit]' \
+'--print[print commands for host and exit]' \
+'-V[show program'\''s version number and exit]' \
+'--version[show program'\''s version number and exit]' \
+'-d[enable debug logging]' \
+'--debug[enable debug logging]' \
+'-q[suppress messages from repose]' \
+'--quiet[suppress messages from repose]' \
+'--no-color[disable ANSI color in console output (honors NO_COLOR)]' \
 '-h[Print help]' \
 '--help[Print help]' \
-'*::repa:_default' \
+'*::repa -- REPA pattern specification for needed repository:_default' \
 && ret=0
 ;;
 (remove)
 _arguments "${_arguments_options[@]}" : \
-'*-t+[]:TARGETS:_default' \
-'*--target=[]:TARGETS:_default' \
-'-c+[]:CONFIG:_files' \
-'--config=[]:CONFIG:_files' \
-'--format=[]:FORMAT:(text json)' \
-'--strict-host-key-checking=[]:STRICT_HOST_KEY_CHECKING:(yes accept-new no off)' \
-'--known-hosts=[]:KNOWN_HOSTS:_files' \
-'-n[]' \
-'--print[]' \
-'-V[]' \
-'--version[]' \
-'-d[]' \
-'--debug[]' \
-'-q[]' \
-'--quiet[]' \
-'--no-color[]' \
+'*-t+[target to operate on]:TARGETS:_default' \
+'*--target=[target to operate on]:TARGETS:_default' \
+'-c+[path to repose configuration]:CONFIG:_files' \
+'--config=[path to repose configuration]:CONFIG:_files' \
+'--format=[console output format\: '\''text'\'' (default) or '\''json'\'' (one event per line)]:FORMAT:(text json)' \
+'--strict-host-key-checking=[SSH host-key policy (OpenSSH semantics)\: '\''yes'\'' refuses unknown hosts; '\''accept-new'\'' (default) accepts unknown hosts on first contact but rejects changed keys; '\''no'\''/'\''off'\'' accepts both unknown and changed keys (pre-1.12 behaviour)]:STRICT_HOST_KEY_CHECKING:(yes accept-new no off)' \
+'--known-hosts=[path to a custom known_hosts file (overrides ~/.ssh/known_hosts)]:KNOWN_HOSTS:_files' \
+'-n[print commands for host and exit]' \
+'--print[print commands for host and exit]' \
+'-V[show program'\''s version number and exit]' \
+'--version[show program'\''s version number and exit]' \
+'-d[enable debug logging]' \
+'--debug[enable debug logging]' \
+'-q[suppress messages from repose]' \
+'--quiet[suppress messages from repose]' \
+'--no-color[disable ANSI color in console output (honors NO_COLOR)]' \
 '-h[Print help]' \
 '--help[Print help]' \
-'*::repa:_default' \
+'*::repa -- REPA pattern specification for needed repository:_default' \
 && ret=0
 ;;
 (reset)
 _arguments "${_arguments_options[@]}" : \
-'*-t+[]:TARGETS:_default' \
-'*--target=[]:TARGETS:_default' \
-'--probe-timeout=[]:PROBE_TIMEOUT:_default' \
-'-c+[]:CONFIG:_files' \
-'--config=[]:CONFIG:_files' \
-'--format=[]:FORMAT:(text json)' \
-'--strict-host-key-checking=[]:STRICT_HOST_KEY_CHECKING:(yes accept-new no off)' \
-'--known-hosts=[]:KNOWN_HOSTS:_files' \
-'--no-probe[]' \
-'-n[]' \
-'--print[]' \
-'-V[]' \
-'--version[]' \
-'-d[]' \
-'--debug[]' \
-'-q[]' \
-'--quiet[]' \
-'--no-color[]' \
+'*-t+[target to operate on]:TARGETS:_default' \
+'*--target=[target to operate on]:TARGETS:_default' \
+'--probe-timeout=[seconds to wait per repository URL probe (default\: 5)]:PROBE_TIMEOUT:_default' \
+'-c+[path to repose configuration]:CONFIG:_files' \
+'--config=[path to repose configuration]:CONFIG:_files' \
+'--format=[console output format\: '\''text'\'' (default) or '\''json'\'' (one event per line)]:FORMAT:(text json)' \
+'--strict-host-key-checking=[SSH host-key policy (OpenSSH semantics)\: '\''yes'\'' refuses unknown hosts; '\''accept-new'\'' (default) accepts unknown hosts on first contact but rejects changed keys; '\''no'\''/'\''off'\'' accepts both unknown and changed keys (pre-1.12 behaviour)]:STRICT_HOST_KEY_CHECKING:(yes accept-new no off)' \
+'--known-hosts=[path to a custom known_hosts file (overrides ~/.ssh/known_hosts)]:KNOWN_HOSTS:_files' \
+'--no-probe[skip repository URL liveness probes]' \
+'-n[print commands for host and exit]' \
+'--print[print commands for host and exit]' \
+'-V[show program'\''s version number and exit]' \
+'--version[show program'\''s version number and exit]' \
+'-d[enable debug logging]' \
+'--debug[enable debug logging]' \
+'-q[suppress messages from repose]' \
+'--quiet[suppress messages from repose]' \
+'--no-color[disable ANSI color in console output (honors NO_COLOR)]' \
 '-h[Print help]' \
 '--help[Print help]' \
 && ret=0
 ;;
 (install)
 _arguments "${_arguments_options[@]}" : \
-'*-t+[]:TARGETS:_default' \
-'*--target=[]:TARGETS:_default' \
-'--probe-timeout=[]:PROBE_TIMEOUT:_default' \
-'-c+[]:CONFIG:_files' \
-'--config=[]:CONFIG:_files' \
-'--format=[]:FORMAT:(text json)' \
-'--strict-host-key-checking=[]:STRICT_HOST_KEY_CHECKING:(yes accept-new no off)' \
-'--known-hosts=[]:KNOWN_HOSTS:_files' \
-'--no-probe[]' \
-'--no-reboot[]' \
-'-n[]' \
-'--print[]' \
-'-V[]' \
-'--version[]' \
-'-d[]' \
-'--debug[]' \
-'-q[]' \
-'--quiet[]' \
-'--no-color[]' \
+'*-t+[target to operate on]:TARGETS:_default' \
+'*--target=[target to operate on]:TARGETS:_default' \
+'--probe-timeout=[seconds to wait per repository URL probe (default\: 5)]:PROBE_TIMEOUT:_default' \
+'-c+[path to repose configuration]:CONFIG:_files' \
+'--config=[path to repose configuration]:CONFIG:_files' \
+'--format=[console output format\: '\''text'\'' (default) or '\''json'\'' (one event per line)]:FORMAT:(text json)' \
+'--strict-host-key-checking=[SSH host-key policy (OpenSSH semantics)\: '\''yes'\'' refuses unknown hosts; '\''accept-new'\'' (default) accepts unknown hosts on first contact but rejects changed keys; '\''no'\''/'\''off'\'' accepts both unknown and changed keys (pre-1.12 behaviour)]:STRICT_HOST_KEY_CHECKING:(yes accept-new no off)' \
+'--known-hosts=[path to a custom known_hosts file (overrides ~/.ssh/known_hosts)]:KNOWN_HOSTS:_files' \
+'--no-probe[skip repository URL liveness probes]' \
+'--no-reboot[on transactional hosts (SL Micro), stage the package change but do not reboot/reconnect/verify (default\: reboot)]' \
+'-n[print commands for host and exit]' \
+'--print[print commands for host and exit]' \
+'-V[show program'\''s version number and exit]' \
+'--version[show program'\''s version number and exit]' \
+'-d[enable debug logging]' \
+'--debug[enable debug logging]' \
+'-q[suppress messages from repose]' \
+'--quiet[suppress messages from repose]' \
+'--no-color[disable ANSI color in console output (honors NO_COLOR)]' \
 '-h[Print help]' \
 '--help[Print help]' \
-'*::repa:_default' \
+'*::repa -- REPA pattern specification for needed repository:_default' \
 && ret=0
 ;;
 (clear)
 _arguments "${_arguments_options[@]}" : \
-'*-t+[]:TARGETS:_default' \
-'*--target=[]:TARGETS:_default' \
-'-c+[]:CONFIG:_files' \
-'--config=[]:CONFIG:_files' \
-'--format=[]:FORMAT:(text json)' \
-'--strict-host-key-checking=[]:STRICT_HOST_KEY_CHECKING:(yes accept-new no off)' \
-'--known-hosts=[]:KNOWN_HOSTS:_files' \
-'-n[]' \
-'--print[]' \
-'-V[]' \
-'--version[]' \
-'-d[]' \
-'--debug[]' \
-'-q[]' \
-'--quiet[]' \
-'--no-color[]' \
+'*-t+[target to operate on]:TARGETS:_default' \
+'*--target=[target to operate on]:TARGETS:_default' \
+'-c+[path to repose configuration]:CONFIG:_files' \
+'--config=[path to repose configuration]:CONFIG:_files' \
+'--format=[console output format\: '\''text'\'' (default) or '\''json'\'' (one event per line)]:FORMAT:(text json)' \
+'--strict-host-key-checking=[SSH host-key policy (OpenSSH semantics)\: '\''yes'\'' refuses unknown hosts; '\''accept-new'\'' (default) accepts unknown hosts on first contact but rejects changed keys; '\''no'\''/'\''off'\'' accepts both unknown and changed keys (pre-1.12 behaviour)]:STRICT_HOST_KEY_CHECKING:(yes accept-new no off)' \
+'--known-hosts=[path to a custom known_hosts file (overrides ~/.ssh/known_hosts)]:KNOWN_HOSTS:_files' \
+'-n[print commands for host and exit]' \
+'--print[print commands for host and exit]' \
+'-V[show program'\''s version number and exit]' \
+'--version[show program'\''s version number and exit]' \
+'-d[enable debug logging]' \
+'--debug[enable debug logging]' \
+'-q[suppress messages from repose]' \
+'--quiet[suppress messages from repose]' \
+'--no-color[disable ANSI color in console output (honors NO_COLOR)]' \
 '-h[Print help]' \
 '--help[Print help]' \
 && ret=0
 ;;
 (uninstall)
 _arguments "${_arguments_options[@]}" : \
-'*-t+[]:TARGETS:_default' \
-'*--target=[]:TARGETS:_default' \
-'-c+[]:CONFIG:_files' \
-'--config=[]:CONFIG:_files' \
-'--format=[]:FORMAT:(text json)' \
-'--strict-host-key-checking=[]:STRICT_HOST_KEY_CHECKING:(yes accept-new no off)' \
-'--known-hosts=[]:KNOWN_HOSTS:_files' \
-'--no-reboot[]' \
-'-n[]' \
-'--print[]' \
-'-V[]' \
-'--version[]' \
-'-d[]' \
-'--debug[]' \
-'-q[]' \
-'--quiet[]' \
-'--no-color[]' \
+'*-t+[target to operate on]:TARGETS:_default' \
+'*--target=[target to operate on]:TARGETS:_default' \
+'-c+[path to repose configuration]:CONFIG:_files' \
+'--config=[path to repose configuration]:CONFIG:_files' \
+'--format=[console output format\: '\''text'\'' (default) or '\''json'\'' (one event per line)]:FORMAT:(text json)' \
+'--strict-host-key-checking=[SSH host-key policy (OpenSSH semantics)\: '\''yes'\'' refuses unknown hosts; '\''accept-new'\'' (default) accepts unknown hosts on first contact but rejects changed keys; '\''no'\''/'\''off'\'' accepts both unknown and changed keys (pre-1.12 behaviour)]:STRICT_HOST_KEY_CHECKING:(yes accept-new no off)' \
+'--known-hosts=[path to a custom known_hosts file (overrides ~/.ssh/known_hosts)]:KNOWN_HOSTS:_files' \
+'--no-reboot[on transactional hosts (SL Micro), stage the package change but do not reboot/reconnect/verify (default\: reboot)]' \
+'-n[print commands for host and exit]' \
+'--print[print commands for host and exit]' \
+'-V[show program'\''s version number and exit]' \
+'--version[show program'\''s version number and exit]' \
+'-d[enable debug logging]' \
+'--debug[enable debug logging]' \
+'-q[suppress messages from repose]' \
+'--quiet[suppress messages from repose]' \
+'--no-color[disable ANSI color in console output (honors NO_COLOR)]' \
 '-h[Print help]' \
 '--help[Print help]' \
-'*::repa:_default' \
+'*::repa -- REPA pattern specification for needed repository:_default' \
 && ret=0
 ;;
 (list-products)
 _arguments "${_arguments_options[@]}" : \
-'*-t+[]:TARGETS:_default' \
-'*--target=[]:TARGETS:_default' \
-'-c+[]:CONFIG:_files' \
-'--config=[]:CONFIG:_files' \
-'--format=[]:FORMAT:(text json)' \
-'--strict-host-key-checking=[]:STRICT_HOST_KEY_CHECKING:(yes accept-new no off)' \
-'--known-hosts=[]:KNOWN_HOSTS:_files' \
-'--yaml[]' \
-'-n[]' \
-'--print[]' \
-'-V[]' \
-'--version[]' \
-'-d[]' \
-'--debug[]' \
-'-q[]' \
-'--quiet[]' \
-'--no-color[]' \
+'*-t+[target to operate on]:TARGETS:_default' \
+'*--target=[target to operate on]:TARGETS:_default' \
+'-c+[path to repose configuration]:CONFIG:_files' \
+'--config=[path to repose configuration]:CONFIG:_files' \
+'--format=[console output format\: '\''text'\'' (default) or '\''json'\'' (one event per line)]:FORMAT:(text json)' \
+'--strict-host-key-checking=[SSH host-key policy (OpenSSH semantics)\: '\''yes'\'' refuses unknown hosts; '\''accept-new'\'' (default) accepts unknown hosts on first contact but rejects changed keys; '\''no'\''/'\''off'\'' accepts both unknown and changed keys (pre-1.12 behaviour)]:STRICT_HOST_KEY_CHECKING:(yes accept-new no off)' \
+'--known-hosts=[path to a custom known_hosts file (overrides ~/.ssh/known_hosts)]:KNOWN_HOSTS:_files' \
+'--yaml[Generate YAML host spec for refhosts.yml generator without normalization. Default for SLE 12-SP5 and SLE 15-SP3+ products]' \
+'-n[print commands for host and exit]' \
+'--print[print commands for host and exit]' \
+'-V[show program'\''s version number and exit]' \
+'--version[show program'\''s version number and exit]' \
+'-d[enable debug logging]' \
+'--debug[enable debug logging]' \
+'-q[suppress messages from repose]' \
+'--quiet[suppress messages from repose]' \
+'--no-color[disable ANSI color in console output (honors NO_COLOR)]' \
 '-h[Print help]' \
 '--help[Print help]' \
 && ret=0
 ;;
 (list-repos)
 _arguments "${_arguments_options[@]}" : \
-'*-t+[]:TARGETS:_default' \
-'*--target=[]:TARGETS:_default' \
-'-c+[]:CONFIG:_files' \
-'--config=[]:CONFIG:_files' \
-'--format=[]:FORMAT:(text json)' \
-'--strict-host-key-checking=[]:STRICT_HOST_KEY_CHECKING:(yes accept-new no off)' \
-'--known-hosts=[]:KNOWN_HOSTS:_files' \
-'-n[]' \
-'--print[]' \
-'-V[]' \
-'--version[]' \
-'-d[]' \
-'--debug[]' \
-'-q[]' \
-'--quiet[]' \
-'--no-color[]' \
+'*-t+[target to operate on]:TARGETS:_default' \
+'*--target=[target to operate on]:TARGETS:_default' \
+'-c+[path to repose configuration]:CONFIG:_files' \
+'--config=[path to repose configuration]:CONFIG:_files' \
+'--format=[console output format\: '\''text'\'' (default) or '\''json'\'' (one event per line)]:FORMAT:(text json)' \
+'--strict-host-key-checking=[SSH host-key policy (OpenSSH semantics)\: '\''yes'\'' refuses unknown hosts; '\''accept-new'\'' (default) accepts unknown hosts on first contact but rejects changed keys; '\''no'\''/'\''off'\'' accepts both unknown and changed keys (pre-1.12 behaviour)]:STRICT_HOST_KEY_CHECKING:(yes accept-new no off)' \
+'--known-hosts=[path to a custom known_hosts file (overrides ~/.ssh/known_hosts)]:KNOWN_HOSTS:_files' \
+'-n[print commands for host and exit]' \
+'--print[print commands for host and exit]' \
+'-V[show program'\''s version number and exit]' \
+'--version[show program'\''s version number and exit]' \
+'-d[enable debug logging]' \
+'--debug[enable debug logging]' \
+'-q[suppress messages from repose]' \
+'--quiet[suppress messages from repose]' \
+'--no-color[disable ANSI color in console output (honors NO_COLOR)]' \
 '-h[Print help]' \
 '--help[Print help]' \
 && ret=0
 ;;
 (known-products)
 _arguments "${_arguments_options[@]}" : \
-'-c+[]:CONFIG:_files' \
-'--config=[]:CONFIG:_files' \
-'--format=[]:FORMAT:(text json)' \
-'--strict-host-key-checking=[]:STRICT_HOST_KEY_CHECKING:(yes accept-new no off)' \
-'--known-hosts=[]:KNOWN_HOSTS:_files' \
-'-n[]' \
-'--print[]' \
-'-V[]' \
-'--version[]' \
-'-d[]' \
-'--debug[]' \
-'-q[]' \
-'--quiet[]' \
-'--no-color[]' \
+'-c+[path to repose configuration]:CONFIG:_files' \
+'--config=[path to repose configuration]:CONFIG:_files' \
+'--format=[console output format\: '\''text'\'' (default) or '\''json'\'' (one event per line)]:FORMAT:(text json)' \
+'--strict-host-key-checking=[SSH host-key policy (OpenSSH semantics)\: '\''yes'\'' refuses unknown hosts; '\''accept-new'\'' (default) accepts unknown hosts on first contact but rejects changed keys; '\''no'\''/'\''off'\'' accepts both unknown and changed keys (pre-1.12 behaviour)]:STRICT_HOST_KEY_CHECKING:(yes accept-new no off)' \
+'--known-hosts=[path to a custom known_hosts file (overrides ~/.ssh/known_hosts)]:KNOWN_HOSTS:_files' \
+'-n[print commands for host and exit]' \
+'--print[print commands for host and exit]' \
+'-V[show program'\''s version number and exit]' \
+'--version[show program'\''s version number and exit]' \
+'-d[enable debug logging]' \
+'--debug[enable debug logging]' \
+'-q[suppress messages from repose]' \
+'--quiet[suppress messages from repose]' \
+'--no-color[disable ANSI color in console output (honors NO_COLOR)]' \
 '-h[Print help]' \
 '--help[Print help]' \
 && ret=0
@@ -313,15 +313,15 @@ esac
 (( $+functions[_repose_commands] )) ||
 _repose_commands() {
     local commands; commands=(
-'add:' \
-'remove:' \
-'reset:' \
-'install:' \
-'clear:' \
-'uninstall:' \
-'list-products:' \
-'list-repos:' \
-'known-products:' \
+'add:add specified repository to target' \
+'remove:remove repository from target' \
+'reset:reset target repositories to only installed products repositories' \
+'install:add specified repository to target and install product' \
+'clear:clear all repositories from target' \
+'uninstall:remove specified repository from target and uninstall product' \
+'list-products:list products on target' \
+'list-repos:list repositories on target' \
+'known-products:list known products by '\''repose'\''' \
 'help:Print this message or the help of the given subcommand(s)' \
     )
     _describe -t commands 'repose commands' commands "$@"
@@ -339,15 +339,15 @@ _repose__subcmd__clear_commands() {
 (( $+functions[_repose__subcmd__help_commands] )) ||
 _repose__subcmd__help_commands() {
     local commands; commands=(
-'add:' \
-'remove:' \
-'reset:' \
-'install:' \
-'clear:' \
-'uninstall:' \
-'list-products:' \
-'list-repos:' \
-'known-products:' \
+'add:add specified repository to target' \
+'remove:remove repository from target' \
+'reset:reset target repositories to only installed products repositories' \
+'install:add specified repository to target and install product' \
+'clear:clear all repositories from target' \
+'uninstall:remove specified repository from target and uninstall product' \
+'list-products:list products on target' \
+'list-repos:list repositories on target' \
+'known-products:list known products by '\''repose'\''' \
 'help:Print this message or the help of the given subcommand(s)' \
     )
     _describe -t commands 'repose help commands' commands "$@"

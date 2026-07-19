@@ -36,17 +36,17 @@ jobs:
       - name: Format
         run: cargo fmt --all -- --check
       - name: Clippy
-        run: cargo clippy --workspace --all-targets -- -D warnings
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
       - name: Layering (core ↛ ssh/russh)
         # Script lives at repo root; job working-directory is crates/.
         run: bash ../scripts/check-rust-layering.sh
       - name: Test
-        run: cargo test --workspace
+        run: cargo test --workspace --locked
       - name: Binary version line
         # Shape matches the historical Python line: `repose version: X.Y.Z`
         # (value is the crate version). Do not hard-code a version.
         run: |
-          out="$(cargo run -q -p repose-cli)"
+          out="$(cargo run -q --locked -p repose-cli --bin repose -- --version)"
           echo "got: $out"
           echo "$out" | grep -E '^repose version: [0-9]+\.[0-9]+\.[0-9]+$'
 
@@ -81,7 +81,7 @@ jobs:
         with:
           workspaces: crates -> target
       - name: Build Rust binary
-        run: cargo build -p repose-cli --manifest-path crates/Cargo.toml
+        run: cargo build --locked -p repose-cli --manifest-path crates/Cargo.toml
       - name: Golden parity (Rust vs committed goldens)
         env:
           REPOSE_RS: crates/target/debug/repose
@@ -104,6 +104,34 @@ jobs:
         with:
           workspaces: crates -> target
       - name: Regenerate man pages + completions
-        run: cargo run -p repose-cli --features gen --bin repose-gen -- repose-cli
+        run: cargo run --locked -p repose-cli --features gen --bin repose-gen -- repose-cli
       - name: Check for drift
-        run: git diff --exit-code -- repose-cli/man repose-cli/completions
+        # Fail on modified tracked assets AND on untracked leftovers (e.g. a
+        # renamed page that regeneration no longer produces/overwrites).
+        run: |
+          git diff --exit-code -- repose-cli/man repose-cli/completions
+          untracked="$(git status --porcelain -- repose-cli/man repose-cli/completions)"
+          if [ -n "$untracked" ]; then
+            echo "::error::untracked generated assets:"
+            echo "$untracked"
+            exit 1
+          fi
+
+  rust-msrv:
+    # Build with the minimum supported Rust version (rust-version in
+    # crates/Cargo.toml) so MSRV cannot silently drift.
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: crates
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+      - name: Install Rust toolchain (MSRV)
+        uses: dtolnay/rust-toolchain@1.85
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32  # v2
+        with:
+          workspaces: crates -> target
+      - name: Build (MSRV)
+        run: cargo build --workspace --locked
