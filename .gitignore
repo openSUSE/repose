@@ -1,5 +1,6 @@
 # Rust / Cargo (workspace under crates/)
 /crates/target/
 /target/
+/coverage/
 *.rs.bk
 Cargo.lock.bak

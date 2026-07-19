@@ -34,9 +34,32 @@ The CLI vector (`cli/known_products.txt`) is the committed `known-products`
 output for `template/sample.yml`. `scripts/check-cli.sh` asserts the Rust
 binary matches this expected output byte-for-byte and upholds the CLI-surface
 invariants (no `--ssh-backend`, `repose version: X.Y.Z` shape, all nine
-subcommands). Run in CI by the `rust-cli` job. Dry-run mutation and
-connect/accept-new coverage needs a containerized sshd and is tracked
-separately.
+subcommands). Run in CI by the `rust-cli` job.
+
+## OpenSSH integration and coverage
+
+`tests/ssh/Dockerfile` provides an isolated OpenSSH server with SFTP, the
+`sles-16-0` product and repository vectors, and a deterministic `zypper -x lr`
+response. `tests/ssh/run.sh` generates fresh client and host keys, publishes
+SSH on an ephemeral loopback port, waits for the container health check, runs
+the supplied command, and removes the container and keys on exit.
+
+The live tests cover public-key authentication, strict/accept-new/off host-key
+policies, command streams/status/timeout, SFTP list/read/readlink and reuse,
+close/reconnect, system/repository discovery, per-host failure isolation, CLI
+`list-products`, CLI `list-repos`, and dry-run `clear` in text and NDJSON.
+
+Run the same coverage check as CI from the repository root:
+
+```sh
+tests/ssh/run.sh scripts/check-coverage.sh
+```
+
+The command writes `coverage/coverage.txt`, `coverage/lcov.info`, and
+`coverage/summary.json`. `scripts/check-coverage.sh` rejects workspace line
+coverage below its committed baseline. After adding meaningful tests, raise
+`LINE_BASELINE` in that script to the rounded-down observed percentage; never
+lower it without a reviewed explanation for the coverage loss.
 
 Normative rule: the committed vectors beat the design doc — they define the
 binary's expected behavior and are updated deliberately, never regenerated
