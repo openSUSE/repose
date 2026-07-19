@@ -20,3 +20,12 @@ QA:
       url: http://qa/$version/
     default_repos:
       - tools
+PackageHub:
+  "15": &ph
+    pool:
+      url: http://example.invalid/product/$version/$arch/
+      enabled: true
+    default_repos:
+      - pool
+  "15-SP6":
+    <<: *ph

@@ -194,6 +194,15 @@ QA:
       url: http://qa/$version/
     default_repos:
       - tools
+PackageHub:
+  "15": &ph
+    pool:
+      url: http://example.invalid/product/$version/$arch/
+      enabled: true
+    default_repos:
+      - pool
+  "15-SP6":
+    <<: *ph
 """
     (ORACLE / "template" / "sample.yml").write_text(yaml_text, encoding="utf-8")
     td = Path(tempfile.mkdtemp())
@@ -209,6 +218,8 @@ QA:
         "SLES:15-SP9:x86_64",
         "SLES:15-SP3:x86_64:missing",
         "NOPE:1",
+        # Product whose version config inherits via a YAML merge key (`<<:`).
+        "PackageHub:15-SP6:x86_64",
     ]:
         try:
             r = rq.solve_repa(Repa(repa_s), base)

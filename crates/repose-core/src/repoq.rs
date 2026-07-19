@@ -346,4 +346,51 @@ mod tests {
             }
         }
     }
+
+    /// A product whose version config inherits via a YAML merge key (`<<:`)
+    /// must resolve — not raise `UnsupportedProductError`. Regression for
+    /// `PackageHub:15-SP6` (which inherits `default_repos` from an anchor).
+    #[test]
+    fn solve_product_resolves_merge_inheriting_product() {
+        use crate::types::{Product, System};
+        let dir = tempfile::tempdir().unwrap();
+        let p = dir.path().join("merge.yml");
+        std::fs::write(
+            &p,
+            r#"
+PackageHub:
+  "15": &ph
+    pool:
+      url: http://example.invalid/product/$version/$arch/
+      enabled: true
+    default_repos:
+      - pool
+  "15-SP6":
+    <<: *ph
+"#,
+        )
+        .unwrap();
+        let tpl = load_template(&p).unwrap();
+        let rq = Repoq::new(tpl);
+        let system = System {
+            base: Product {
+                name: "PackageHub".into(),
+                version: "15-SP6".into(),
+                arch: "x86_64".into(),
+            },
+            addons: vec![],
+            transactional: false,
+        };
+        let resolved = rq
+            .solve_product(&system)
+            .expect("merge-inheriting product must resolve");
+        let repos = &resolved["PackageHub"];
+        assert_eq!(repos.len(), 1, "one default repo inherited via `<<:`");
+        assert_eq!(repos[0].name, "PackageHub:15-SP6::pool");
+        assert_eq!(
+            repos[0].url,
+            "http://example.invalid/product/15-SP6/x86_64/"
+        );
+        assert!(repos[0].refresh, "enabled: true carries through the merge");
+    }
 }
