@@ -15,10 +15,13 @@
 //!
 //! Python stores addons in a `frozenset`, so its addon *ordering* is not
 //! reproducible; Rust emits a deterministic sorted order. Cases with >= 2
-//! addons are therefore compared order-insensitively (sort the lines), while
-//! the base-product structural line — the one the codestream bug corrupted —
-//! is additionally asserted verbatim and in place. Single-addon cases are
-//! compared byte-for-byte.
+//! addons are therefore compared order-insensitively — as sorted lines for
+//! text/json (self-contained lines), and as a set of complete `- name:`
+//! addon blocks for yaml (so name/version cross-attribution between addons
+//! still fails) — while the base-product structural line, the one the
+//! codestream bug corrupted, is additionally asserted verbatim and at its
+//! exact line position, and total byte length plus trailing newline must
+//! always match. Zero/single-addon cases are compared byte-for-byte.
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -105,21 +108,31 @@ fn render_yaml(hostname: &str, sys: &System) -> String {
     String::from_utf8(out).unwrap()
 }
 
-/// The base-product structural line/block for a format — the specific bytes the
-/// nested `<codestream><name>` bug corrupted. Checked verbatim even in the
-/// order-insensitive path.
-fn base_marker(fmt: &str, s: &str) -> String {
+/// The base-product structural line/block for a format — the specific bytes
+/// the nested `<codestream><name>` bug corrupted — plus its LINE POSITION, so
+/// a rendering that emits the right bytes in the wrong place (e.g. base after
+/// the addons in json) still fails. Checked even in the order-insensitive
+/// path: addon reordering never moves the base marker (text/json put the base
+/// first; in yaml every addon occupies the same number of lines regardless of
+/// order, and `product:` follows the whole addons section).
+fn base_marker(fmt: &str, s: &str) -> (usize, String) {
     match fmt {
-        "text" => s
-            .lines()
-            .find(|l| l.starts_with("  Base product:"))
-            .expect("text base-product line")
-            .to_string(),
-        "json" => s
-            .lines()
-            .find(|l| l.contains("\"kind\": \"base\""))
-            .expect("json base object")
-            .to_string(),
+        "text" => {
+            let (pos, line) = s
+                .lines()
+                .enumerate()
+                .find(|(_, l)| l.starts_with("  Base product:"))
+                .expect("text base-product line");
+            (pos, line.to_string())
+        }
+        "json" => {
+            let (pos, line) = s
+                .lines()
+                .enumerate()
+                .find(|(_, l)| l.contains("\"kind\": \"base\""))
+                .expect("json base object");
+            (pos, line.to_string())
+        }
         "yaml" => {
             let lines: Vec<&str> = s.lines().collect();
             let start = lines
@@ -134,10 +147,56 @@ fn base_marker(fmt: &str, s: &str) -> String {
                     break;
                 }
             }
-            block.join("\n")
+            (start, block.join("\n"))
         }
         other => panic!("unknown format {other}"),
     }
+}
+
+/// Split a rendered YAML document into (head, addon blocks, tail): head is
+/// everything through the `addons:` key, each block is one complete
+/// `- name:`-rooted addon entry (its lines in order), tail is everything from
+/// the first following top-level key (`arch:`) onward.
+fn split_yaml_addons(s: &str) -> (Vec<&str>, Vec<String>, Vec<&str>) {
+    let lines: Vec<&str> = s.lines().collect();
+    let Some(start) = lines.iter().position(|l| *l == "addons:") else {
+        // "addons: []" (or no addons key at all): nothing to chunk.
+        return (lines, vec![], vec![]);
+    };
+    let mut blocks: Vec<Vec<&str>> = Vec::new();
+    let mut i = start + 1;
+    while i < lines.len() {
+        let l = lines[i];
+        if l.starts_with("- ") {
+            blocks.push(vec![l]);
+        } else if l.starts_with(' ') {
+            blocks
+                .last_mut()
+                .expect("addon continuation line before any '- name:' entry")
+                .push(l);
+        } else {
+            break;
+        }
+        i += 1;
+    }
+    (
+        lines[..=start].to_vec(),
+        blocks.into_iter().map(|b| b.join("\n")).collect(),
+        lines[i..].to_vec(),
+    )
+}
+
+/// Order-insensitive yaml compare that keeps addon entries INTACT: the head
+/// and tail must match verbatim, and the addons section must contain the same
+/// SET of complete `- name:` blocks (each block's internal line order
+/// preserved), so cross-attributing one addon's version to another's name
+/// fails even though the flat line multiset would be identical.
+fn yaml_addon_set_eq(golden: &str, actual: &str) -> bool {
+    let (g_head, mut g_blocks, g_tail) = split_yaml_addons(golden);
+    let (a_head, mut a_blocks, a_tail) = split_yaml_addons(actual);
+    g_blocks.sort_unstable();
+    a_blocks.sort_unstable();
+    g_head == a_head && g_blocks == a_blocks && g_tail == a_tail
 }
 
 fn sorted_lines(s: &str) -> Vec<&str> {
@@ -162,18 +221,39 @@ fn fail(label: &str, fmt: &str, mode: &str, expected: &str, actual: &str) -> ! {
 }
 
 fn check(label: &str, fmt: &str, golden: &str, actual: &str, addon_count: usize) {
-    // >= 2 addons: Python frozenset order is non-reproducible, so compare the
-    // set of lines, then pin the base-product line verbatim. 0/1 addon: the
-    // output is deterministic, so require exact byte-equality.
+    // Whole-file shape first: byte length and trailing newline must always
+    // match — `lines()`-based comparison alone would miss a lost final `\n`
+    // or duplicated/merged whitespace.
+    assert_eq!(
+        golden.len(),
+        actual.len(),
+        "\nrefhost parity BYTE-LENGTH MISMATCH [{label}] {fmt}\n\
+         --- full expected ---\n{golden}\n--- full actual ---\n{actual}"
+    );
+    assert_eq!(
+        golden.ends_with('\n'),
+        actual.ends_with('\n'),
+        "refhost parity TRAILING-NEWLINE MISMATCH [{label}] {fmt}"
+    );
+
+    // >= 2 addons: Python frozenset order is non-reproducible, so compare
+    // order-insensitively — whole addon blocks for yaml, lines for text/json
+    // (whose lines are self-contained) — then pin the base-product marker
+    // verbatim AND at its position. 0/1 addon: the output is deterministic,
+    // so require exact byte-equality.
     if addon_count >= 2 {
-        if sorted_lines(golden) != sorted_lines(actual) {
+        if fmt == "yaml" {
+            if !yaml_addon_set_eq(golden, actual) {
+                fail(label, fmt, "yaml-blocks", golden, actual);
+            }
+        } else if sorted_lines(golden) != sorted_lines(actual) {
             fail(label, fmt, "sorted", golden, actual);
         }
-        let (g, a) = (base_marker(fmt, golden), base_marker(fmt, actual));
-        if g != a {
+        let ((g_pos, g), (a_pos, a)) = (base_marker(fmt, golden), base_marker(fmt, actual));
+        if g != a || g_pos != a_pos {
             panic!(
                 "\nrefhost parity BASE-PRODUCT MISMATCH [{label}] {fmt}\n\
-                 expected: {g:?}\n  actual: {a:?}"
+                 expected (line {g_pos}): {g:?}\n  actual (line {a_pos}): {a:?}"
             );
         }
     } else if golden != actual {

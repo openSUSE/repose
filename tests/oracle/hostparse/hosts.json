@@ -32,6 +32,14 @@
     "username": "root"
   },
   {
+    "input": "Alice@Host.Example.ORG",
+    "ok": true,
+    "key": "host.example.org",
+    "hostname": "host.example.org",
+    "port": 22,
+    "username": "Alice"
+  },
+  {
     "input": "bad:port",
     "ok": false
   },

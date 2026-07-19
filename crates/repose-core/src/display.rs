@@ -23,9 +23,32 @@ fn sorted_addons(system: &System) -> Vec<&Product> {
     addons
 }
 
-/// One JSON scalar, using `serde_json` so escaping/quoting matches `json.dumps`.
+/// One JSON scalar, matching Python `json.dumps` with its default
+/// `ensure_ascii=True`: serde_json already escapes ASCII controls, `"` and
+/// `\` identically (verified: `json.dumps('tab\tq"b\\s\x01')` ==
+/// `serde_json::to_string`), but emits non-ASCII as raw UTF-8 where Python
+/// emits `\uXXXX` per UTF-16 code unit (lowercase hex, surrogate pairs for
+/// astral chars): U+00E4 becomes `\u00e4`, U+1F600 becomes the
+/// surrogate pair `\ud83d\ude00`.
 fn js(s: &str) -> String {
-    serde_json::to_string(s).expect("string always serializes")
+    let quoted = serde_json::to_string(s).expect("string always serializes");
+    if quoted.is_ascii() {
+        return quoted;
+    }
+    // Escape sequences serde emits are pure ASCII, so every non-ASCII char
+    // left in `quoted` is a literal char that json.dumps would \u-escape.
+    let mut out = String::with_capacity(quoted.len());
+    let mut units = [0u16; 2];
+    for c in quoted.chars() {
+        if c.is_ascii() {
+            out.push(c);
+        } else {
+            for u in c.encode_utf16(&mut units) {
+                out.push_str(&format!("\\u{u:04x}"));
+            }
+        }
+    }
+    out
 }
 
 /// A single `list-products` JSON event line, matching Python `json.dumps` with
@@ -64,12 +87,67 @@ fn known_product_json_line(name: &str) -> String {
     format!("{{\"event\": \"known_product\", \"name\": {}}}", js(name))
 }
 
+/// True when the string parses as a YAML 1.2 core int or float, so ruamel
+/// would emit it quoted to keep it a string: `0`, `22`, `08`, `+1`, `-1`,
+/// `6.1`, `.5`, `1.`, `1e3`. Plain SUSE shapes (`15-SP3`, `SP3`, `ALL`,
+/// `tumbleweed`, `3.19.1`) do not match.
+fn is_numeric_like(s: &str) -> bool {
+    let t = s.strip_prefix(['+', '-']).unwrap_or(s);
+    if t.is_empty() {
+        return false;
+    }
+    let (mantissa, exp) = match t.split_once(['e', 'E']) {
+        Some((m, e)) => (m, Some(e)),
+        None => (t, None),
+    };
+    if let Some(e) = exp {
+        let e = e.strip_prefix(['+', '-']).unwrap_or(e);
+        if e.is_empty() || !e.bytes().all(|b| b.is_ascii_digit()) {
+            return false;
+        }
+    }
+    match mantissa.split_once('.') {
+        // "6.1", "1." (frac may be empty), ".5" (int part may be empty) —
+        // but a lone "." is not numeric.
+        Some((int, frac)) => {
+            (!int.is_empty() || !frac.is_empty())
+                && int.bytes().all(|b| b.is_ascii_digit())
+                && frac.bytes().all(|b| b.is_ascii_digit())
+        }
+        None => !mantissa.is_empty() && mantissa.bytes().all(|b| b.is_ascii_digit()),
+    }
+}
+
+/// One YAML string scalar, single-quoted exactly where ruamel's safe dumper
+/// quotes (verified against ruamel.yaml `YAML(typ='safe')`, see the review
+/// evidence): the empty string, int/float-like strings (`'0'`, `'22'`,
+/// `'08'`, `'6.1'`), YAML 1.2 core booleans/null (`true`/`True`/`TRUE`,
+/// `false`/..., `null`/`Null`/`NULL`, `~` — but NOT the YAML 1.1-only
+/// `yes`/`no`/`on`/`off`, which ruamel leaves plain), and strings containing
+/// `": "` or `" #"`. Everything else (`15-SP3`, `SP3`, `ALL`, `SLES`,
+/// `tumbleweed`, hostnames) stays plain.
+fn yaml_string(s: &str) -> String {
+    let quote = s.is_empty()
+        || is_numeric_like(s)
+        || matches!(
+            s,
+            "true" | "True" | "TRUE" | "false" | "False" | "FALSE" | "null" | "Null" | "NULL" | "~"
+        )
+        || s.contains(": ")
+        || s.contains(" #");
+    if quote {
+        format!("'{}'", s.replace('\'', "''"))
+    } else {
+        s.to_string()
+    }
+}
+
 /// Render one YAML scalar (plain style) from a `transform_version_partialy`
-/// leaf: numbers unquoted, strings as plain scalars — matching ruamel's safe
-/// dumper for the SUSE version shapes seen in real `.prod` files.
+/// leaf: numbers unquoted, strings via [`yaml_string`] — matching ruamel's
+/// safe dumper for the SUSE version shapes seen in real `.prod` files.
 fn yaml_scalar(v: &Value) -> String {
     match v {
-        Value::String(s) => s.clone(),
+        Value::String(s) => yaml_string(s),
         Value::Number(n) => n.to_string(),
         Value::Bool(b) => b.to_string(),
         other => other.to_string(),
@@ -121,18 +199,84 @@ pub fn list_products_yaml<W: Write>(
     } else {
         s.push_str("addons:\n");
         for a in &addons {
-            s.push_str(&format!("- name: {}\n", a.name));
+            s.push_str(&format!("- name: {}\n", yaml_string(&a.name)));
             push_version(&mut s, &transform_version_partialy(&a.version), "  ");
         }
     }
     s.push_str(&format!("arch: {}\n", system.arch()));
     s.push_str("location:\n- some location\n");
-    s.push_str(&format!("name: {hostname}\n"));
+    s.push_str(&format!("name: {}\n", yaml_string(hostname)));
     s.push_str("product:\n");
-    s.push_str(&format!("  name: {}\n", base.name));
+    s.push_str(&format!("  name: {}\n", yaml_string(&base.name)));
     push_version(&mut s, &transform_version_partialy(&base.version), "  ");
     s.push_str("...\n");
     out.write_all(s.as_bytes())
+}
+
+/// A `transform_version_partialy` leaf as Python `json.dumps` renders it:
+/// normalized versions become `{"major": ..., "minor": ...}` (insertion order
+/// major-then-minor, `", "`/`": "` separators), unnormalized ones stay a bare
+/// scalar (string via the `ensure_ascii` [`js`], numbers verbatim).
+fn version_json(v: &Value) -> String {
+    fn scalar(v: &Value) -> String {
+        match v {
+            Value::String(s) => js(s),
+            other => other.to_string(),
+        }
+    }
+    match v.as_object() {
+        Some(m) => {
+            let mut parts = Vec::new();
+            if let Some(major) = m.get("major") {
+                parts.push(format!("\"major\": {}", scalar(major)));
+            }
+            if let Some(minor) = m.get("minor") {
+                parts.push(format!("\"minor\": {}", scalar(minor)));
+            }
+            format!("{{{}}}", parts.join(", "))
+        }
+        None => scalar(v),
+    }
+}
+
+/// NDJSON refhost-spec output for `list-products --yaml --format json`
+/// (Python `JsonCommandDisplay.list_products_yaml`, display.py:121-127): one
+/// `host_spec` document per host, carrying the same payload as the YAML
+/// dumper — `{"event": "host_spec", "host": <hostname>,
+/// **to_refhost_dict_partially_normalized(), "name": <hostname>}` — i.e. key
+/// order event, host, location, arch, product, addons, name, byte-matching
+/// `json.dumps` (default separators and `ensure_ascii`). The addon list order
+/// is sorted (see [`sorted_addons`]); Python's is a non-reproducible
+/// `frozenset` order.
+pub fn list_products_yaml_json<W: Write>(
+    out: &mut W,
+    hostname: &str,
+    system: &System,
+) -> io::Result<()> {
+    use crate::transform::transform_version_partialy;
+
+    let base = system.get_base();
+    let addons: Vec<String> = sorted_addons(system)
+        .iter()
+        .map(|a| {
+            format!(
+                "{{\"name\": {}, \"version\": {}}}",
+                js(&a.name),
+                version_json(&transform_version_partialy(&a.version)),
+            )
+        })
+        .collect();
+    writeln!(
+        out,
+        "{{\"event\": \"host_spec\", \"host\": {host}, \"location\": [\"some location\"], \
+         \"arch\": {arch}, \"product\": {{\"name\": {base_name}, \"version\": {base_version}}}, \
+         \"addons\": [{addons}], \"name\": {host}}}",
+        host = js(hostname),
+        arch = js(system.arch()),
+        base_name = js(&base.name),
+        base_version = version_json(&transform_version_partialy(&base.version)),
+        addons = addons.join(", "),
+    )
 }
 
 pub trait CommandDisplay {
@@ -321,6 +465,105 @@ mod tests {
              Addon: SL-Micro-Extras{pad} - version: 6.1\n\n"
         );
         assert_eq!(buf.0, expected);
+    }
+
+    #[test]
+    fn js_matches_python_json_dumps_ensure_ascii() {
+        // Ground truth from python3 json.dumps (ensure_ascii=True default):
+        //   json.dumps("Qualität")  -> "Qualit\u00e4t"   (lowercase hex)
+        //   json.dumps("café 😀")   -> "caf\u00e9 \ud83d\ude00"  (surrogates)
+        assert_eq!(js("Qualität"), r#""Qualit\u00e4t""#);
+        assert_eq!(js("café 😀"), r#""caf\u00e9 \ud83d\ude00""#);
+        // ASCII controls / quote / backslash: serde_json already matches
+        // json.dumps('tab\tq"b\\s\x01') byte-for-byte.
+        assert_eq!(js("tab\tq\"b\\s\u{1}"), r#""tab\tq\"b\\s\u0001""#);
+        assert_eq!(js("plain"), "\"plain\"");
+    }
+
+    #[test]
+    fn yaml_string_quotes_exactly_ruamel_classes() {
+        // Both lists verified against ruamel.yaml YAML(typ='safe') dumping
+        // {'k': s} (see review evidence): quoted = empty string, int-like,
+        // float-like, YAML 1.2 core bool/null spellings, ': ' / ' #'.
+        for s in [
+            "", "0", "2", "22", "08", "+1", "-1", "6.1", ".5", "1.", "1e3", "true", "True", "TRUE",
+            "false", "False", "FALSE", "null", "Null", "NULL", "~", "a: b", "a #c",
+        ] {
+            assert_eq!(yaml_string(s), format!("'{s}'"), "{s:?} must be quoted");
+        }
+        // Plain: the YAML 1.1-only bool spellings and ordinary SUSE shapes.
+        for s in [
+            "yes",
+            "no",
+            "on",
+            "off",
+            "Yes",
+            "No",
+            "On",
+            "Off",
+            "ALL",
+            "SP3",
+            "15-SP3",
+            "3.19.1",
+            "SLES",
+            "tumbleweed",
+            "a b",
+            "x:y",
+            "ulysse.qam.suse.cz",
+        ] {
+            assert_eq!(yaml_string(s), s, "{s:?} must stay plain");
+        }
+    }
+
+    #[test]
+    fn yaml_empty_version_is_quoted_empty_scalar() {
+        // transform_version_partialy("") passes the empty string through
+        // unchanged; ruamel renders it `version: ''` — NOT `version: ` with a
+        // trailing space.
+        let mut s = String::new();
+        push_version(&mut s, &Value::String(String::new()), "  ");
+        assert_eq!(s, "  version: ''\n");
+    }
+
+    #[test]
+    fn list_products_yaml_json_matches_python_json_dumps() {
+        // Ground truth derived by running the display.py:121-127 payload
+        // ({"event": "host_spec", "host": h, **to_refhost_dict_partially_
+        // normalized(), "name": h}) through python3 json.dumps for the
+        // sample_system fixture.
+        let mut buf = Buffer::default();
+        list_products_yaml_json(&mut buf, "ulysse.qam.suse.cz", &sample_system()).unwrap();
+        assert_eq!(
+            buf.0,
+            "{\"event\": \"host_spec\", \"host\": \"ulysse.qam.suse.cz\", \
+             \"location\": [\"some location\"], \"arch\": \"x86_64\", \
+             \"product\": {\"name\": \"SL-Micro\", \"version\": {\"major\": 6, \"minor\": 1}}, \
+             \"addons\": [{\"name\": \"SL-Micro-Extras\", \"version\": {\"major\": 6, \"minor\": 1}}], \
+             \"name\": \"ulysse.qam.suse.cz\"}\n"
+        );
+    }
+
+    #[test]
+    fn list_products_yaml_json_unnormalized_version_and_no_addons() {
+        // python3: json.dumps of the same payload for a tumbleweed host with
+        // no addons — version stays a bare string, addons is [].
+        let sys = System {
+            base: Product {
+                name: "openSUSE Tumbleweed".into(),
+                version: "tumbleweed".into(),
+                arch: "x86_64".into(),
+            },
+            addons: vec![],
+            transactional: false,
+        };
+        let mut buf = Buffer::default();
+        list_products_yaml_json(&mut buf, "h2", &sys).unwrap();
+        assert_eq!(
+            buf.0,
+            "{\"event\": \"host_spec\", \"host\": \"h2\", \"location\": [\"some location\"], \
+             \"arch\": \"x86_64\", \"product\": {\"name\": \"openSUSE Tumbleweed\", \
+             \"version\": \"tumbleweed\"}, \"addons\": [], \"name\": \"h2\"}\n"
+        );
     }
 
     #[test]

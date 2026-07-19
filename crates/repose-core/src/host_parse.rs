@@ -41,29 +41,34 @@ pub fn parse_host(arg: &str) -> Result<HostSpec, HostParseError> {
 
     // IPv6 in brackets not supported in Python path (urlparse //host) — skip.
     // host:port — if last colon and port is numeric.
+    //
+    // urlparse's `.hostname` attribute lowercases (netloc.lower() in
+    // `_hostinfo`); `.username` and `.port` are untouched. Mirror that, incl.
+    // in the PortNotInt message, which Python builds from `x.hostname`.
     let (hostname, port) = if let Some((h, p)) = host_part.rsplit_once(':') {
         // Distinguish hostname:port from bare IPv6 (no brackets) — Python
         // ValueError on non-int port.
+        let h_lower = h.to_lowercase();
         if p.is_empty() {
-            return Err(HostParseError::PortNotInt(h.to_string()));
+            return Err(HostParseError::PortNotInt(h_lower));
         }
         match p.parse::<u16>() {
             Ok(port) => {
                 if h.is_empty() {
                     return Err(HostParseError::EmptyHost);
                 }
-                (h.to_string(), port)
+                (h_lower, port)
             }
             Err(_) => {
                 // non-numeric port segment
-                return Err(HostParseError::PortNotInt(h.to_string()));
+                return Err(HostParseError::PortNotInt(h_lower));
             }
         }
     } else {
         if host_part.is_empty() {
             return Err(HostParseError::EmptyHost);
         }
-        (host_part.to_string(), DEFAULT_PORT)
+        (host_part.to_lowercase(), DEFAULT_PORT)
     };
 
     let username = user_part
@@ -118,5 +123,24 @@ mod tests {
         assert_eq!(h.username, "root");
         assert_eq!(h.port, 22);
         assert_eq!(h.key, "example.com");
+    }
+
+    #[test]
+    fn hostname_lowercased_like_urlparse() {
+        // python3: urlparse('//Root@EXAMPLE.com:2222') -> hostname
+        // 'example.com', username 'Root', port 2222 — only the hostname
+        // attribute lowercases.
+        let h = parse_host("Root@EXAMPLE.com:2222").unwrap();
+        assert_eq!(h.hostname, "example.com");
+        assert_eq!(h.username, "Root");
+        assert_eq!(h.port, 2222);
+        assert_eq!(h.key, "example.com:2222");
+
+        // python3: urlparse('//UPPER.host:abc') raises ValueError on .port
+        // and the error message carries the lowercased hostname.
+        assert_eq!(
+            parse_host("UPPER.host:abc"),
+            Err(HostParseError::PortNotInt("upper.host".into()))
+        );
     }
 }

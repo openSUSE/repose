@@ -22,7 +22,18 @@ pub async fn run_list_products<W: Write>(
             let (hostname, port) = split_key(host.key());
             if let Some(sys) = host.products() {
                 if opts.yaml {
-                    let _ = crate::display::list_products_yaml(&mut *out, hostname, sys);
+                    // Python `--yaml` honors `--format`: YAML documents for
+                    // text, per-host `host_spec` NDJSON for json
+                    // (`JsonCommandDisplay.list_products_yaml`).
+                    match opts.format {
+                        crate::console::OutputFormat::Json => {
+                            let _ =
+                                crate::display::list_products_yaml_json(&mut *out, hostname, sys);
+                        }
+                        crate::console::OutputFormat::Text => {
+                            let _ = crate::display::list_products_yaml(&mut *out, hostname, sys);
+                        }
+                    }
                 } else {
                     match opts.format {
                         crate::console::OutputFormat::Json => {
@@ -146,5 +157,46 @@ mod tests {
         assert!(buf.0.contains("arch: x86_64"), "{}", buf.0);
         assert!(buf.0.contains("sle-module-basesystem"), "{}", buf.0);
         assert!(buf.0.contains("name: h1"), "{}", buf.0);
+    }
+
+    #[tokio::test]
+    async fn list_products_yaml_with_json_format_emits_host_spec_ndjson() {
+        // Python `repose list-products --yaml --format json` emits one
+        // `host_spec` JSON document per host (display.py:121-127), NOT raw
+        // YAML. The expected line below is the byte-exact python3 ground
+        // truth: json.dumps({"event": "host_spec", "host": "h1",
+        // **system.to_refhost_dict_partially_normalized(), "name": "h1"})
+        // for base SLES 15-SP3 x86_64 + addon sle-module-basesystem 15-SP3.
+        use crate::mock::{MockHost, MockHostGroup};
+        use crate::types::{Product, System};
+        let mut g = MockHostGroup::new();
+        g.insert(MockHost::new("h1").with_products(System {
+            base: Product {
+                name: "SLES".into(),
+                version: "15-SP3".into(),
+                arch: "x86_64".into(),
+            },
+            addons: vec![Product {
+                name: "sle-module-basesystem".into(),
+                version: "15-SP3".into(),
+                arch: "x86_64".into(),
+            }],
+            transactional: false,
+        }));
+        let opts = CommandOptions {
+            yaml: true,
+            format: crate::console::OutputFormat::Json,
+            ..Default::default()
+        };
+        let mut buf = Buffer::default();
+        run_list_products(&opts, &mut g, &mut buf).await;
+        assert_eq!(
+            buf.0,
+            "{\"event\": \"host_spec\", \"host\": \"h1\", \"location\": [\"some location\"], \
+             \"arch\": \"x86_64\", \"product\": {\"name\": \"SLES\", \
+             \"version\": {\"major\": 15, \"minor\": \"SP3\"}}, \
+             \"addons\": [{\"name\": \"sle-module-basesystem\", \
+             \"version\": {\"major\": 15, \"minor\": \"SP3\"}}], \"name\": \"h1\"}\n"
+        );
     }
 }
