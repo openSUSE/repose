@@ -18,6 +18,11 @@ async-trait = "0.1"
 russh = "0.61"
 russh-sftp = "2.3"
 rpassword = "7.5"
+# Hashed (HashKnownHosts) known_hosts matching; both already in-tree via russh.
+hmac = "0.13"
+sha1 = "0.11"
+# Group fan-out (join_all); already in-tree via repose-core with same features.
+futures-util = { version = "0.3", default-features = false, features = ["std", "async-await"] }
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "time", "net", "io-util", "fs", "process"] }
 log = "0.4"
 zeroize = "1.8"

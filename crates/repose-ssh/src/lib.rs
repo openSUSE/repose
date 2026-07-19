@@ -2,6 +2,7 @@
 
 #![forbid(unsafe_code)]
 
+mod glob;
 pub mod host;
 mod hostkey;
 mod openssh_config;

@@ -4,6 +4,7 @@ use std::collections::BTreeMap;
 use std::time::Instant;
 
 use async_trait::async_trait;
+use futures_util::future::join_all;
 use repose_core::config::ConnectionConfig;
 use repose_core::error::SshError;
 use repose_core::host_parse::HostSpec;
@@ -104,6 +105,11 @@ impl Host for RusshHost {
 
     async fn run(&mut self, command: &str) -> Result<(), SshError> {
         if !self.connected {
+            // Python parity (async_target.py run): a failed dispatch still
+            // records a synthetic out entry (rc -1, empty streams) so the
+            // report shows this command as FAILED instead of desyncing.
+            self.out
+                .push((command.to_string(), String::new(), String::new(), -1, 0));
             return Err(SshError::NotConnected(self.key.clone()));
         }
         let start = Instant::now();
@@ -115,22 +121,26 @@ impl Host for RusshHost {
                 Ok(())
             }
             Err(SshError::Transport(msg)) if msg.contains("timed out") => {
-                // Contract: timeout still appends exitcode -1.
+                // Python parity: a timeout appends (command, "", "", -1) —
+                // the diagnostics go to the log, not the entry's stderr.
+                log::error!("{}: command {command:?} timed out", self.key);
                 self.out.push((
                     command.to_string(),
                     String::new(),
-                    msg.clone(),
+                    String::new(),
                     -1,
                     start.elapsed().as_secs(),
                 ));
                 Ok(())
             }
             Err(e) => {
-                // Prefer append when possible.
+                // Python parity: generic failures also append empty streams
+                // with rc -1 and log the reason.
+                log::error!("{}: failed to run command {command:?}: {e}", self.key);
                 self.out.push((
                     command.to_string(),
                     String::new(),
-                    e.to_string(),
+                    String::new(),
                     -1,
                     start.elapsed().as_secs(),
                 ));
@@ -151,15 +161,24 @@ impl Host for RusshHost {
         if !self.connected {
             return Ok(()); // Python: debug return without raise
         }
-        match self.session.run("zypper -x lr").await {
-            Ok((stdout, _, 0 | 106 | 6)) => {
-                self.raw_repos = Some(parse_repositories(&stdout));
-                Ok(())
+        // Python parity: read_repos goes through run(), so the zypper call
+        // is recorded as an out entry like any other command.
+        self.run("zypper -x lr").await?;
+        let (stdout, stderr, exitcode) = match self.out.last() {
+            Some((_, stdout, stderr, exitcode, _)) => (stdout.clone(), stderr.clone(), *exitcode),
+            None => {
+                return Err(SshError::Other(
+                    "no output recorded for zypper -x lr".into(),
+                ))
             }
-            Ok((_, stderr, code)) => Err(SshError::Other(format!(
-                "zypper -x lr failed exit {code}: {stderr}"
-            ))),
-            Err(e) => Err(e),
+        };
+        if matches!(exitcode, 0 | 106 | 6) {
+            self.raw_repos = Some(parse_repositories(&stdout));
+            Ok(())
+        } else {
+            Err(SshError::Other(format!(
+                "zypper -x lr failed exit {exitcode}: {stderr}"
+            )))
         }
     }
 
@@ -191,7 +210,8 @@ impl Host for RusshHost {
             if !before.is_empty() && !after.is_empty() && before == after {
                 log::warn!("boot_id unchanged after reboot on {}", self.key);
             }
-            let _ = self.read_products().await;
+            // Python parity: reboot does NOT re-read products itself; the
+            // command layer (`reboot_and_verify`) re-reads them afterwards.
         }
         Ok(ok)
     }
@@ -320,49 +340,99 @@ impl HostGroup for RusshHostGroup {
         self.hosts.get_mut(key).map(|h| h as &mut dyn Host)
     }
 
+    // Group operations fan out per host concurrently (Python
+    // `AsyncHostGroup` used one `asyncio.TaskGroup` per operation) while
+    // isolating per-host failures. `join_all` preserves input order, and
+    // the hosts map is a `BTreeMap`, so results stay in key order.
     async fn connect_and_prune(&mut self) {
-        let keys: Vec<_> = self.hosts.keys().cloned().collect();
-        for key in keys {
-            let fail = {
-                let h = self.hosts.get_mut(&key).expect("key");
-                h.connect().await.is_err()
-            };
-            if fail {
-                self.hosts.remove(&key);
-            }
+        let failed: Vec<String> =
+            join_all(self.hosts.iter_mut().map(|(key, host)| async move {
+                host.connect().await.is_err().then(|| key.clone())
+            }))
+            .await
+            .into_iter()
+            .flatten()
+            .collect();
+        for key in failed {
+            self.hosts.remove(&key);
         }
     }
 
     async fn read_products(&mut self) {
-        for h in self.hosts.values_mut() {
-            let _ = h.read_products().await;
-        }
+        join_all(self.hosts.values_mut().map(|host| async move {
+            let _ = host.read_products().await;
+        }))
+        .await;
     }
 
     async fn read_repos(&mut self) {
-        for h in self.hosts.values_mut() {
-            let _ = h.read_repos().await;
-        }
+        join_all(self.hosts.values_mut().map(|host| async move {
+            let _ = host.read_repos().await;
+        }))
+        .await;
     }
 
     async fn parse_repos(&mut self) {
-        for h in self.hosts.values_mut() {
-            let _ = h.parse_repos().await;
-        }
+        join_all(self.hosts.values_mut().map(|host| async move {
+            let _ = host.parse_repos().await;
+        }))
+        .await;
     }
 
     async fn run_all(&mut self, cmd: &str) {
-        let keys: Vec<_> = self.hosts.keys().cloned().collect();
-        for key in keys {
-            if let Some(h) = self.hosts.get_mut(&key) {
-                let _ = h.run(cmd).await;
-            }
-        }
+        join_all(self.hosts.values_mut().map(|host| async move {
+            let _ = host.run(cmd).await;
+        }))
+        .await;
     }
 
     async fn close(&mut self) {
-        for h in self.hosts.values_mut() {
-            let _ = h.close().await;
-        }
+        join_all(self.hosts.values_mut().map(|host| async move {
+            let _ = host.close().await;
+        }))
+        .await;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use repose_core::config::ConnectionConfig;
+    use repose_core::error::SshError;
+    use repose_core::host_parse::HostSpec;
+    use repose_core::traits::Host;
+
+    use super::RusshHost;
+
+    fn disconnected_host() -> RusshHost {
+        RusshHost::from_spec(
+            HostSpec {
+                key: "h1".into(),
+                hostname: "h1.example".into(),
+                port: 22,
+                username: "root".into(),
+            },
+            ConnectionConfig::default(),
+        )
+    }
+
+    #[tokio::test]
+    async fn run_on_a_disconnected_host_appends_a_synthetic_out_entry() {
+        let mut host = disconnected_host();
+        let err = host.run("uptime").await.unwrap_err();
+        assert!(matches!(err, SshError::NotConnected(_)));
+        // Python parity: the failed dispatch is visible in the report as
+        // (command, "", "", -1).
+        assert_eq!(
+            host.out(),
+            &[("uptime".to_string(), String::new(), String::new(), -1, 0)]
+        );
+    }
+
+    #[tokio::test]
+    async fn read_repos_on_a_disconnected_host_is_a_silent_no_op() {
+        let mut host = disconnected_host();
+        assert!(host.read_repos().await.is_ok());
+        assert!(host.out().is_empty());
+        assert!(host.raw_repos().is_none());
     }
 }

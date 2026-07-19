@@ -39,8 +39,11 @@ impl OpenSshOptions {
         let mut applies = false;
 
         for raw_line in contents.lines() {
-            let line = raw_line.split('#').next().unwrap_or_default().trim();
-            if line.is_empty() {
+            // OpenSSH only supports full-line comments (first non-blank
+            // character is `#`); a mid-line `#` is part of the value
+            // (e.g. `ProxyCommand ssh gw nc %h %p # not stripped`).
+            let line = raw_line.trim();
+            if line.is_empty() || line.starts_with('#') {
                 continue;
             }
             let Some((directive, value)) = split_directive(line) else {
@@ -150,7 +153,7 @@ fn host_patterns_match(patterns: &str, host: &str) -> bool {
         let (negated, pattern) = pattern
             .strip_prefix('!')
             .map_or((false, pattern), |pattern| (true, pattern));
-        if glob_matches(pattern, host) {
+        if crate::glob::glob_matches(pattern, host) {
             if negated {
                 return false;
             }
@@ -158,27 +161,6 @@ fn host_patterns_match(patterns: &str, host: &str) -> bool {
         }
     }
     positive_match
-}
-
-fn glob_matches(pattern: &str, value: &str) -> bool {
-    let pattern: Vec<_> = pattern.chars().collect();
-    let value: Vec<_> = value.chars().collect();
-    glob_matches_chars(&pattern, &value)
-}
-
-fn glob_matches_chars(pattern: &[char], value: &[char]) -> bool {
-    match pattern {
-        [] => value.is_empty(),
-        ['*', rest @ ..] => {
-            glob_matches_chars(rest, value)
-                || (!value.is_empty() && glob_matches_chars(pattern, &value[1..]))
-        }
-        ['?', rest @ ..] => !value.is_empty() && glob_matches_chars(rest, &value[1..]),
-        [first, rest @ ..] => {
-            value.first().is_some_and(|value| value == first)
-                && glob_matches_chars(rest, &value[1..])
-        }
-    }
 }
 
 #[cfg(test)]
@@ -219,6 +201,19 @@ mod tests {
         );
         assert_eq!(options.hostname.as_deref(), Some("generic"));
         assert_eq!(options.port, Some(2200));
+    }
+
+    #[test]
+    fn mid_line_hash_is_part_of_the_value() {
+        let options = OpenSshOptions::parse(
+            "# full-line comment\nHost qa\n   # indented comment\n  ProxyCommand nc %h %p # keep-me\n  IdentityFile /keys/with#hash\n",
+            "qa",
+        );
+        assert_eq!(options.proxy_command.as_deref(), Some("nc %h %p # keep-me"));
+        assert_eq!(
+            options.identity_files,
+            vec![PathBuf::from("/keys/with#hash")]
+        );
     }
 
     #[test]

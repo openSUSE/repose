@@ -1982,11 +1982,14 @@ name = "repose-ssh"
 version = "3.0.0"
 dependencies = [
  "async-trait",
+ "futures-util",
+ "hmac",
  "log",
  "repose-core",
  "rpassword",
  "russh",
  "russh-sftp",
+ "sha1",
  "tempfile",
  "tokio",
  "zeroize",
