@@ -73,6 +73,7 @@ pub async fn run_list_repos<W: Write>(
 
 pub fn run_known_products(
     config: &Path,
+    format: crate::console::OutputFormat,
     out: &mut impl Write,
 ) -> Result<ExitCode, crate::template::TemplateError> {
     let tpl = load_template(config)?;
@@ -81,8 +82,16 @@ pub fn run_known_products(
         .map(|m| m.keys().cloned().collect())
         .unwrap_or_default();
     names.sort();
-    let mut d = TextDisplay { output: out };
-    let _ = d.list_known_products(&names);
+    match format {
+        crate::console::OutputFormat::Json => {
+            let mut d = JsonDisplay { output: out };
+            let _ = d.list_known_products(&names);
+        }
+        crate::console::OutputFormat::Text => {
+            let mut d = TextDisplay { output: out };
+            let _ = d.list_known_products(&names);
+        }
+    }
     Ok(ExitCode::Ok)
 }
 
@@ -105,7 +114,7 @@ mod tests {
         let path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("../../tests/oracle/template/sample.yml");
         let mut buf = Buffer::default();
-        run_known_products(&path, &mut buf).unwrap();
+        run_known_products(&path, crate::console::OutputFormat::Text, &mut buf).unwrap();
         assert!(buf.0.contains("QA") && buf.0.contains("SLES"));
     }
 

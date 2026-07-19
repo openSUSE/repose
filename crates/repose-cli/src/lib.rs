@@ -200,7 +200,7 @@ async fn async_main() -> ExitCode {
             return ExitCode::SUCCESS;
         }
         Some(Commands::KnownProducts) => {
-            return known_products(&cli.config);
+            return known_products(&cli.config, cli.format.into());
         }
         Some(other) => other,
     };
@@ -242,8 +242,8 @@ fn init_logging(debug: bool, quiet: bool, no_color: bool) {
         .try_init();
 }
 
-fn known_products(config: &Path) -> ExitCode {
-    match run_known_products(config, &mut std::io::stdout()) {
+fn known_products(config: &Path, format: CoreFormat) -> ExitCode {
+    match run_known_products(config, format, &mut std::io::stdout()) {
         Ok(c) => exit_from(c),
         Err(e) => {
             eprintln!("error: {e}");

@@ -2,7 +2,7 @@
 
 use std::io::{self, Write};
 
-use serde_json::{json, Value};
+use serde_json::Value;
 
 use crate::types::{Product, Repositories, Repository, System};
 
@@ -41,6 +41,27 @@ fn product_json_line(host: &str, port: u16, kind: &str, p: &Product) -> String {
         js(&p.version),
         js(&p.arch),
     )
+}
+
+/// A single `list-repos` JSON event line, matching Python `json.dumps` with
+/// default separators (`", "` / `": "`) and insertion key order
+/// (event, host, port, alias, name, url, state).
+fn repo_json_line(host: &str, port: u16, r: &Repository) -> String {
+    format!(
+        "{{\"event\": \"repo\", \"host\": {}, \"port\": {}, \"alias\": {}, \"name\": {}, \"url\": {}, \"state\": {}}}",
+        js(host),
+        port,
+        js(&r.alias),
+        js(&r.name),
+        js(&r.url),
+        r.state,
+    )
+}
+
+/// A single `known-products` JSON event line, matching Python `json.dumps`
+/// (insertion key order: event, name).
+fn known_product_json_line(name: &str) -> String {
+    format!("{{\"event\": \"known_product\", \"name\": {}}}", js(name))
 }
 
 /// Render one YAML scalar (plain style) from a `transform_version_partialy`
@@ -194,30 +215,14 @@ impl<W: Write> CommandDisplay for JsonDisplay<W> {
 
     fn list_repos(&mut self, hostname: &str, port: u16, repos: &[Repository]) -> io::Result<()> {
         for r in repos {
-            writeln!(
-                self.output,
-                "{}",
-                json!({
-                    "event": "repo",
-                    "host": hostname,
-                    "port": port,
-                    "alias": r.alias,
-                    "name": r.name,
-                    "url": r.url,
-                    "state": r.state,
-                })
-            )?;
+            writeln!(self.output, "{}", repo_json_line(hostname, port, r))?;
         }
         Ok(())
     }
 
     fn list_known_products(&mut self, products: &[String]) -> io::Result<()> {
         for name in products {
-            writeln!(
-                self.output,
-                "{}",
-                json!({"event": "known_product", "name": name})
-            )?;
+            writeln!(self.output, "{}", known_product_json_line(name))?;
         }
         Ok(())
     }
@@ -273,6 +278,30 @@ mod tests {
             buf.0,
             "{\"event\": \"product\", \"host\": \"ulysse.qam.suse.cz\", \"port\": 22, \"kind\": \"base\", \"name\": \"SL-Micro\", \"version\": \"6.1\", \"arch\": \"x86_64\"}\n\
              {\"event\": \"product\", \"host\": \"ulysse.qam.suse.cz\", \"port\": 22, \"kind\": \"addon\", \"name\": \"SL-Micro-Extras\", \"version\": \"6.1\", \"arch\": \"x86_64\"}\n"
+        );
+    }
+
+    #[test]
+    fn repo_json_line_matches_python_json_dumps() {
+        let r = crate::types::Repository {
+            alias: "SLES:15-SP6::pool".into(),
+            name: "SLES:15-SP6::pool".into(),
+            url: "http://download.example.invalid/p/".into(),
+            state: true,
+        };
+        assert_eq!(
+            repo_json_line("dubai.qam.suse.cz", 22, &r),
+            "{\"event\": \"repo\", \"host\": \"dubai.qam.suse.cz\", \"port\": 22, \
+             \"alias\": \"SLES:15-SP6::pool\", \"name\": \"SLES:15-SP6::pool\", \
+             \"url\": \"http://download.example.invalid/p/\", \"state\": true}"
+        );
+    }
+
+    #[test]
+    fn known_product_json_line_matches_python_json_dumps() {
+        assert_eq!(
+            known_product_json_line("SLES"),
+            "{\"event\": \"known_product\", \"name\": \"SLES\"}"
         );
     }
 
