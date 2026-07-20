@@ -83,7 +83,7 @@ _repose() {
 
     case "${cmd}" in
         repose)
-            opts="-n -V -c -d -q -h --print --version --config --debug --quiet --no-color --format --strict-host-key-checking --known-hosts --help add remove reset install clear uninstall list-products list-repos known-products help"
+            opts="-n -V -c -d -q -h --print --version --config --debug --quiet --no-color --color --format --strict-host-key-checking --known-hosts --help add remove reset install clear uninstall list-products list-repos known-products help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 1 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -95,6 +95,10 @@ _repose() {
                     ;;
                 -c)
                     COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --color)
+                    COMPREPLY=($(compgen -W "auto always never" -- "${cur}"))
                     return 0
                     ;;
                 --format)
@@ -117,7 +121,7 @@ _repose() {
             return 0
             ;;
         repose__subcmd__add)
-            opts="-t -n -V -c -d -q -h --target --probe-timeout --no-probe --print --version --config --debug --quiet --no-color --format --strict-host-key-checking --known-hosts --help"
+            opts="-t -n -V -c -d -q -h --target --probe-timeout --no-probe --print --version --config --debug --quiet --no-color --color --format --strict-host-key-checking --known-hosts --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -143,6 +147,10 @@ _repose() {
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
+                --color)
+                    COMPREPLY=($(compgen -W "auto always never" -- "${cur}"))
+                    return 0
+                    ;;
                 --format)
                     COMPREPLY=($(compgen -W "text json" -- "${cur}"))
                     return 0
@@ -163,7 +171,7 @@ _repose() {
             return 0
             ;;
         repose__subcmd__clear)
-            opts="-t -n -V -c -d -q -h --target --print --version --config --debug --quiet --no-color --format --strict-host-key-checking --known-hosts --help"
+            opts="-t -n -V -c -d -q -h --target --print --version --config --debug --quiet --no-color --color --format --strict-host-key-checking --known-hosts --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -183,6 +191,10 @@ _repose() {
                     ;;
                 -c)
                     COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --color)
+                    COMPREPLY=($(compgen -W "auto always never" -- "${cur}"))
                     return 0
                     ;;
                 --format)
@@ -359,7 +371,7 @@ _repose() {
             return 0
             ;;
         repose__subcmd__install)
-            opts="-t -n -V -c -d -q -h --target --probe-timeout --no-probe --no-reboot --print --version --config --debug --quiet --no-color --format --strict-host-key-checking --known-hosts --help"
+            opts="-t -n -V -c -d -q -h --target --probe-timeout --no-probe --no-reboot --print --version --config --debug --quiet --no-color --color --format --strict-host-key-checking --known-hosts --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -383,6 +395,10 @@ _repose() {
                     ;;
                 -c)
                     COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --color)
+                    COMPREPLY=($(compgen -W "auto always never" -- "${cur}"))
                     return 0
                     ;;
                 --format)
@@ -405,7 +421,7 @@ _repose() {
             return 0
             ;;
         repose__subcmd__known__subcmd__products)
-            opts="-n -V -c -d -q -h --print --version --config --debug --quiet --no-color --format --strict-host-key-checking --known-hosts --help"
+            opts="-n -V -c -d -q -h --print --version --config --debug --quiet --no-color --color --format --strict-host-key-checking --known-hosts --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -417,6 +433,10 @@ _repose() {
                     ;;
                 -c)
                     COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --color)
+                    COMPREPLY=($(compgen -W "auto always never" -- "${cur}"))
                     return 0
                     ;;
                 --format)
@@ -439,7 +459,7 @@ _repose() {
             return 0
             ;;
         repose__subcmd__list__subcmd__products)
-            opts="-t -n -V -c -d -q -h --target --yaml --print --version --config --debug --quiet --no-color --format --strict-host-key-checking --known-hosts --help"
+            opts="-t -n -V -c -d -q -h --target --yaml --print --version --config --debug --quiet --no-color --color --format --strict-host-key-checking --known-hosts --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -459,6 +479,10 @@ _repose() {
                     ;;
                 -c)
                     COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --color)
+                    COMPREPLY=($(compgen -W "auto always never" -- "${cur}"))
                     return 0
                     ;;
                 --format)
@@ -481,7 +505,7 @@ _repose() {
             return 0
             ;;
         repose__subcmd__list__subcmd__repos)
-            opts="-t -n -V -c -d -q -h --target --print --version --config --debug --quiet --no-color --format --strict-host-key-checking --known-hosts --help"
+            opts="-t -n -V -c -d -q -h --target --print --version --config --debug --quiet --no-color --color --format --strict-host-key-checking --known-hosts --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -501,6 +525,10 @@ _repose() {
                     ;;
                 -c)
                     COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --color)
+                    COMPREPLY=($(compgen -W "auto always never" -- "${cur}"))
                     return 0
                     ;;
                 --format)
@@ -523,7 +551,7 @@ _repose() {
             return 0
             ;;
         repose__subcmd__remove)
-            opts="-t -n -V -c -d -q -h --target --print --version --config --debug --quiet --no-color --format --strict-host-key-checking --known-hosts --help"
+            opts="-t -n -V -c -d -q -h --target --print --version --config --debug --quiet --no-color --color --format --strict-host-key-checking --known-hosts --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -543,6 +571,10 @@ _repose() {
                     ;;
                 -c)
                     COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --color)
+                    COMPREPLY=($(compgen -W "auto always never" -- "${cur}"))
                     return 0
                     ;;
                 --format)
@@ -565,7 +597,7 @@ _repose() {
             return 0
             ;;
         repose__subcmd__reset)
-            opts="-t -n -V -c -d -q -h --target --probe-timeout --no-probe --print --version --config --debug --quiet --no-color --format --strict-host-key-checking --known-hosts --help"
+            opts="-t -n -V -c -d -q -h --target --probe-timeout --no-probe --print --version --config --debug --quiet --no-color --color --format --strict-host-key-checking --known-hosts --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -591,6 +623,10 @@ _repose() {
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
+                --color)
+                    COMPREPLY=($(compgen -W "auto always never" -- "${cur}"))
+                    return 0
+                    ;;
                 --format)
                     COMPREPLY=($(compgen -W "text json" -- "${cur}"))
                     return 0
@@ -611,7 +647,7 @@ _repose() {
             return 0
             ;;
         repose__subcmd__uninstall)
-            opts="-t -n -V -c -d -q -h --target --no-reboot --print --version --config --debug --quiet --no-color --format --strict-host-key-checking --known-hosts --help"
+            opts="-t -n -V -c -d -q -h --target --no-reboot --print --version --config --debug --quiet --no-color --color --format --strict-host-key-checking --known-hosts --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -631,6 +667,10 @@ _repose() {
                     ;;
                 -c)
                     COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --color)
+                    COMPREPLY=($(compgen -W "auto always never" -- "${cur}"))
                     return 0
                     ;;
                 --format)

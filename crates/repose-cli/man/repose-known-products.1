@@ -4,7 +4,7 @@
 .SH NAME
 repose\-known\-products \- list known products by \*(Aqrepose\*(Aq
 .SH SYNOPSIS
-\fBrepose known\-products\fR [\fB\-n\fR|\fB\-\-print\fR] [\fB\-V\fR|\fB\-\-version\fR] [\fB\-c\fR|\fB\-\-config\fR] [\fB\-d\fR|\fB\-\-debug\fR] [\fB\-q\fR|\fB\-\-quiet\fR] [\fB\-\-no\-color\fR] [\fB\-\-format\fR] [\fB\-\-strict\-host\-key\-checking\fR] [\fB\-\-known\-hosts\fR] [\fB\-h\fR|\fB\-\-help\fR] 
+\fBrepose known\-products\fR [\fB\-n\fR|\fB\-\-print\fR] [\fB\-V\fR|\fB\-\-version\fR] [\fB\-c\fR|\fB\-\-config\fR] [\fB\-d\fR|\fB\-\-debug\fR] [\fB\-q\fR|\fB\-\-quiet\fR] [\fB\-\-no\-color\fR] [\fB\-\-color\fR] [\fB\-\-format\fR] [\fB\-\-strict\-host\-key\-checking\fR] [\fB\-\-known\-hosts\fR] [\fB\-h\fR|\fB\-\-help\fR] 
 .SH DESCRIPTION
 list known products by \*(Aqrepose\*(Aq
 .SH OPTIONS
@@ -25,7 +25,22 @@ enable debug logging
 suppress messages from repose
 .TP
 \fB\-\-no\-color\fR
-disable ANSI color in console output (honors NO_COLOR)
+disable ANSI color in console output (alias for \-\-color=never; honors NO_COLOR)
+.TP
+\fB\-\-color\fR \fI<COLOR>\fR [default: auto]
+console color mode: \*(Aqauto\*(Aq (default; color on a TTY unless NO_COLOR), \*(Aqalways\*(Aq, or \*(Aqnever\*(Aq
+.br
+
+.br
+\fIPossible values:\fR
+.RS 14
+.IP \(bu 2
+auto
+.IP \(bu 2
+always
+.IP \(bu 2
+never
+.RE
 .TP
 \fB\-\-format\fR \fI<FORMAT>\fR [default: text]
 console output format: \*(Aqtext\*(Aq (default) or \*(Aqjson\*(Aq (one event per line)

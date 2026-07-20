@@ -17,6 +17,7 @@ _repose() {
     _arguments "${_arguments_options[@]}" : \
 '-c+[path to repose configuration]:CONFIG:_files' \
 '--config=[path to repose configuration]:CONFIG:_files' \
+'--color=[console color mode\: '\''auto'\'' (default; color on a TTY unless NO_COLOR), '\''always'\'', or '\''never'\'']:COLOR:(auto always never)' \
 '--format=[console output format\: '\''text'\'' (default) or '\''json'\'' (one event per line)]:FORMAT:(text json)' \
 '--strict-host-key-checking=[SSH host-key policy (OpenSSH semantics)\: '\''yes'\'' refuses unknown hosts; '\''accept-new'\'' (default) accepts unknown hosts on first contact but rejects changed keys; '\''no'\''/'\''off'\'' accepts both unknown and changed keys (pre-1.12 behaviour)]:STRICT_HOST_KEY_CHECKING:(yes accept-new no off)' \
 '--known-hosts=[path to a custom known_hosts file (overrides ~/.ssh/known_hosts)]:KNOWN_HOSTS:_files' \
@@ -28,7 +29,7 @@ _repose() {
 '--debug[enable debug logging]' \
 '-q[suppress messages from repose]' \
 '--quiet[suppress messages from repose]' \
-'--no-color[disable ANSI color in console output (honors NO_COLOR)]' \
+'--no-color[disable ANSI color in console output (alias for --color=never; honors NO_COLOR)]' \
 '-h[Print help]' \
 '--help[Print help]' \
 ":: :_repose_commands" \
@@ -47,6 +48,7 @@ _arguments "${_arguments_options[@]}" : \
 '--probe-timeout=[seconds to wait per repository URL probe (default\: 5)]:PROBE_TIMEOUT:_default' \
 '-c+[path to repose configuration]:CONFIG:_files' \
 '--config=[path to repose configuration]:CONFIG:_files' \
+'--color=[console color mode\: '\''auto'\'' (default; color on a TTY unless NO_COLOR), '\''always'\'', or '\''never'\'']:COLOR:(auto always never)' \
 '--format=[console output format\: '\''text'\'' (default) or '\''json'\'' (one event per line)]:FORMAT:(text json)' \
 '--strict-host-key-checking=[SSH host-key policy (OpenSSH semantics)\: '\''yes'\'' refuses unknown hosts; '\''accept-new'\'' (default) accepts unknown hosts on first contact but rejects changed keys; '\''no'\''/'\''off'\'' accepts both unknown and changed keys (pre-1.12 behaviour)]:STRICT_HOST_KEY_CHECKING:(yes accept-new no off)' \
 '--known-hosts=[path to a custom known_hosts file (overrides ~/.ssh/known_hosts)]:KNOWN_HOSTS:_files' \
@@ -59,7 +61,7 @@ _arguments "${_arguments_options[@]}" : \
 '--debug[enable debug logging]' \
 '-q[suppress messages from repose]' \
 '--quiet[suppress messages from repose]' \
-'--no-color[disable ANSI color in console output (honors NO_COLOR)]' \
+'--no-color[disable ANSI color in console output (alias for --color=never; honors NO_COLOR)]' \
 '-h[Print help]' \
 '--help[Print help]' \
 '*::repa -- REPA pattern specification for needed repository:_default' \
@@ -71,6 +73,7 @@ _arguments "${_arguments_options[@]}" : \
 '*--target=[target to operate on]:TARGETS:_default' \
 '-c+[path to repose configuration]:CONFIG:_files' \
 '--config=[path to repose configuration]:CONFIG:_files' \
+'--color=[console color mode\: '\''auto'\'' (default; color on a TTY unless NO_COLOR), '\''always'\'', or '\''never'\'']:COLOR:(auto always never)' \
 '--format=[console output format\: '\''text'\'' (default) or '\''json'\'' (one event per line)]:FORMAT:(text json)' \
 '--strict-host-key-checking=[SSH host-key policy (OpenSSH semantics)\: '\''yes'\'' refuses unknown hosts; '\''accept-new'\'' (default) accepts unknown hosts on first contact but rejects changed keys; '\''no'\''/'\''off'\'' accepts both unknown and changed keys (pre-1.12 behaviour)]:STRICT_HOST_KEY_CHECKING:(yes accept-new no off)' \
 '--known-hosts=[path to a custom known_hosts file (overrides ~/.ssh/known_hosts)]:KNOWN_HOSTS:_files' \
@@ -82,7 +85,7 @@ _arguments "${_arguments_options[@]}" : \
 '--debug[enable debug logging]' \
 '-q[suppress messages from repose]' \
 '--quiet[suppress messages from repose]' \
-'--no-color[disable ANSI color in console output (honors NO_COLOR)]' \
+'--no-color[disable ANSI color in console output (alias for --color=never; honors NO_COLOR)]' \
 '-h[Print help]' \
 '--help[Print help]' \
 '*::repa -- REPA pattern specification for needed repository:_default' \
@@ -95,6 +98,7 @@ _arguments "${_arguments_options[@]}" : \
 '--probe-timeout=[seconds to wait per repository URL probe (default\: 5)]:PROBE_TIMEOUT:_default' \
 '-c+[path to repose configuration]:CONFIG:_files' \
 '--config=[path to repose configuration]:CONFIG:_files' \
+'--color=[console color mode\: '\''auto'\'' (default; color on a TTY unless NO_COLOR), '\''always'\'', or '\''never'\'']:COLOR:(auto always never)' \
 '--format=[console output format\: '\''text'\'' (default) or '\''json'\'' (one event per line)]:FORMAT:(text json)' \
 '--strict-host-key-checking=[SSH host-key policy (OpenSSH semantics)\: '\''yes'\'' refuses unknown hosts; '\''accept-new'\'' (default) accepts unknown hosts on first contact but rejects changed keys; '\''no'\''/'\''off'\'' accepts both unknown and changed keys (pre-1.12 behaviour)]:STRICT_HOST_KEY_CHECKING:(yes accept-new no off)' \
 '--known-hosts=[path to a custom known_hosts file (overrides ~/.ssh/known_hosts)]:KNOWN_HOSTS:_files' \
@@ -107,7 +111,7 @@ _arguments "${_arguments_options[@]}" : \
 '--debug[enable debug logging]' \
 '-q[suppress messages from repose]' \
 '--quiet[suppress messages from repose]' \
-'--no-color[disable ANSI color in console output (honors NO_COLOR)]' \
+'--no-color[disable ANSI color in console output (alias for --color=never; honors NO_COLOR)]' \
 '-h[Print help]' \
 '--help[Print help]' \
 && ret=0
@@ -119,6 +123,7 @@ _arguments "${_arguments_options[@]}" : \
 '--probe-timeout=[seconds to wait per repository URL probe (default\: 5)]:PROBE_TIMEOUT:_default' \
 '-c+[path to repose configuration]:CONFIG:_files' \
 '--config=[path to repose configuration]:CONFIG:_files' \
+'--color=[console color mode\: '\''auto'\'' (default; color on a TTY unless NO_COLOR), '\''always'\'', or '\''never'\'']:COLOR:(auto always never)' \
 '--format=[console output format\: '\''text'\'' (default) or '\''json'\'' (one event per line)]:FORMAT:(text json)' \
 '--strict-host-key-checking=[SSH host-key policy (OpenSSH semantics)\: '\''yes'\'' refuses unknown hosts; '\''accept-new'\'' (default) accepts unknown hosts on first contact but rejects changed keys; '\''no'\''/'\''off'\'' accepts both unknown and changed keys (pre-1.12 behaviour)]:STRICT_HOST_KEY_CHECKING:(yes accept-new no off)' \
 '--known-hosts=[path to a custom known_hosts file (overrides ~/.ssh/known_hosts)]:KNOWN_HOSTS:_files' \
@@ -132,7 +137,7 @@ _arguments "${_arguments_options[@]}" : \
 '--debug[enable debug logging]' \
 '-q[suppress messages from repose]' \
 '--quiet[suppress messages from repose]' \
-'--no-color[disable ANSI color in console output (honors NO_COLOR)]' \
+'--no-color[disable ANSI color in console output (alias for --color=never; honors NO_COLOR)]' \
 '-h[Print help]' \
 '--help[Print help]' \
 '*::repa -- REPA pattern specification for needed repository:_default' \
@@ -144,6 +149,7 @@ _arguments "${_arguments_options[@]}" : \
 '*--target=[target to operate on]:TARGETS:_default' \
 '-c+[path to repose configuration]:CONFIG:_files' \
 '--config=[path to repose configuration]:CONFIG:_files' \
+'--color=[console color mode\: '\''auto'\'' (default; color on a TTY unless NO_COLOR), '\''always'\'', or '\''never'\'']:COLOR:(auto always never)' \
 '--format=[console output format\: '\''text'\'' (default) or '\''json'\'' (one event per line)]:FORMAT:(text json)' \
 '--strict-host-key-checking=[SSH host-key policy (OpenSSH semantics)\: '\''yes'\'' refuses unknown hosts; '\''accept-new'\'' (default) accepts unknown hosts on first contact but rejects changed keys; '\''no'\''/'\''off'\'' accepts both unknown and changed keys (pre-1.12 behaviour)]:STRICT_HOST_KEY_CHECKING:(yes accept-new no off)' \
 '--known-hosts=[path to a custom known_hosts file (overrides ~/.ssh/known_hosts)]:KNOWN_HOSTS:_files' \
@@ -155,7 +161,7 @@ _arguments "${_arguments_options[@]}" : \
 '--debug[enable debug logging]' \
 '-q[suppress messages from repose]' \
 '--quiet[suppress messages from repose]' \
-'--no-color[disable ANSI color in console output (honors NO_COLOR)]' \
+'--no-color[disable ANSI color in console output (alias for --color=never; honors NO_COLOR)]' \
 '-h[Print help]' \
 '--help[Print help]' \
 && ret=0
@@ -166,6 +172,7 @@ _arguments "${_arguments_options[@]}" : \
 '*--target=[target to operate on]:TARGETS:_default' \
 '-c+[path to repose configuration]:CONFIG:_files' \
 '--config=[path to repose configuration]:CONFIG:_files' \
+'--color=[console color mode\: '\''auto'\'' (default; color on a TTY unless NO_COLOR), '\''always'\'', or '\''never'\'']:COLOR:(auto always never)' \
 '--format=[console output format\: '\''text'\'' (default) or '\''json'\'' (one event per line)]:FORMAT:(text json)' \
 '--strict-host-key-checking=[SSH host-key policy (OpenSSH semantics)\: '\''yes'\'' refuses unknown hosts; '\''accept-new'\'' (default) accepts unknown hosts on first contact but rejects changed keys; '\''no'\''/'\''off'\'' accepts both unknown and changed keys (pre-1.12 behaviour)]:STRICT_HOST_KEY_CHECKING:(yes accept-new no off)' \
 '--known-hosts=[path to a custom known_hosts file (overrides ~/.ssh/known_hosts)]:KNOWN_HOSTS:_files' \
@@ -178,7 +185,7 @@ _arguments "${_arguments_options[@]}" : \
 '--debug[enable debug logging]' \
 '-q[suppress messages from repose]' \
 '--quiet[suppress messages from repose]' \
-'--no-color[disable ANSI color in console output (honors NO_COLOR)]' \
+'--no-color[disable ANSI color in console output (alias for --color=never; honors NO_COLOR)]' \
 '-h[Print help]' \
 '--help[Print help]' \
 '*::repa -- REPA pattern specification for needed repository:_default' \
@@ -190,6 +197,7 @@ _arguments "${_arguments_options[@]}" : \
 '*--target=[target to operate on]:TARGETS:_default' \
 '-c+[path to repose configuration]:CONFIG:_files' \
 '--config=[path to repose configuration]:CONFIG:_files' \
+'--color=[console color mode\: '\''auto'\'' (default; color on a TTY unless NO_COLOR), '\''always'\'', or '\''never'\'']:COLOR:(auto always never)' \
 '--format=[console output format\: '\''text'\'' (default) or '\''json'\'' (one event per line)]:FORMAT:(text json)' \
 '--strict-host-key-checking=[SSH host-key policy (OpenSSH semantics)\: '\''yes'\'' refuses unknown hosts; '\''accept-new'\'' (default) accepts unknown hosts on first contact but rejects changed keys; '\''no'\''/'\''off'\'' accepts both unknown and changed keys (pre-1.12 behaviour)]:STRICT_HOST_KEY_CHECKING:(yes accept-new no off)' \
 '--known-hosts=[path to a custom known_hosts file (overrides ~/.ssh/known_hosts)]:KNOWN_HOSTS:_files' \
@@ -202,7 +210,7 @@ _arguments "${_arguments_options[@]}" : \
 '--debug[enable debug logging]' \
 '-q[suppress messages from repose]' \
 '--quiet[suppress messages from repose]' \
-'--no-color[disable ANSI color in console output (honors NO_COLOR)]' \
+'--no-color[disable ANSI color in console output (alias for --color=never; honors NO_COLOR)]' \
 '-h[Print help]' \
 '--help[Print help]' \
 && ret=0
@@ -213,6 +221,7 @@ _arguments "${_arguments_options[@]}" : \
 '*--target=[target to operate on]:TARGETS:_default' \
 '-c+[path to repose configuration]:CONFIG:_files' \
 '--config=[path to repose configuration]:CONFIG:_files' \
+'--color=[console color mode\: '\''auto'\'' (default; color on a TTY unless NO_COLOR), '\''always'\'', or '\''never'\'']:COLOR:(auto always never)' \
 '--format=[console output format\: '\''text'\'' (default) or '\''json'\'' (one event per line)]:FORMAT:(text json)' \
 '--strict-host-key-checking=[SSH host-key policy (OpenSSH semantics)\: '\''yes'\'' refuses unknown hosts; '\''accept-new'\'' (default) accepts unknown hosts on first contact but rejects changed keys; '\''no'\''/'\''off'\'' accepts both unknown and changed keys (pre-1.12 behaviour)]:STRICT_HOST_KEY_CHECKING:(yes accept-new no off)' \
 '--known-hosts=[path to a custom known_hosts file (overrides ~/.ssh/known_hosts)]:KNOWN_HOSTS:_files' \
@@ -224,7 +233,7 @@ _arguments "${_arguments_options[@]}" : \
 '--debug[enable debug logging]' \
 '-q[suppress messages from repose]' \
 '--quiet[suppress messages from repose]' \
-'--no-color[disable ANSI color in console output (honors NO_COLOR)]' \
+'--no-color[disable ANSI color in console output (alias for --color=never; honors NO_COLOR)]' \
 '-h[Print help]' \
 '--help[Print help]' \
 && ret=0
@@ -233,6 +242,7 @@ _arguments "${_arguments_options[@]}" : \
 _arguments "${_arguments_options[@]}" : \
 '-c+[path to repose configuration]:CONFIG:_files' \
 '--config=[path to repose configuration]:CONFIG:_files' \
+'--color=[console color mode\: '\''auto'\'' (default; color on a TTY unless NO_COLOR), '\''always'\'', or '\''never'\'']:COLOR:(auto always never)' \
 '--format=[console output format\: '\''text'\'' (default) or '\''json'\'' (one event per line)]:FORMAT:(text json)' \
 '--strict-host-key-checking=[SSH host-key policy (OpenSSH semantics)\: '\''yes'\'' refuses unknown hosts; '\''accept-new'\'' (default) accepts unknown hosts on first contact but rejects changed keys; '\''no'\''/'\''off'\'' accepts both unknown and changed keys (pre-1.12 behaviour)]:STRICT_HOST_KEY_CHECKING:(yes accept-new no off)' \
 '--known-hosts=[path to a custom known_hosts file (overrides ~/.ssh/known_hosts)]:KNOWN_HOSTS:_files' \
@@ -244,7 +254,7 @@ _arguments "${_arguments_options[@]}" : \
 '--debug[enable debug logging]' \
 '-q[suppress messages from repose]' \
 '--quiet[suppress messages from repose]' \
-'--no-color[disable ANSI color in console output (honors NO_COLOR)]' \
+'--no-color[disable ANSI color in console output (alias for --color=never; honors NO_COLOR)]' \
 '-h[Print help]' \
 '--help[Print help]' \
 && ret=0
