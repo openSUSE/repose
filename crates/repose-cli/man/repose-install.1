@@ -4,7 +4,7 @@
 .SH NAME
 repose\-install \- add specified repository to target and install product
 .SH SYNOPSIS
-\fBrepose install\fR [\fB\-n\fR|\fB\-\-print\fR] <\fB\-t\fR|\fB\-\-target\fR> [\fB\-\-probe\-timeout\fR] [\fB\-V\fR|\fB\-\-version\fR] [\fB\-c\fR|\fB\-\-config\fR] [\fB\-\-no\-probe\fR] [\fB\-d\fR|\fB\-\-debug\fR] [\fB\-\-no\-reboot\fR] [\fB\-q\fR|\fB\-\-quiet\fR] [\fB\-\-no\-color\fR] [\fB\-\-format\fR] [\fB\-\-strict\-host\-key\-checking\fR] [\fB\-\-known\-hosts\fR] [\fB\-h\fR|\fB\-\-help\fR] <\fIREPA\fR> 
+\fBrepose install\fR [\fB\-n\fR|\fB\-\-print\fR] <\fB\-t\fR|\fB\-\-target\fR> [\fB\-\-probe\-timeout\fR] [\fB\-V\fR|\fB\-\-version\fR] [\fB\-c\fR|\fB\-\-config\fR] [\fB\-\-no\-probe\fR] [\fB\-d\fR|\fB\-\-debug\fR] [\fB\-\-no\-reboot\fR] [\fB\-q\fR|\fB\-\-quiet\fR] [\fB\-\-no\-color\fR] [\fB\-\-color\fR] [\fB\-\-format\fR] [\fB\-\-strict\-host\-key\-checking\fR] [\fB\-\-known\-hosts\fR] [\fB\-h\fR|\fB\-\-help\fR] <\fIREPA\fR> 
 .SH DESCRIPTION
 add specified repository to target and install product
 .SH OPTIONS
@@ -37,7 +37,22 @@ on transactional hosts (SL Micro), stage the package change but do not reboot/re
 suppress messages from repose
 .TP
 \fB\-\-no\-color\fR
-disable ANSI color in console output (honors NO_COLOR)
+disable ANSI color in console output (alias for \-\-color=never; honors NO_COLOR)
+.TP
+\fB\-\-color\fR \fI<COLOR>\fR [default: auto]
+console color mode: \*(Aqauto\*(Aq (default; color on a TTY unless NO_COLOR), \*(Aqalways\*(Aq, or \*(Aqnever\*(Aq
+.br
+
+.br
+\fIPossible values:\fR
+.RS 14
+.IP \(bu 2
+auto
+.IP \(bu 2
+always
+.IP \(bu 2
+never
+.RE
 .TP
 \fB\-\-format\fR \fI<FORMAT>\fR [default: text]
 console output format: \*(Aqtext\*(Aq (default) or \*(Aqjson\*(Aq (one event per line)

@@ -1,6 +1,6 @@
 # Print an optspec for argparse to handle cmd's options that are independent of any subcommand.
 function __fish_repose_global_optspecs
-    string join \n n/print V/version c/config= d/debug q/quiet no-color format= strict-host-key-checking= known-hosts= h/help
+    string join \n n/print V/version c/config= d/debug q/quiet no-color color= format= strict-host-key-checking= known-hosts= h/help
 end
 
 function __fish_repose_needs_command
@@ -25,6 +25,9 @@ function __fish_repose_using_subcommand
 end
 
 complete -c repose -n "__fish_repose_needs_command" -s c -l config -d 'path to repose configuration' -r -F
+complete -c repose -n "__fish_repose_needs_command" -l color -d 'console color mode: \'auto\' (default; color on a TTY unless NO_COLOR), \'always\', or \'never\'' -r -f -a "auto\t''
+always\t''
+never\t''"
 complete -c repose -n "__fish_repose_needs_command" -l format -d 'console output format: \'text\' (default) or \'json\' (one event per line)' -r -f -a "text\t''
 json\t''"
 complete -c repose -n "__fish_repose_needs_command" -l strict-host-key-checking -d 'SSH host-key policy (OpenSSH semantics): \'yes\' refuses unknown hosts; \'accept-new\' (default) accepts unknown hosts on first contact but rejects changed keys; \'no\'/\'off\' accepts both unknown and changed keys (pre-1.12 behaviour)' -r -f -a "yes\t''
@@ -36,7 +39,7 @@ complete -c repose -n "__fish_repose_needs_command" -s n -l print -d 'print comm
 complete -c repose -n "__fish_repose_needs_command" -s V -l version -d 'show program\'s version number and exit'
 complete -c repose -n "__fish_repose_needs_command" -s d -l debug -d 'enable debug logging'
 complete -c repose -n "__fish_repose_needs_command" -s q -l quiet -d 'suppress messages from repose'
-complete -c repose -n "__fish_repose_needs_command" -l no-color -d 'disable ANSI color in console output (honors NO_COLOR)'
+complete -c repose -n "__fish_repose_needs_command" -l no-color -d 'disable ANSI color in console output (alias for --color=never; honors NO_COLOR)'
 complete -c repose -n "__fish_repose_needs_command" -s h -l help -d 'Print help'
 complete -c repose -n "__fish_repose_needs_command" -f -a "add" -d 'add specified repository to target'
 complete -c repose -n "__fish_repose_needs_command" -f -a "remove" -d 'remove repository from target'
@@ -51,6 +54,9 @@ complete -c repose -n "__fish_repose_needs_command" -f -a "help" -d 'Print this 
 complete -c repose -n "__fish_repose_using_subcommand add" -s t -l target -d 'target to operate on' -r
 complete -c repose -n "__fish_repose_using_subcommand add" -l probe-timeout -d 'seconds to wait per repository URL probe (default: 5)' -r
 complete -c repose -n "__fish_repose_using_subcommand add" -s c -l config -d 'path to repose configuration' -r -F
+complete -c repose -n "__fish_repose_using_subcommand add" -l color -d 'console color mode: \'auto\' (default; color on a TTY unless NO_COLOR), \'always\', or \'never\'' -r -f -a "auto\t''
+always\t''
+never\t''"
 complete -c repose -n "__fish_repose_using_subcommand add" -l format -d 'console output format: \'text\' (default) or \'json\' (one event per line)' -r -f -a "text\t''
 json\t''"
 complete -c repose -n "__fish_repose_using_subcommand add" -l strict-host-key-checking -d 'SSH host-key policy (OpenSSH semantics): \'yes\' refuses unknown hosts; \'accept-new\' (default) accepts unknown hosts on first contact but rejects changed keys; \'no\'/\'off\' accepts both unknown and changed keys (pre-1.12 behaviour)' -r -f -a "yes\t''
@@ -63,10 +69,13 @@ complete -c repose -n "__fish_repose_using_subcommand add" -s n -l print -d 'pri
 complete -c repose -n "__fish_repose_using_subcommand add" -s V -l version -d 'show program\'s version number and exit'
 complete -c repose -n "__fish_repose_using_subcommand add" -s d -l debug -d 'enable debug logging'
 complete -c repose -n "__fish_repose_using_subcommand add" -s q -l quiet -d 'suppress messages from repose'
-complete -c repose -n "__fish_repose_using_subcommand add" -l no-color -d 'disable ANSI color in console output (honors NO_COLOR)'
+complete -c repose -n "__fish_repose_using_subcommand add" -l no-color -d 'disable ANSI color in console output (alias for --color=never; honors NO_COLOR)'
 complete -c repose -n "__fish_repose_using_subcommand add" -s h -l help -d 'Print help'
 complete -c repose -n "__fish_repose_using_subcommand remove" -s t -l target -d 'target to operate on' -r
 complete -c repose -n "__fish_repose_using_subcommand remove" -s c -l config -d 'path to repose configuration' -r -F
+complete -c repose -n "__fish_repose_using_subcommand remove" -l color -d 'console color mode: \'auto\' (default; color on a TTY unless NO_COLOR), \'always\', or \'never\'' -r -f -a "auto\t''
+always\t''
+never\t''"
 complete -c repose -n "__fish_repose_using_subcommand remove" -l format -d 'console output format: \'text\' (default) or \'json\' (one event per line)' -r -f -a "text\t''
 json\t''"
 complete -c repose -n "__fish_repose_using_subcommand remove" -l strict-host-key-checking -d 'SSH host-key policy (OpenSSH semantics): \'yes\' refuses unknown hosts; \'accept-new\' (default) accepts unknown hosts on first contact but rejects changed keys; \'no\'/\'off\' accepts both unknown and changed keys (pre-1.12 behaviour)' -r -f -a "yes\t''
@@ -78,11 +87,14 @@ complete -c repose -n "__fish_repose_using_subcommand remove" -s n -l print -d '
 complete -c repose -n "__fish_repose_using_subcommand remove" -s V -l version -d 'show program\'s version number and exit'
 complete -c repose -n "__fish_repose_using_subcommand remove" -s d -l debug -d 'enable debug logging'
 complete -c repose -n "__fish_repose_using_subcommand remove" -s q -l quiet -d 'suppress messages from repose'
-complete -c repose -n "__fish_repose_using_subcommand remove" -l no-color -d 'disable ANSI color in console output (honors NO_COLOR)'
+complete -c repose -n "__fish_repose_using_subcommand remove" -l no-color -d 'disable ANSI color in console output (alias for --color=never; honors NO_COLOR)'
 complete -c repose -n "__fish_repose_using_subcommand remove" -s h -l help -d 'Print help'
 complete -c repose -n "__fish_repose_using_subcommand reset" -s t -l target -d 'target to operate on' -r
 complete -c repose -n "__fish_repose_using_subcommand reset" -l probe-timeout -d 'seconds to wait per repository URL probe (default: 5)' -r
 complete -c repose -n "__fish_repose_using_subcommand reset" -s c -l config -d 'path to repose configuration' -r -F
+complete -c repose -n "__fish_repose_using_subcommand reset" -l color -d 'console color mode: \'auto\' (default; color on a TTY unless NO_COLOR), \'always\', or \'never\'' -r -f -a "auto\t''
+always\t''
+never\t''"
 complete -c repose -n "__fish_repose_using_subcommand reset" -l format -d 'console output format: \'text\' (default) or \'json\' (one event per line)' -r -f -a "text\t''
 json\t''"
 complete -c repose -n "__fish_repose_using_subcommand reset" -l strict-host-key-checking -d 'SSH host-key policy (OpenSSH semantics): \'yes\' refuses unknown hosts; \'accept-new\' (default) accepts unknown hosts on first contact but rejects changed keys; \'no\'/\'off\' accepts both unknown and changed keys (pre-1.12 behaviour)' -r -f -a "yes\t''
@@ -95,11 +107,14 @@ complete -c repose -n "__fish_repose_using_subcommand reset" -s n -l print -d 'p
 complete -c repose -n "__fish_repose_using_subcommand reset" -s V -l version -d 'show program\'s version number and exit'
 complete -c repose -n "__fish_repose_using_subcommand reset" -s d -l debug -d 'enable debug logging'
 complete -c repose -n "__fish_repose_using_subcommand reset" -s q -l quiet -d 'suppress messages from repose'
-complete -c repose -n "__fish_repose_using_subcommand reset" -l no-color -d 'disable ANSI color in console output (honors NO_COLOR)'
+complete -c repose -n "__fish_repose_using_subcommand reset" -l no-color -d 'disable ANSI color in console output (alias for --color=never; honors NO_COLOR)'
 complete -c repose -n "__fish_repose_using_subcommand reset" -s h -l help -d 'Print help'
 complete -c repose -n "__fish_repose_using_subcommand install" -s t -l target -d 'target to operate on' -r
 complete -c repose -n "__fish_repose_using_subcommand install" -l probe-timeout -d 'seconds to wait per repository URL probe (default: 5)' -r
 complete -c repose -n "__fish_repose_using_subcommand install" -s c -l config -d 'path to repose configuration' -r -F
+complete -c repose -n "__fish_repose_using_subcommand install" -l color -d 'console color mode: \'auto\' (default; color on a TTY unless NO_COLOR), \'always\', or \'never\'' -r -f -a "auto\t''
+always\t''
+never\t''"
 complete -c repose -n "__fish_repose_using_subcommand install" -l format -d 'console output format: \'text\' (default) or \'json\' (one event per line)' -r -f -a "text\t''
 json\t''"
 complete -c repose -n "__fish_repose_using_subcommand install" -l strict-host-key-checking -d 'SSH host-key policy (OpenSSH semantics): \'yes\' refuses unknown hosts; \'accept-new\' (default) accepts unknown hosts on first contact but rejects changed keys; \'no\'/\'off\' accepts both unknown and changed keys (pre-1.12 behaviour)' -r -f -a "yes\t''
@@ -113,10 +128,13 @@ complete -c repose -n "__fish_repose_using_subcommand install" -s n -l print -d 
 complete -c repose -n "__fish_repose_using_subcommand install" -s V -l version -d 'show program\'s version number and exit'
 complete -c repose -n "__fish_repose_using_subcommand install" -s d -l debug -d 'enable debug logging'
 complete -c repose -n "__fish_repose_using_subcommand install" -s q -l quiet -d 'suppress messages from repose'
-complete -c repose -n "__fish_repose_using_subcommand install" -l no-color -d 'disable ANSI color in console output (honors NO_COLOR)'
+complete -c repose -n "__fish_repose_using_subcommand install" -l no-color -d 'disable ANSI color in console output (alias for --color=never; honors NO_COLOR)'
 complete -c repose -n "__fish_repose_using_subcommand install" -s h -l help -d 'Print help'
 complete -c repose -n "__fish_repose_using_subcommand clear" -s t -l target -d 'target to operate on' -r
 complete -c repose -n "__fish_repose_using_subcommand clear" -s c -l config -d 'path to repose configuration' -r -F
+complete -c repose -n "__fish_repose_using_subcommand clear" -l color -d 'console color mode: \'auto\' (default; color on a TTY unless NO_COLOR), \'always\', or \'never\'' -r -f -a "auto\t''
+always\t''
+never\t''"
 complete -c repose -n "__fish_repose_using_subcommand clear" -l format -d 'console output format: \'text\' (default) or \'json\' (one event per line)' -r -f -a "text\t''
 json\t''"
 complete -c repose -n "__fish_repose_using_subcommand clear" -l strict-host-key-checking -d 'SSH host-key policy (OpenSSH semantics): \'yes\' refuses unknown hosts; \'accept-new\' (default) accepts unknown hosts on first contact but rejects changed keys; \'no\'/\'off\' accepts both unknown and changed keys (pre-1.12 behaviour)' -r -f -a "yes\t''
@@ -128,10 +146,13 @@ complete -c repose -n "__fish_repose_using_subcommand clear" -s n -l print -d 'p
 complete -c repose -n "__fish_repose_using_subcommand clear" -s V -l version -d 'show program\'s version number and exit'
 complete -c repose -n "__fish_repose_using_subcommand clear" -s d -l debug -d 'enable debug logging'
 complete -c repose -n "__fish_repose_using_subcommand clear" -s q -l quiet -d 'suppress messages from repose'
-complete -c repose -n "__fish_repose_using_subcommand clear" -l no-color -d 'disable ANSI color in console output (honors NO_COLOR)'
+complete -c repose -n "__fish_repose_using_subcommand clear" -l no-color -d 'disable ANSI color in console output (alias for --color=never; honors NO_COLOR)'
 complete -c repose -n "__fish_repose_using_subcommand clear" -s h -l help -d 'Print help'
 complete -c repose -n "__fish_repose_using_subcommand uninstall" -s t -l target -d 'target to operate on' -r
 complete -c repose -n "__fish_repose_using_subcommand uninstall" -s c -l config -d 'path to repose configuration' -r -F
+complete -c repose -n "__fish_repose_using_subcommand uninstall" -l color -d 'console color mode: \'auto\' (default; color on a TTY unless NO_COLOR), \'always\', or \'never\'' -r -f -a "auto\t''
+always\t''
+never\t''"
 complete -c repose -n "__fish_repose_using_subcommand uninstall" -l format -d 'console output format: \'text\' (default) or \'json\' (one event per line)' -r -f -a "text\t''
 json\t''"
 complete -c repose -n "__fish_repose_using_subcommand uninstall" -l strict-host-key-checking -d 'SSH host-key policy (OpenSSH semantics): \'yes\' refuses unknown hosts; \'accept-new\' (default) accepts unknown hosts on first contact but rejects changed keys; \'no\'/\'off\' accepts both unknown and changed keys (pre-1.12 behaviour)' -r -f -a "yes\t''
@@ -144,10 +165,13 @@ complete -c repose -n "__fish_repose_using_subcommand uninstall" -s n -l print -
 complete -c repose -n "__fish_repose_using_subcommand uninstall" -s V -l version -d 'show program\'s version number and exit'
 complete -c repose -n "__fish_repose_using_subcommand uninstall" -s d -l debug -d 'enable debug logging'
 complete -c repose -n "__fish_repose_using_subcommand uninstall" -s q -l quiet -d 'suppress messages from repose'
-complete -c repose -n "__fish_repose_using_subcommand uninstall" -l no-color -d 'disable ANSI color in console output (honors NO_COLOR)'
+complete -c repose -n "__fish_repose_using_subcommand uninstall" -l no-color -d 'disable ANSI color in console output (alias for --color=never; honors NO_COLOR)'
 complete -c repose -n "__fish_repose_using_subcommand uninstall" -s h -l help -d 'Print help'
 complete -c repose -n "__fish_repose_using_subcommand list-products" -s t -l target -d 'target to operate on' -r
 complete -c repose -n "__fish_repose_using_subcommand list-products" -s c -l config -d 'path to repose configuration' -r -F
+complete -c repose -n "__fish_repose_using_subcommand list-products" -l color -d 'console color mode: \'auto\' (default; color on a TTY unless NO_COLOR), \'always\', or \'never\'' -r -f -a "auto\t''
+always\t''
+never\t''"
 complete -c repose -n "__fish_repose_using_subcommand list-products" -l format -d 'console output format: \'text\' (default) or \'json\' (one event per line)' -r -f -a "text\t''
 json\t''"
 complete -c repose -n "__fish_repose_using_subcommand list-products" -l strict-host-key-checking -d 'SSH host-key policy (OpenSSH semantics): \'yes\' refuses unknown hosts; \'accept-new\' (default) accepts unknown hosts on first contact but rejects changed keys; \'no\'/\'off\' accepts both unknown and changed keys (pre-1.12 behaviour)' -r -f -a "yes\t''
@@ -160,10 +184,13 @@ complete -c repose -n "__fish_repose_using_subcommand list-products" -s n -l pri
 complete -c repose -n "__fish_repose_using_subcommand list-products" -s V -l version -d 'show program\'s version number and exit'
 complete -c repose -n "__fish_repose_using_subcommand list-products" -s d -l debug -d 'enable debug logging'
 complete -c repose -n "__fish_repose_using_subcommand list-products" -s q -l quiet -d 'suppress messages from repose'
-complete -c repose -n "__fish_repose_using_subcommand list-products" -l no-color -d 'disable ANSI color in console output (honors NO_COLOR)'
+complete -c repose -n "__fish_repose_using_subcommand list-products" -l no-color -d 'disable ANSI color in console output (alias for --color=never; honors NO_COLOR)'
 complete -c repose -n "__fish_repose_using_subcommand list-products" -s h -l help -d 'Print help'
 complete -c repose -n "__fish_repose_using_subcommand list-repos" -s t -l target -d 'target to operate on' -r
 complete -c repose -n "__fish_repose_using_subcommand list-repos" -s c -l config -d 'path to repose configuration' -r -F
+complete -c repose -n "__fish_repose_using_subcommand list-repos" -l color -d 'console color mode: \'auto\' (default; color on a TTY unless NO_COLOR), \'always\', or \'never\'' -r -f -a "auto\t''
+always\t''
+never\t''"
 complete -c repose -n "__fish_repose_using_subcommand list-repos" -l format -d 'console output format: \'text\' (default) or \'json\' (one event per line)' -r -f -a "text\t''
 json\t''"
 complete -c repose -n "__fish_repose_using_subcommand list-repos" -l strict-host-key-checking -d 'SSH host-key policy (OpenSSH semantics): \'yes\' refuses unknown hosts; \'accept-new\' (default) accepts unknown hosts on first contact but rejects changed keys; \'no\'/\'off\' accepts both unknown and changed keys (pre-1.12 behaviour)' -r -f -a "yes\t''
@@ -175,9 +202,12 @@ complete -c repose -n "__fish_repose_using_subcommand list-repos" -s n -l print 
 complete -c repose -n "__fish_repose_using_subcommand list-repos" -s V -l version -d 'show program\'s version number and exit'
 complete -c repose -n "__fish_repose_using_subcommand list-repos" -s d -l debug -d 'enable debug logging'
 complete -c repose -n "__fish_repose_using_subcommand list-repos" -s q -l quiet -d 'suppress messages from repose'
-complete -c repose -n "__fish_repose_using_subcommand list-repos" -l no-color -d 'disable ANSI color in console output (honors NO_COLOR)'
+complete -c repose -n "__fish_repose_using_subcommand list-repos" -l no-color -d 'disable ANSI color in console output (alias for --color=never; honors NO_COLOR)'
 complete -c repose -n "__fish_repose_using_subcommand list-repos" -s h -l help -d 'Print help'
 complete -c repose -n "__fish_repose_using_subcommand known-products" -s c -l config -d 'path to repose configuration' -r -F
+complete -c repose -n "__fish_repose_using_subcommand known-products" -l color -d 'console color mode: \'auto\' (default; color on a TTY unless NO_COLOR), \'always\', or \'never\'' -r -f -a "auto\t''
+always\t''
+never\t''"
 complete -c repose -n "__fish_repose_using_subcommand known-products" -l format -d 'console output format: \'text\' (default) or \'json\' (one event per line)' -r -f -a "text\t''
 json\t''"
 complete -c repose -n "__fish_repose_using_subcommand known-products" -l strict-host-key-checking -d 'SSH host-key policy (OpenSSH semantics): \'yes\' refuses unknown hosts; \'accept-new\' (default) accepts unknown hosts on first contact but rejects changed keys; \'no\'/\'off\' accepts both unknown and changed keys (pre-1.12 behaviour)' -r -f -a "yes\t''
@@ -189,7 +219,7 @@ complete -c repose -n "__fish_repose_using_subcommand known-products" -s n -l pr
 complete -c repose -n "__fish_repose_using_subcommand known-products" -s V -l version -d 'show program\'s version number and exit'
 complete -c repose -n "__fish_repose_using_subcommand known-products" -s d -l debug -d 'enable debug logging'
 complete -c repose -n "__fish_repose_using_subcommand known-products" -s q -l quiet -d 'suppress messages from repose'
-complete -c repose -n "__fish_repose_using_subcommand known-products" -l no-color -d 'disable ANSI color in console output (honors NO_COLOR)'
+complete -c repose -n "__fish_repose_using_subcommand known-products" -l no-color -d 'disable ANSI color in console output (alias for --color=never; honors NO_COLOR)'
 complete -c repose -n "__fish_repose_using_subcommand known-products" -s h -l help -d 'Print help'
 complete -c repose -n "__fish_repose_using_subcommand help; and not __fish_seen_subcommand_from add remove reset install clear uninstall list-products list-repos known-products help" -f -a "add" -d 'add specified repository to target'
 complete -c repose -n "__fish_repose_using_subcommand help; and not __fish_seen_subcommand_from add remove reset install clear uninstall list-products list-repos known-products help" -f -a "remove" -d 'remove repository from target'
