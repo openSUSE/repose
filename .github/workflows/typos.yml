@@ -22,4 +22,4 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
       - name: Spell check
-        uses: crate-ci/typos@dbe52f72499cd4ab666928e4d14ecfa9ddbb6852  # v1.48.0
+        uses: crate-ci/typos@bee27e3a4fd1ea2111cf90ab89cd076c870fce14  # v1.48.0
