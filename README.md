@@ -1,56 +1,129 @@
 # repose
 
-Manipulate repositories in QAM refhosts
+Manipulate zypper repositories and products on QAM reference hosts, over SSH.
 
 ## Introduction
-**Repose** is a tools for querying and manipulation of repositories in SUSE QA Maintenance reference machines.
 
-*Repose* allows for manipulation of repositories in refhosts requiring only a running sshd and zypper installed on them
+**Repose** queries and manipulates the package repositories and installed
+products of SUSE QA Maintenance reference machines. It needs nothing on the
+refhost beyond a running `sshd` and `zypper` — all decisions are made locally
+and the resulting `zypper` (or `transactional-update`) commands are sent over
+SSH.
 
-### Installation
+Given one or more hosts and a set of repository patterns, repose figures out
+which repositories the host's installed products require and adds, removes,
+resets, or clears them accordingly. It can also install or uninstall whole
+products, including the transactional-update reboot cycle on immutable hosts.
+
+## Installation
 
 ```
 zypper ar -f http://download.suse.de/ibs/QA:/Maintenance/$DISTRO/ qam-infra
 zypper -n in repose
 ```
 
-After install, `man repose` shows the full command reference.
+After install, `man repose` shows the full command reference, and every
+subcommand accepts `-h`/`--help`.
 
-## Shell completion
+## How it works
 
-Repose ships pre-generated shell completions for bash, zsh, and fish
-(`crates/repose-cli/completions/`, also installed by the package). Load the
-one for your shell, for example:
+Repose derives repository changes from three inputs — the products installed
+on the host (`/etc/products.d/`), its current repository configuration
+(`/etc/zypp/repos.d/`), and the repository template in
+`/etc/repose/products.yml` — then applies them in three steps:
 
-```
-# bash
-source crates/repose-cli/completions/repose.bash
-# zsh: put the `_repose` file on your $fpath
-# fish: copy repose.fish into ~/.config/fish/completions/
-```
+1. the refhost is queried over SSH;
+2. its product/repository state is sent back to repose;
+3. repose runs the resulting `zypper` commands on the refhost.
 
-Then in a new shell, tab-complete subcommands and flags:
+## Quick start
 
-```
-repose <TAB>           # add remove reset install clear uninstall ...
-```
-
-Regenerate the committed completions (and man pages) from the CLI with:
+Set up the repositories for a refhost and install the `qa` product:
 
 ```
-cargo run -p repose-cli --features gen --bin repose-gen -- crates/repose-cli
+repose reset -t fubar.suse.cz
+repose install -t fubar.suse.cz qa
 ```
 
-## Internal Functionality
+Add the SDK repository to whatever SLE version the host runs:
 
-Repose reports or modifies the package repositories in one or more refhosts
-based on installed products (/etc/products.d/), repository configuration (/etc
-/zypp/repos.d), and user input; commands are sent via ssh.
+```
+repose add -t fubar.suse.cz sle-sdk
+```
 
-Three steps are conducted by repose:
-1. refhost is queried
-2. product info is provided back to repose
-3. repose executes zypper commands on refhost
+Add the SDK repository for a specific version (append the version after a colon):
+
+```
+repose add -t fubar.suse.cz sle-sdk:12-SP2
+```
+
+Add several add-ons across several hosts in one run:
+
+```
+repose add -t fubar.suse.cz -t snafu.suse.cz qa sle-sdk
+```
+
+Emit a YAML host spec for the `refhosts.yml` generator:
+
+```
+repose list-products --yaml -t foobar.suse.cz
+```
+
+Preview the commands without touching the host (dry run):
+
+```
+repose -n add -t fubar.suse.cz sle-sdk
+```
+
+## Commands
+
+```
+repose [GLOBAL OPTIONS] COMMAND [OPTIONS] -t HOST [REPA ...]
+```
+
+| Command          | Description                                                            |
+| ---------------- | --------------------------------------------------------------------- |
+| `add`            | add the specified repositories to the target                          |
+| `remove`         | remove repositories from the target                                   |
+| `reset`          | reset the target to only its installed products' repositories         |
+| `clear`          | clear all repositories from the target                                |
+| `install`        | add repositories to the target and install the product               |
+| `uninstall`      | remove repositories from the target and uninstall the product         |
+| `list-products`  | list the products installed on the target                             |
+| `list-repos`     | list the repositories configured on the target                        |
+| `known-products` | list the products repose knows about (from `products.yml`)            |
+
+Frequently used global options (run `repose --help` for the full list):
+
+| Option                              | Description                                            |
+| ----------------------------------- | ------------------------------------------------------ |
+| `-n`, `--print`                     | print the commands that would run, then exit (dry run) |
+| `-c`, `--config PATH`               | repose configuration (default `/etc/repose/products.yml`) |
+| `-d`, `--debug`                     | enable debug logging                                   |
+| `-q`, `--quiet`                     | suppress repose's own log messages                     |
+| `--no-color`                        | disable ANSI color (honors `NO_COLOR`)                 |
+| `--format text\|json`               | output format (default `text`)                         |
+| `--strict-host-key-checking MODE`   | SSH host-key policy (see below)                        |
+| `--known-hosts PATH`                | known_hosts file (default `~/.ssh/known_hosts`)        |
+| `-V`, `--version`                   | print the version and exit                             |
+
+### Targets and repository patterns
+
+- **HOST** is an SSH target such as `root@fubar.suse.cz`, passed with `-t`.
+  Repeat `-t` to operate on multiple hosts concurrently.
+- **REPA** is a *REpository PAttern* — a positional argument naming a
+  repository/add-on to act on. Pass several to act on several. Append a
+  version after a colon to pin it, e.g. `SLES:12-SP2`.
+
+The known patterns are defined in the configuration file
+(`/etc/repose/products.yml`); `repose known-products` lists them. Common
+add-on modules include:
+
+```
+sle-module-toolchain      sle-module-public-cloud   sle-module-legacy
+sle-module-hpc            sle-module-containers      sle-live-patching
+sle-module-adv-systems-management   sle-bsk   sle-ha   sle-we   sle-web-scripting
+```
 
 ## Transactional systems (SL Micro)
 
@@ -77,53 +150,11 @@ active after the next reboot. `--no-reboot` is a no-op on
 non-transactional hosts.
 
 ```
-repose install -t root@slmicro.example qa        # install + reboot + verify
-repose --no-reboot install -t root@slmicro.example qa   # stage only
+repose install -t root@slmicro.example qa               # install + reboot + verify
+repose install --no-reboot -t root@slmicro.example qa   # stage only
 ```
 
-## Getting Help
-
-oFor repose itself as well as for its commands you can use:
-
-Options:
--h        Display this message
---help    Display full help
-
-Using parameter –-help will open up a man page.
-
-## General Usage
-Usage of repose is pretty straightforward.
-
-repose COMMAND options [-h] -t HOST REPA
-
-Commands:
-    add               add specified repository to target
-    remove            remove repository from target
-    reset             reset target repositories to only installed products repositories
-    install           add specified repository to target and install product
-    clear             clear all repositories from target
-    uninstall         remove specified repository from target and uninstall product
-    list-products     list products on target
-    list-repos        list repositories on target
-    known-products    list known products by 'repose'
-
-‘’HOST’’ is supposed to be added in format `root@fubar.suse.cz`. You can add multiple hosts
-‘’REPA’’ is REpository PAttern. You can use multiple patterns.
-You can also add specific versions after colon.
-For example:
-SLES 12 SP2: SLES:12-SP2
-You can find more at /etc/repose/products.yml
-
-### Live progress
-
-When stdout is a terminal, repose draws a per-host status table that
-updates as each refhost moves through its work (e.g. *resolving repos*,
-*adding 3 repo(s)*, *done*). The overlay drops back to plain log lines
-automatically when output is piped, `--format=json` is used, or
-`--quiet` is set, so scripts and structured-output consumers see a
-clean stream.
-
-## Repository URL Probing
+## Repository URL probing
 
 Before `add`, `reset`, and `install` apply repository changes, repose
 probes each candidate repository URL in parallel to verify it is
@@ -141,42 +172,16 @@ repose add --probe-timeout 10 -t fubar.suse.cz sle-sdk
 repose reset --no-probe -t fubar.suse.cz
 ```
 
-## Most Common Usage Examples
-Setup of repositories on refhost:
+## Live progress
 
-```
-repose reset -t fubar.suse.cz
-repose install -t fubar.suse.cz qa
-```
+When stdout is a terminal, repose draws a per-host status table that
+updates as each refhost moves through its work (e.g. *resolving repos*,
+*adding 3 repo(s)*, *done*). The overlay drops back to plain log lines
+automatically when output is piped, `--format=json` is used, or
+`--quiet` is set, so scripts and structured-output consumers see a
+clean stream.
 
-Adding SDK repository to SLE of any version:
-
-```
-repose add -t fubar.suse.cz sle-sdk
-```
-
-Adding specifically SDK repository of SLE 12 SP2:
-
-```
-repose add -t fubar.suse.cz sle-sdk:12-SP2
-```
-
-Adding multiple add-ons on multiple machines:
-
-```
-repose add -t fubar.suse.cz -t snafu.suse.cz qa sle-sdk
-```
-
-Additional modules: sle-module-toolchain - sle-module-public-cloud - sle-module-legacy - sle-module-hpc - sle-module-containers - sle-module-
-adv-systems-management - sle-live-patching - sle-bsk - sle-ha - sle-we - sle-web-scripting
-
-Show products in yaml format needed for refhost.yaml genetor:
-
-```
-repose list-products --yaml -t foobar.suse.cz
-```
-
-## Output Control
+## Output control
 
 Repose routes all user-facing output (dry-run command previews and per-host
 run output) through a single sink. Two global flags govern its shape:
@@ -220,8 +225,6 @@ carrying the same payload the YAML dumper produces (location, arch,
 product, addons, name) — useful for machine consumers that want the
 refhost.yml spec without the YAML envelope.
 
-### Examples
-
 ```
 repose add -n --format=json -t fubar.suse.cz sle-sdk | jq .
 repose list-products --format=json -t fubar.suse.cz | jq 'select(.kind=="base")'
@@ -233,7 +236,7 @@ level) now goes through this sink on stdout. The `--quiet` flag still
 silences logger messages but no longer hides per-host output; redirect
 stdout or use `--format=json` with filtering to suppress it.
 
-## SSH Host-Key Policy
+## SSH host-key policy
 
 Repose talks to refhosts over SSH. The host-key behaviour follows OpenSSH's
 `StrictHostKeyChecking` semantics and is configured with two global flags:
@@ -269,7 +272,7 @@ repose --strict-host-key-checking=yes \
        add -t fubar.suse.cz sle-sdk
 ```
 
-## SSH Backend
+## SSH backend
 
 Repose uses a single SSH stack ([russh](https://crates.io/crates/russh)); there
 is no `--ssh-backend` flag. It honours the same `--strict-host-key-checking`,
@@ -279,6 +282,31 @@ Authentication tries the ssh-agent first (every agent identity is offered),
 then `IdentityFile` keys from `~/.ssh/config`. Unlike `ssh(1)`, the
 `IdentitiesOnly` directive is not honoured: agent identities are offered even
 when `IdentitiesOnly yes` is set for a host.
+
+## Shell completion
+
+Repose ships pre-generated shell completions for bash, zsh, and fish
+(`crates/repose-cli/completions/`, also installed by the package). Load the
+one for your shell, for example:
+
+```
+# bash
+source crates/repose-cli/completions/repose.bash
+# zsh: put the `_repose` file on your $fpath
+# fish: copy repose.fish into ~/.config/fish/completions/
+```
+
+Then, in a new shell, tab-complete subcommands and flags:
+
+```
+repose <TAB>           # add remove reset install clear uninstall ...
+```
+
+Regenerate the committed completions (and man pages) from the CLI with:
+
+```
+cargo run -p repose-cli --features gen --bin repose-gen -- crates/repose-cli
+```
 
 ## Building
 
@@ -292,5 +320,5 @@ cargo build --release -p repose-cli
 
 ## License
 
-This project is licensed under the GPLv3 license, see LICENSE file for
+This project is licensed under the GPLv3 license, see the LICENSE file for
 details.
