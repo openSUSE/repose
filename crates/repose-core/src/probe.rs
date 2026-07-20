@@ -48,10 +48,10 @@ impl HttpProbe {
                 Ok(resp) if resp.status().as_u16() < 400 => return true,
                 Ok(_) => {
                     // Non-success HEAD *status* (>=400) retries with GET.
-                    if let Ok(resp) = client.get(&target).timeout(timeout).send().await {
-                        if resp.status().as_u16() < 400 {
-                            return true;
-                        }
+                    if let Ok(resp) = client.get(&target).timeout(timeout).send().await
+                        && resp.status().as_u16() < 400
+                    {
+                        return true;
                     }
                 }
                 Err(_) => {

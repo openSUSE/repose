@@ -1,7 +1,7 @@
 //! `repose reset` — rr then ar only if full live replacement set.
 
 use crate::commands::{
-    aggregate, load_repoq, partition_live, run_reported_shared, CommandOptions, SharedConsole,
+    CommandOptions, SharedConsole, aggregate, load_repoq, partition_live, run_reported_shared,
 };
 use crate::console::Console;
 use crate::shell::cmd;

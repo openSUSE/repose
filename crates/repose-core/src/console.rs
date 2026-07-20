@@ -2,7 +2,7 @@
 
 use std::io::{self, Write};
 
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum OutputFormat {
@@ -117,11 +117,11 @@ impl<W: Write> Console<W> {
     fn emit(&mut self, event: &str, level: Level, fields: Value) -> io::Result<()> {
         if self.format == OutputFormat::Json {
             let mut payload = json!({"event": event, "level": level.as_str()});
-            if let Some(obj) = payload.as_object_mut() {
-                if let Some(map) = fields.as_object() {
-                    for (k, v) in map {
-                        obj.insert(k.clone(), v.clone());
-                    }
+            if let Some(obj) = payload.as_object_mut()
+                && let Some(map) = fields.as_object()
+            {
+                for (k, v) in map {
+                    obj.insert(k.clone(), v.clone());
                 }
             }
             writeln!(self.stream, "{payload}")?;

@@ -26,7 +26,7 @@ use crate::probe::HttpProbe;
 use crate::repa::Repa;
 use crate::repoq::Repoq;
 use crate::shell::cmd;
-use crate::template::{load_template, TemplateError};
+use crate::template::{TemplateError, load_template};
 use crate::traits::{Host, Probe};
 use crate::types::ExitCode;
 

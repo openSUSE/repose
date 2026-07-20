@@ -1,7 +1,7 @@
 //! Pure parsers for `.prod` XML and os-release text (no SFTP).
 
-use quick_xml::events::{BytesRef, Event};
 use quick_xml::Reader;
+use quick_xml::events::{BytesRef, Event};
 
 use crate::types::{Product, System};
 
@@ -66,15 +66,14 @@ pub fn parse_prod_xml(xml: &str, _filename: &str) -> Option<Product> {
             Ok(Event::Start(e)) => {
                 if active.is_some() {
                     text_done = true;
-                } else if depth == 1 {
-                    if let Some(idx) = field_index(e.name().as_ref()) {
-                        if !seen[idx] {
-                            seen[idx] = true;
-                            active = Some(idx);
-                            acc.clear();
-                            text_done = false;
-                        }
-                    }
+                } else if depth == 1
+                    && let Some(idx) = field_index(e.name().as_ref())
+                    && !seen[idx]
+                {
+                    seen[idx] = true;
+                    active = Some(idx);
+                    acc.clear();
+                    text_done = false;
                 }
                 depth += 1;
             }
@@ -84,13 +83,12 @@ pub fn parse_prod_xml(xml: &str, _filename: &str) -> Option<Product> {
                 // "current": tail text after it belongs to no field.
                 if active.is_some() {
                     text_done = true;
-                } else if depth == 1 {
-                    if let Some(idx) = field_index(e.name().as_ref()) {
-                        if !seen[idx] {
-                            seen[idx] = true;
-                            texts[idx] = Some(String::new());
-                        }
-                    }
+                } else if depth == 1
+                    && let Some(idx) = field_index(e.name().as_ref())
+                    && !seen[idx]
+                {
+                    seen[idx] = true;
+                    texts[idx] = Some(String::new());
                 }
             }
             // Character data is fragmented across Text / GeneralRef / CData
@@ -113,12 +111,12 @@ pub fn parse_prod_xml(xml: &str, _filename: &str) -> Option<Product> {
             }
             Ok(Event::End(_)) => {
                 depth -= 1;
-                if depth == 1 {
-                    if let Some(idx) = active.take() {
-                        // Whitespace trim is a documented delta (Python keeps
-                        // `.text` verbatim); real `.prod` files are unpadded.
-                        texts[idx] = Some(acc.trim().to_string());
-                    }
+                if depth == 1
+                    && let Some(idx) = active.take()
+                {
+                    // Whitespace trim is a documented delta (Python keeps
+                    // `.text` verbatim); real `.prod` files are unpadded.
+                    texts[idx] = Some(acc.trim().to_string());
                 }
             }
             Ok(Event::Eof) => break,
@@ -138,10 +136,11 @@ pub fn parse_prod_xml(xml: &str, _filename: &str) -> Option<Product> {
     // only differs on malformed input (excluded from the golden vectors).
     let mut ver = if let Some(bv) = baseversion.filter(|s| !s.is_empty()) {
         let mut v = bv;
-        if let Some(sp) = patchlevel {
-            if sp != "0" && !sp.is_empty() {
-                v = format!("{v}-SP{sp}");
-            }
+        if let Some(sp) = patchlevel
+            && sp != "0"
+            && !sp.is_empty()
+        {
+            v = format!("{v}-SP{sp}");
         }
         v
     } else {
@@ -403,8 +402,7 @@ mod tests {
         let xml =
             "<product><name></name><name>SLES</name><version>1</version><arch>a</arch></product>";
         assert_eq!(parse_prod_xml(xml, "t.prod"), None);
-        let xml =
-            "<product><name>FIRST</name><name>SECOND</name><version>1</version><arch>a</arch></product>";
+        let xml = "<product><name>FIRST</name><name>SECOND</name><version>1</version><arch>a</arch></product>";
         let p = parse_prod_xml(xml, "t.prod").unwrap();
         assert_eq!(p.name, "FIRST");
     }

@@ -11,9 +11,9 @@ pub mod session;
 pub use host::{RusshHost, RusshHostGroup};
 pub use session::RusshSession;
 
+pub use repose_core::VERSION as CORE_VERSION;
 pub use repose_core::error::SshError;
 pub use repose_core::traits::{Host, HostGroup, Probe, SshSession};
-pub use repose_core::VERSION as CORE_VERSION;
 
 /// Confirms the workspace link to `repose-core` at compile time.
 #[must_use]

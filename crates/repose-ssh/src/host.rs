@@ -8,10 +8,10 @@ use futures_util::future::join_all;
 use repose_core::config::ConnectionConfig;
 use repose_core::error::SshError;
 use repose_core::host_parse::HostSpec;
-use repose_core::product_parse::{parse_system, ProdFile, TRANSACTIONAL_CONF_PATHS};
+use repose_core::product_parse::{ProdFile, TRANSACTIONAL_CONF_PATHS, parse_system};
 use repose_core::repo_parse::parse_repositories;
 use repose_core::traits::{Host, HostGroup, SshSession};
-use repose_core::types::{repositories_from_raw, OutEntry, Repositories, Repository, System};
+use repose_core::types::{OutEntry, Repositories, Repository, System, repositories_from_raw};
 
 use crate::session::RusshSession;
 
@@ -169,7 +169,7 @@ impl Host for RusshHost {
             None => {
                 return Err(SshError::Other(
                     "no output recorded for zypper -x lr".into(),
-                ))
+                ));
             }
         };
         if matches!(exitcode, 0 | 106 | 6) {

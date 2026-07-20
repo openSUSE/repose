@@ -1,6 +1,6 @@
 //! `repose clear` — `zypper rr` every raw alias; never `_report_target`.
 
-use crate::commands::{aggregate, CommandOptions, SharedConsole};
+use crate::commands::{CommandOptions, SharedConsole, aggregate};
 use crate::console::Console;
 use crate::shell::cmd;
 use crate::traits::{Host, HostGroup};

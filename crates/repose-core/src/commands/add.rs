@@ -1,7 +1,7 @@
 //! `repose add` — resolve REPA, probe, zypper ar, cohort refresh.
 
 use crate::commands::{
-    aggregate, filter_live, load_repoq, run_reported_shared, CommandOptions, SharedConsole,
+    CommandOptions, SharedConsole, aggregate, filter_live, load_repoq, run_reported_shared,
 };
 use crate::console::Console;
 use crate::shell::cmd;
