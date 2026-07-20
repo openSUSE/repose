@@ -41,6 +41,9 @@ pub struct CommandOptions {
     pub format: OutputFormat,
     /// `list-products --yaml`: emit a YAML refhost spec instead of text/json.
     pub yaml: bool,
+    /// Emit ANSI color in `list-*` text output (resolved from `--color` /
+    /// `--no-color` / `NO_COLOR` / TTY by the CLI).
+    pub color: bool,
 }
 
 impl Default for CommandOptions {
@@ -54,6 +57,7 @@ impl Default for CommandOptions {
             no_reboot: false,
             format: OutputFormat::Text,
             yaml: false,
+            color: false,
         }
     }
 }

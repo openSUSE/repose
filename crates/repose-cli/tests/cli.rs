@@ -132,6 +132,26 @@ fn color_never_flag_contains_no_ansi_escape() {
 }
 
 #[test]
+fn color_always_flag_colorizes_known_products_label() {
+    // Python 2.1.0 colors the `Products known by 'repose':` label green
+    // (utils.green): `\x1b[1;32m…\x1b[1;m\x1b[0m`.
+    let config = vector("template/sample.yml");
+    let output = repose(&[
+        "--color=always",
+        "--config",
+        path(&config),
+        "known-products",
+    ]);
+
+    assert!(output.status.success());
+    assert!(
+        stdout(&output).contains("\x1b[1;32mProducts known by 'repose':\x1b[1;m\x1b[0m"),
+        "{}",
+        stdout(&output)
+    );
+}
+
+#[test]
 fn no_color_env_var_contains_no_ansi_escape() {
     // NO_COLOR is process-global; each subprocess gets an isolated env, so this
     // is the safe place to exercise the env-var force-off precedence.
