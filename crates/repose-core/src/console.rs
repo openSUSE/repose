@@ -164,21 +164,7 @@ impl<W: Write> Console<W> {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::{Mutex, MutexGuard};
-
     use super::*;
-
-    // NO_COLOR / COLOR are process-global; serialize the env-sensitive color
-    // tests and clear both vars so results don't depend on the ambient env or
-    // on parallel tests mutating the same vars.
-    static ENV_LOCK: Mutex<()> = Mutex::new(());
-
-    fn env_guard() -> MutexGuard<'static, ()> {
-        let guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
-        std::env::remove_var("NO_COLOR");
-        std::env::remove_var("COLOR");
-        guard
-    }
 
     #[test]
     fn dry_text() {
@@ -204,71 +190,43 @@ mod tests {
         format!("\x1b[1;34m{host}\x1b[1;m")
     }
 
-    #[test]
-    fn auto_colorizes_when_force_color_true() {
-        // Serialize + neutralize env for the whole env-sensitive suite so a
-        // parallel test (or an inherited NO_COLOR/COLOR) cannot flip results.
-        let _guard = env_guard();
+    // NO_COLOR/COLOR are process-global; mutating them races the whole test
+    // binary. These cases exercise the mode short-circuits (Always/Never),
+    // which return before any env read and are thus deterministic regardless
+    // of ambient env or parallel tests. Env-precedence (NO_COLOR / COLOR) is
+    // covered by the per-process subprocess tests in repose-cli/tests/cli.rs.
 
+    #[test]
+    fn always_mode_colorizes() {
         let mut buf = Buffer::default();
         let mut c = Console::new(&mut buf);
-        c.force_color = Some(true);
+        c.color = ColorMode::Always;
         c.report("h1", "ok", true, Level::Info).unwrap();
         assert_eq!(buf.0, format!("{} - ok\n", colorized("h1")));
     }
 
     #[test]
-    fn auto_no_color_when_force_color_false() {
-        let _guard = env_guard();
-
+    fn never_mode_suppresses_color() {
         let mut buf = Buffer::default();
         let mut c = Console::new(&mut buf);
-        c.force_color = Some(false);
-        c.report("h1", "ok", true, Level::Info).unwrap();
-        assert_eq!(buf.0, "h1 - ok\n");
-    }
-
-    #[test]
-    fn no_color_env_overrides_force_color() {
-        let _guard = env_guard();
-        // SAFETY-ish: single-threaded within the guarded critical section.
-        std::env::set_var("NO_COLOR", "1");
-
-        let mut buf = Buffer::default();
-        let mut c = Console::new(&mut buf);
+        c.color = ColorMode::Never;
+        // Never must win even when a TTY was detected.
         c.force_color = Some(true);
         c.report("h1", "ok", true, Level::Info).unwrap();
-
-        std::env::remove_var("NO_COLOR");
         assert_eq!(buf.0, "h1 - ok\n");
     }
 
     #[test]
-    fn color_env_always_forces_on() {
-        let _guard = env_guard();
-        std::env::set_var("COLOR", "always");
-
+    fn error_and_warning_levels_use_their_sequences() {
         let mut buf = Buffer::default();
         let mut c = Console::new(&mut buf);
-        c.force_color = Some(false);
-        c.report("h1", "ok", true, Level::Info).unwrap();
-
-        std::env::remove_var("COLOR");
-        assert_eq!(buf.0, format!("{} - ok\n", colorized("h1")));
-    }
-
-    #[test]
-    fn color_env_never_forces_off() {
-        let _guard = env_guard();
-        std::env::set_var("COLOR", "never");
-
-        let mut buf = Buffer::default();
-        let mut c = Console::new(&mut buf);
-        c.force_color = Some(true);
-        c.report("h1", "ok", true, Level::Info).unwrap();
-
-        std::env::remove_var("COLOR");
-        assert_eq!(buf.0, "h1 - ok\n");
+        c.color = ColorMode::Always;
+        c.error("h1", "boom").unwrap();
+        c.report("h1", "warn", true, Level::Warning).unwrap();
+        assert_eq!(
+            buf.0,
+            "\x1b[1;31mh1\x1b[1;m - boom\n\x1b[1;33mh1\x1b[1;m - warn\n"
+        );
     }
 
     #[test]

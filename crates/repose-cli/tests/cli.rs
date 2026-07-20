@@ -132,6 +132,23 @@ fn color_never_flag_contains_no_ansi_escape() {
 }
 
 #[test]
+fn no_color_env_var_contains_no_ansi_escape() {
+    // NO_COLOR is process-global; each subprocess gets an isolated env, so this
+    // is the safe place to exercise the env-var force-off precedence.
+    let config = vector("template/sample.yml");
+    let output = Command::new(env!("CARGO_BIN_EXE_repose"))
+        .args(["--config", path(&config), "known-products"])
+        .env_remove("COLOR")
+        .env("NO_COLOR", "1")
+        .output()
+        .expect("repose process should start");
+
+    assert!(output.status.success());
+    assert!(!output.stdout.contains(&0x1b));
+    assert!(!output.stderr.contains(&0x1b));
+}
+
+#[test]
 fn ssh_fixture_exercises_query_and_dry_run_commands() {
     let Some(target) = std::env::var_os("REPOSE_SSH_TARGET") else {
         assert!(
