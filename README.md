@@ -155,7 +155,7 @@ Adding SDK repository to SLE of any version:
 repose add -t fubar.suse.cz sle-sdk
 ```
 
-Adding specificaly SDK repository of SLE 12 SP2:
+Adding specifically SDK repository of SLE 12 SP2:
 
 ```
 repose add -t fubar.suse.cz sle-sdk:12-SP2

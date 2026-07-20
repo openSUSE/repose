@@ -1,0 +1,41 @@
+---
+name: dependency-review
+on:
+  pull_request:
+    branches: [master]
+
+permissions:
+  contents: read
+  # Write only so the action can post its summary comment on the PR.
+  pull-requests: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  # Cancel superseded PR runs, but let master/tag runs finish.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  dependency-review:
+    # Block PRs that add a vulnerable or GPL-incompatible dependency before
+    # merge. Complements Dependabot, which only alerts once code is on master.
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+      - name: Dependency review
+        uses: actions/dependency-review-action@2031cfc080254a8a887f58cffee85186f0e49e48  # v4.9.0
+        with:
+          fail-on-severity: high
+          comment-summary-in-pr: on-failure
+          # This is a GPL-3.0-or-later project: reject dependencies whose
+          # license is incompatible with GPLv3. Permissive / GPL-compatible
+          # licenses (MIT, Apache-2.0, BSD-2/3-Clause, MPL-2.0, ...) are
+          # intentionally NOT listed here.
+          deny-licenses: >-
+            GPL-2.0-only,
+            LGPL-2.1-only,
+            CDDL-1.0,
+            EPL-1.0,
+            EPL-2.0,
+            MPL-1.1,
+            OSL-3.0

@@ -1,4 +1,4 @@
-//! Command algorithms against [`crate::traits::Host`] / [`HostGroup`].
+//! Command algorithms against [`crate::traits::Host`] / [`crate::traits::HostGroup`].
 
 mod add;
 mod clear;

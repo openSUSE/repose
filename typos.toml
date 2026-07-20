@@ -1,0 +1,27 @@
+# Configuration for crate-ci/typos (https://github.com/crate-ci/typos).
+# Allowlist ONLY: every entry is a deliberate, load-bearing spelling or a
+# generated/captured artifact — never a masked real typo.
+
+[files]
+extend-exclude = [
+  # Real refhost fixtures / captured tool output: byte-identical data
+  # snapshots, not prose to spell-check (e.g. "sle-hae", "Unknow version").
+  "tests/vectors/**",
+  # Generated from the clap CLI (see the rust-assets-drift job); the authored
+  # source that produces them is still spell-checked.
+  "crates/repose-cli/completions/**",
+  "crates/repose-cli/man/**",
+]
+
+[default.extend-words]
+# `transform_version_partialy`: spelling deliberately preserved to mirror the
+# Python fn repose.types.refhost.transformations.transform_version_partialy.
+partialy = "partialy"
+# Error string / exception name mirrored verbatim from the Python impl
+# ("Unknow version: ...", Python `UnsuportedProductMessage`).
+unknow = "unknow"
+unsuported = "unsuported"
+# Fragments of "Qualität"/"café" split by \uXXXX escapes in display.rs
+# json.dumps parity tests (e.g. "Qualität", "café").
+qualit = "qualit"
+caf = "caf"

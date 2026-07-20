@@ -177,7 +177,7 @@ fn push_version(s: &mut String, v: &Value, indent: &str) {
 /// Hand-rolled to byte-match ruamel's safe dumper: `---`/`...` document
 /// markers, alphabetically sorted top-level keys (addons, arch, location,
 /// name, product), version leaves run through `transform_version_partialy`.
-/// The addon list order is sorted (see [`sorted_addons`]).
+/// The addon list order is sorted (see `sorted_addons`).
 pub fn list_products_yaml<W: Write>(
     out: &mut W,
     hostname: &str,
@@ -242,7 +242,7 @@ fn version_json(v: &Value) -> String {
 /// **to_refhost_dict_partially_normalized(), "name": <hostname>}` — i.e. key
 /// order event, host, location, arch, product, addons, name, byte-matching
 /// `json.dumps` (default separators and `ensure_ascii`). The addon list order
-/// is sorted (see [`sorted_addons`]).
+/// is sorted (see `sorted_addons`).
 pub fn list_products_yaml_json<W: Write>(
     out: &mut W,
     hostname: &str,

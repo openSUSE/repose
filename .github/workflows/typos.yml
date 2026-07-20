@@ -1,0 +1,25 @@
+---
+name: typos
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  # Cancel superseded PR runs, but let master runs finish.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  typos:
+    # Source spell-check (code, docs, comments). Config: typos.toml at the
+    # repo root (allowlist-only; auto-discovered by the action).
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+      - name: Spell check
+        uses: crate-ci/typos@dbe52f72499cd4ab666928e4d14ecfa9ddbb6852  # v1.48.0
