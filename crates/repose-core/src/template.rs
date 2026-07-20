@@ -137,7 +137,7 @@ fn merge_into(map: &mut serde_yaml::Mapping, merged: serde_yaml::Value) -> Resul
     Ok(())
 }
 
-fn yaml_type_name(v: &serde_yaml::Value) -> &'static str {
+const fn yaml_type_name(v: &serde_yaml::Value) -> &'static str {
     match v {
         serde_yaml::Value::Null => "null",
         serde_yaml::Value::Bool(_) => "bool",
@@ -149,7 +149,7 @@ fn yaml_type_name(v: &serde_yaml::Value) -> &'static str {
     }
 }
 
-fn type_name(v: &Value) -> &'static str {
+const fn type_name(v: &Value) -> &'static str {
     match v {
         Value::Null => "null",
         Value::Bool(_) => "bool",

@@ -60,7 +60,7 @@ pub struct Console<W: Write> {
 }
 
 impl<W: Write> Console<W> {
-    pub fn new(stream: W) -> Self {
+    pub const fn new(stream: W) -> Self {
         Self {
             stream,
             format: OutputFormat::Text,

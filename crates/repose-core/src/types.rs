@@ -23,7 +23,7 @@ pub struct System {
 
 impl System {
     #[must_use]
-    pub fn is_transactional(&self) -> bool {
+    pub const fn is_transactional(&self) -> bool {
         self.transactional
     }
 
@@ -33,7 +33,7 @@ impl System {
     }
 
     #[must_use]
-    pub fn get_base(&self) -> &Product {
+    pub const fn get_base(&self) -> &Product {
         &self.base
     }
 

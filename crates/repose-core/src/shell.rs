@@ -4,7 +4,7 @@
 //! are the merge gate for any remote command interpolation (design R2 / PR2).
 
 /// Python 3 `shlex.quote` uses `_find_unsafe = re.compile(r'[^\w@%+=:,./-]', re.ASCII)`.
-fn is_safe_char(c: char) -> bool {
+const fn is_safe_char(c: char) -> bool {
     c.is_ascii_alphanumeric()
         || matches!(c, '_' | '@' | '%' | '+' | '=' | ':' | ',' | '.' | '/' | '-')
 }
