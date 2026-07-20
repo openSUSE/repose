@@ -17,7 +17,7 @@ pub use repose_core::VERSION as CORE_VERSION;
 
 /// Confirms the workspace link to `repose-core` at compile time.
 #[must_use]
-pub fn core_version() -> &'static str {
+pub const fn core_version() -> &'static str {
     CORE_VERSION
 }
 
