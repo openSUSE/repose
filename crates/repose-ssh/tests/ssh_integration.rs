@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use repose_core::host_parse::{parse_host, HostSpec};
+use repose_core::host_parse::{HostSpec, parse_host};
 use repose_core::{ConnectionConfig, HostKeyPolicy};
 use repose_ssh::{Host, HostGroup, RusshHost, RusshHostGroup, RusshSession, SshSession};
 use tempfile::tempdir;
@@ -112,16 +112,20 @@ async fn live_session_covers_auth_host_keys_commands_sftp_and_reconnect() {
         .read_file("/etc/products.d/SLES.prod")
         .await
         .expect("base product should be readable");
-    assert!(product
-        .windows(b"<name>SLES</name>".len())
-        .any(|window| window == b"<name>SLES</name>"));
+    assert!(
+        product
+            .windows(b"<name>SLES</name>".len())
+            .any(|window| window == b"<name>SLES</name>")
+    );
     let second_read = strict
         .read_file("/etc/products.d/qa.prod")
         .await
         .expect("cached SFTP session should remain usable");
-    assert!(second_read
-        .windows(b"<name>qa</name>".len())
-        .any(|window| window == b"<name>qa</name>"));
+    assert!(
+        second_read
+            .windows(b"<name>qa</name>".len())
+            .any(|window| window == b"<name>qa</name>")
+    );
 
     strict.close().await.expect("session should close");
     assert!(!strict.is_active());

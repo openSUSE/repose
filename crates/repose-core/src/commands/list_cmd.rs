@@ -107,10 +107,10 @@ pub fn run_known_products(
 }
 
 fn split_key(key: &str) -> (&str, u16) {
-    if let Some((h, p)) = key.rsplit_once(':') {
-        if let Ok(port) = p.parse() {
-            return (h, port);
-        }
+    if let Some((h, p)) = key.rsplit_once(':')
+        && let Ok(port) = p.parse()
+    {
+        return (h, port);
     }
     (key, 22)
 }

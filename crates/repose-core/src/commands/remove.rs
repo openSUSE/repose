@@ -1,6 +1,6 @@
 //! `repose remove` — pattern match aliases, zypper rr.
 
-use crate::commands::{aggregate, run_reported_shared, CommandOptions, SharedConsole};
+use crate::commands::{CommandOptions, SharedConsole, aggregate, run_reported_shared};
 use crate::console::Console;
 use crate::repa::Repa;
 use crate::shell::cmd;

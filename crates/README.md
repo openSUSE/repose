@@ -48,7 +48,7 @@ Run these commands from the repository root.
 
 - **Layering:** `repose-core` must never depend on `repose-ssh` or `russh` (enforced more strictly in PR0.5).
 - **Single SSH backend:** `deny.toml` bans `ssh2` / `libssh2-sys` / async-ssh2-* crates.
-- **Path deps** pin the workspace version (`version = "3.0.0"`) so `cargo-deny` `wildcards = "deny"` accepts them.
+- **Path deps** pin the workspace version (`version = "3.1.0"`) so `cargo-deny` `wildcards = "deny"` accepts them.
 - **Binary name:** `repose` (replace strategy; no `repose-rs`).
 
 The Python implementation was removed at cutover; behavior is pinned by the

@@ -1,8 +1,8 @@
 //! In-memory [`Host`] / [`HostGroup`] for L2 command tests (no SSH).
 
 use std::collections::BTreeMap;
-use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::task::Poll;
 use std::time::Duration;
 
@@ -466,7 +466,7 @@ impl Probe for MapProbe {
 mod tests {
     use super::*;
     use crate::traits::last_out_succeeded;
-    use crate::types::{zypper_exit_ok, Product};
+    use crate::types::{Product, zypper_exit_ok};
 
     #[tokio::test]
     async fn run_appends_success_exit() {

@@ -27,13 +27,13 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 pub use config::{ConnectionConfig, HostKeyPolicy};
 pub use error::SshError;
-pub use host_parse::{parse_host, HostParseError, HostSpec};
+pub use host_parse::{HostParseError, HostSpec, parse_host};
 pub use repa::{Repa, RepaError};
 pub use shell::{join as shell_join, quote as shell_quote};
-pub use traits::{last_out_succeeded, Host, HostGroup, Probe, SshSession};
+pub use traits::{Host, HostGroup, Probe, SshSession, last_out_succeeded};
 pub use types::{
-    zypper_exit_ok, ExitCode, OutEntry, Product, Repositories, Repository, System,
-    ZYPPER_SUCCESS_EXIT_CODES,
+    ExitCode, OutEntry, Product, Repositories, Repository, System, ZYPPER_SUCCESS_EXIT_CODES,
+    zypper_exit_ok,
 };
 
 #[cfg(test)]

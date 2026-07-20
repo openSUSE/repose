@@ -9,8 +9,8 @@ use std::time::Duration;
 
 use clap::{CommandFactory, Parser, Subcommand, ValueEnum};
 use repose_core::commands::{
-    default_probe, run_add, run_clear, run_install, run_known_products, run_list_products,
-    run_list_repos, run_remove, run_reset, run_uninstall, CommandOptions,
+    CommandOptions, default_probe, run_add, run_clear, run_install, run_known_products,
+    run_list_products, run_list_repos, run_remove, run_reset, run_uninstall,
 };
 use repose_core::console::{ColorMode as CoreColorMode, Console, OutputFormat as CoreFormat};
 use repose_core::host_parse::parse_host;

@@ -15,7 +15,7 @@ use repose_core::error::SshError;
 use repose_core::traits::SshSession;
 use russh::client::{self, Handler};
 use russh::keys::agent::client::AgentClient;
-use russh::keys::{load_secret_key, Algorithm, PrivateKeyWithHashAlg};
+use russh::keys::{Algorithm, PrivateKeyWithHashAlg, load_secret_key};
 use russh::{ChannelMsg, Disconnect, Preferred};
 use russh_sftp::client::SftpSession;
 use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};

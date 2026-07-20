@@ -2,7 +2,7 @@
 
 use crate::commands::remove::{calculate_patterns, calculate_repolist};
 use crate::commands::{
-    aggregate, reboot_and_verify_shared, run_reported_shared, CommandOptions, SharedConsole,
+    CommandOptions, SharedConsole, aggregate, reboot_and_verify_shared, run_reported_shared,
 };
 use crate::console::Console;
 use crate::repa::Repa;

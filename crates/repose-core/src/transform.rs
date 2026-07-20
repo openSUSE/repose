@@ -1,6 +1,6 @@
 //! Version transforms for refhost YAML (`transform_version_partialy` spelling preserved).
 
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 /// Normalise a version string into major/minor or pass through unchanged.
 ///

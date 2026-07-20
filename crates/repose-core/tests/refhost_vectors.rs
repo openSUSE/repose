@@ -33,8 +33,8 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use repose_core::display::{list_products_yaml, CommandDisplay, JsonDisplay, TextDisplay};
-use repose_core::product_parse::{parse_system, ProdFile};
+use repose_core::display::{CommandDisplay, JsonDisplay, TextDisplay, list_products_yaml};
+use repose_core::product_parse::{ProdFile, parse_system};
 use repose_core::repo_parse::parse_repositories;
 use repose_core::types::{Repository, System};
 
@@ -70,10 +70,10 @@ fn golden(dir: &Path, label: &str, file: &str, rendered: &str) -> String {
 
 /// Replicates `commands::list_cmd::split_key`: `host:port`, defaulting to 22.
 fn split_key(key: &str) -> (&str, u16) {
-    if let Some((h, p)) = key.rsplit_once(':') {
-        if let Ok(port) = p.parse() {
-            return (h, port);
-        }
+    if let Some((h, p)) = key.rsplit_once(':')
+        && let Ok(port) = p.parse()
+    {
+        return (h, port);
     }
     (key, 22)
 }

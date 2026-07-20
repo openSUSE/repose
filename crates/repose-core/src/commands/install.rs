@@ -1,8 +1,8 @@
 //! `repose install` — ar + ref + product install; transactional path.
 
 use crate::commands::{
-    aggregate, filter_live, load_repoq, reboot_and_verify_shared, run_reported_shared,
-    CommandOptions, SharedConsole,
+    CommandOptions, SharedConsole, aggregate, filter_live, load_repoq, reboot_and_verify_shared,
+    run_reported_shared,
 };
 use crate::console::Console;
 use crate::repoq::Repos;
