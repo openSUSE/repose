@@ -41,7 +41,10 @@ pub async fn run_list_products<W: Write>(
                             let _ = d.list_products(hostname, port, sys);
                         }
                         crate::console::OutputFormat::Text => {
-                            let mut d = TextDisplay { output: &mut *out };
+                            let mut d = TextDisplay {
+                                output: &mut *out,
+                                color: opts.color,
+                            };
                             let _ = d.list_products(hostname, port, sys);
                         }
                     }
@@ -72,7 +75,10 @@ pub async fn run_list_repos<W: Write>(
                     let _ = d.list_repos(hostname, port, repos);
                 }
                 crate::console::OutputFormat::Text => {
-                    let mut d = TextDisplay { output: &mut *out };
+                    let mut d = TextDisplay {
+                        output: &mut *out,
+                        color: opts.color,
+                    };
                     let _ = d.list_repos(hostname, port, repos);
                 }
             }
@@ -85,6 +91,7 @@ pub async fn run_list_repos<W: Write>(
 pub fn run_known_products(
     config: &Path,
     format: crate::console::OutputFormat,
+    color: bool,
     out: &mut impl Write,
 ) -> Result<ExitCode, crate::template::TemplateError> {
     let tpl = load_template(config)?;
@@ -99,7 +106,7 @@ pub fn run_known_products(
             let _ = d.list_known_products(&names);
         }
         crate::console::OutputFormat::Text => {
-            let mut d = TextDisplay { output: out };
+            let mut d = TextDisplay { output: out, color };
             let _ = d.list_known_products(&names);
         }
     }
@@ -125,7 +132,7 @@ mod tests {
         let path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("../../tests/vectors/template/sample.yml");
         let mut buf = Buffer::default();
-        run_known_products(&path, crate::console::OutputFormat::Text, &mut buf).unwrap();
+        run_known_products(&path, crate::console::OutputFormat::Text, false, &mut buf).unwrap();
         assert!(buf.0.contains("QA") && buf.0.contains("SLES"));
     }
 

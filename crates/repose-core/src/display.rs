@@ -20,6 +20,31 @@ fn sorted_addons(system: &System) -> Vec<&Product> {
     addons
 }
 
+/// ANSI color helpers ported from Python `repose.utils` (`green`/`yellow`/
+/// `blue`), used by [`TextDisplay`] to color `list-*` / `known-products`
+/// labels and values. The sequences (`\x1b[1;3Nm{s}\x1b[1;m\x1b[0m`, double
+/// reset) are byte-identical to the Python 2.1.0 helpers. Returns `s`
+/// unchanged when `enabled` is false.
+fn green(enabled: bool, s: &str) -> String {
+    wrap(enabled, "\x1b[1;32m", s)
+}
+
+fn yellow(enabled: bool, s: &str) -> String {
+    wrap(enabled, "\x1b[1;33m", s)
+}
+
+fn blue(enabled: bool, s: &str) -> String {
+    wrap(enabled, "\x1b[1;34m", s)
+}
+
+fn wrap(enabled: bool, seq: &str, s: &str) -> String {
+    if enabled {
+        format!("{seq}{s}\x1b[1;m\x1b[0m")
+    } else {
+        s.to_string()
+    }
+}
+
 /// One JSON scalar, matching Python `json.dumps` with its default
 /// `ensure_ascii=True`: serde_json already escapes ASCII controls, `"` and
 /// `\` identically (verified: `json.dumps('tab\tq"b\\s\x01')` ==
@@ -282,14 +307,22 @@ pub trait CommandDisplay {
 
 pub struct TextDisplay<W: Write> {
     pub output: W,
+    /// Emit ANSI color (Python `CommandDisplay` via `utils` color helpers).
+    pub color: bool,
 }
 
 impl<W: Write> CommandDisplay for TextDisplay<W> {
     fn list_products(&mut self, hostname: &str, port: u16, system: &System) -> io::Result<()> {
-        // Mirrors Python `CommandDisplay.list_products` + `System.pretty`
-        // (color disabled when stdout is not a TTY, as here).
+        // Mirrors Python `CommandDisplay.list_products` + `System.pretty`:
+        // `Host` green, hostname/port yellow; the `pretty()` lines stay plain.
         let base = &system.base;
-        writeln!(self.output, "Host: {hostname}:{port}")?;
+        writeln!(
+            self.output,
+            "{}: {}:{}",
+            green(self.color, "Host"),
+            yellow(self.color, hostname),
+            yellow(self.color, &port.to_string()),
+        )?;
         writeln!(
             self.output,
             "  Base product: {}-{}-{}",
@@ -312,17 +345,35 @@ impl<W: Write> CommandDisplay for TextDisplay<W> {
     }
 
     fn list_repos(&mut self, hostname: &str, port: u16, repos: &[Repository]) -> io::Result<()> {
-        writeln!(self.output, "Repositories on {hostname}:{port}")?;
+        // Python `list_update_repos`: `Repositories` green, host/port blue;
+        // per repo the `REPO name`/`REPO URL` labels green, values plain.
+        writeln!(
+            self.output,
+            "{} on {}:{}",
+            green(self.color, "Repositories"),
+            blue(self.color, hostname),
+            blue(self.color, &port.to_string()),
+        )?;
         for r in repos {
-            writeln!(self.output, "REPO name: {}", r.name)?;
-            writeln!(self.output, "REPO URL: {}", r.url)?;
+            writeln!(
+                self.output,
+                "{}: {}",
+                green(self.color, "REPO name"),
+                r.name
+            )?;
+            writeln!(self.output, "{}: {}", green(self.color, "REPO URL"), r.url)?;
         }
         writeln!(self.output)?;
         Ok(())
     }
 
     fn list_known_products(&mut self, products: &[String]) -> io::Result<()> {
-        writeln!(self.output, "Products known by 'repose':")?;
+        // Python `list_known_products`: label green, names line plain.
+        writeln!(
+            self.output,
+            "{}",
+            green(self.color, "Products known by 'repose':")
+        )?;
         writeln!(self.output, "{}", products.join(" "))?;
         writeln!(self.output)?;
         Ok(())
@@ -447,7 +498,10 @@ mod tests {
     #[test]
     fn list_products_text_matches_python_pretty() {
         let mut buf = Buffer::default();
-        let mut d = TextDisplay { output: &mut buf };
+        let mut d = TextDisplay {
+            output: &mut buf,
+            color: false,
+        };
         d.list_products("ulysse.qam.suse.cz", 22, &sample_system())
             .unwrap();
         // Python `f"      Addon: {x.name:<53} - version: {x.version}"`: name is
@@ -458,6 +512,78 @@ mod tests {
              Base product: SL-Micro-6.1-x86_64\n  \
              Installed Extensions and Modules:\n      \
              Addon: SL-Micro-Extras{pad} - version: 6.1\n\n"
+        );
+        assert_eq!(buf.0, expected);
+    }
+
+    #[test]
+    fn color_helpers_match_python_utils_sequences() {
+        // Byte-parity with Python 2.1.0 `utils.green/yellow/blue`
+        // (`\033[1;3Nm{x}\033[1;m\033[0m`); plain passthrough when disabled.
+        assert_eq!(green(true, "Host"), "\x1b[1;32mHost\x1b[1;m\x1b[0m");
+        assert_eq!(yellow(true, "h1"), "\x1b[1;33mh1\x1b[1;m\x1b[0m");
+        assert_eq!(blue(true, "h1"), "\x1b[1;34mh1\x1b[1;m\x1b[0m");
+        assert_eq!(green(false, "Host"), "Host");
+        assert_eq!(yellow(false, "h1"), "h1");
+        assert_eq!(blue(false, "h1"), "h1");
+    }
+
+    #[test]
+    fn list_products_text_colorized_header_matches_python() {
+        let mut buf = Buffer::default();
+        let mut d = TextDisplay {
+            output: &mut buf,
+            color: true,
+        };
+        d.list_products("ulysse.qam.suse.cz", 22, &sample_system())
+            .unwrap();
+        // Header: green `Host`, yellow hostname/port; pretty() lines plain.
+        assert!(buf.0.starts_with(&format!(
+            "{}: {}:{}\n",
+            green(true, "Host"),
+            yellow(true, "ulysse.qam.suse.cz"),
+            yellow(true, "22"),
+        )));
+        assert!(buf.0.contains("  Base product: SL-Micro-6.1-x86_64\n"));
+    }
+
+    #[test]
+    fn list_repos_text_colorized_matches_python() {
+        let mut buf = Buffer::default();
+        let mut d = TextDisplay {
+            output: &mut buf,
+            color: true,
+        };
+        let r = crate::types::Repository {
+            alias: "a".into(),
+            name: "SLES:pool".into(),
+            url: "http://x/".into(),
+            state: true,
+        };
+        d.list_repos("dubai", 22, std::slice::from_ref(&r)).unwrap();
+        let expected = format!(
+            "{} on {}:{}\n{}: SLES:pool\n{}: http://x/\n\n",
+            green(true, "Repositories"),
+            blue(true, "dubai"),
+            blue(true, "22"),
+            green(true, "REPO name"),
+            green(true, "REPO URL"),
+        );
+        assert_eq!(buf.0, expected);
+    }
+
+    #[test]
+    fn known_products_text_colorized_label_matches_python() {
+        let mut buf = Buffer::default();
+        let mut d = TextDisplay {
+            output: &mut buf,
+            color: true,
+        };
+        d.list_known_products(&["SLES".into(), "QA".into()])
+            .unwrap();
+        let expected = format!(
+            "{}\nSLES QA\n\n",
+            green(true, "Products known by 'repose':")
         );
         assert_eq!(buf.0, expected);
     }

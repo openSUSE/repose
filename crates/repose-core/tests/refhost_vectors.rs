@@ -122,9 +122,12 @@ fn replay(dir: &Path) -> System {
 
 fn render_text(hostname: &str, port: u16, sys: &System) -> String {
     let mut out = Vec::new();
-    TextDisplay { output: &mut out }
-        .list_products(hostname, port, sys)
-        .unwrap();
+    TextDisplay {
+        output: &mut out,
+        color: false,
+    }
+    .list_products(hostname, port, sys)
+    .unwrap();
     String::from_utf8(out).unwrap()
 }
 
@@ -144,9 +147,12 @@ fn render_yaml(hostname: &str, sys: &System) -> String {
 
 fn render_repos_text(hostname: &str, port: u16, repos: &[Repository]) -> String {
     let mut out = Vec::new();
-    TextDisplay { output: &mut out }
-        .list_repos(hostname, port, repos)
-        .unwrap();
+    TextDisplay {
+        output: &mut out,
+        color: false,
+    }
+    .list_repos(hostname, port, repos)
+    .unwrap();
     String::from_utf8(out).unwrap()
 }
 

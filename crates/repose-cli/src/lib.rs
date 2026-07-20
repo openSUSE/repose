@@ -284,7 +284,8 @@ async fn async_main() -> ExitCode {
             return ExitCode::SUCCESS;
         }
         Some(Commands::KnownProducts) => {
-            return known_products(&cli.config, cli.format.into());
+            let color = resolve_color(cli.no_color, cli.color, std::io::stdout().is_terminal());
+            return known_products(&cli.config, cli.format.into(), color);
         }
         Some(other) => other,
     };
@@ -326,8 +327,36 @@ fn init_logging(debug: bool, quiet: bool, no_color: bool) {
         .try_init();
 }
 
-fn known_products(config: &Path, format: CoreFormat) -> ExitCode {
-    match run_known_products(config, format, &mut std::io::stdout()) {
+/// Resolve the effective color decision for stdout `list-*` output, mirroring
+/// `repose_core::console::Console::use_color`: `--no-color`/`--color=never`
+/// force off, `--color=always` forces on, and `auto` honors `NO_COLOR`, then
+/// `COLOR`, then `is_tty`.
+fn resolve_color(no_color: bool, color: Color, is_tty: bool) -> bool {
+    if no_color {
+        return false;
+    }
+    match color {
+        Color::Always => true,
+        Color::Never => false,
+        Color::Auto => {
+            if std::env::var_os("NO_COLOR").is_some_and(|v| !v.is_empty()) {
+                return false;
+            }
+            if let Ok(c) = std::env::var("COLOR") {
+                if c.eq_ignore_ascii_case("never") {
+                    return false;
+                }
+                if c.eq_ignore_ascii_case("always") {
+                    return true;
+                }
+            }
+            is_tty
+        }
+    }
+}
+
+fn known_products(config: &Path, format: CoreFormat, color: bool) -> ExitCode {
+    match run_known_products(config, format, color, &mut std::io::stdout()) {
         Ok(c) => exit_from(c),
         Err(e) => {
             eprintln!("error: {e}");
@@ -412,6 +441,7 @@ async fn dispatch(cli: Cli, conn: ConnectionConfig, cmd: Commands) -> ExitCode {
         no_reboot,
         format: cli.format.into(),
         yaml: matches!(&cmd, Commands::ListProducts { yaml: true, .. }),
+        color: resolve_color(cli.no_color, cli.color, std::io::stdout().is_terminal()),
     };
 
     let mut group = RusshHostGroup::from_targets(specs, conn);
