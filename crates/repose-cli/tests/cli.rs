@@ -122,6 +122,16 @@ fn no_color_output_contains_no_ansi_escape() {
 }
 
 #[test]
+fn color_never_flag_contains_no_ansi_escape() {
+    let config = vector("template/sample.yml");
+    let output = repose(&["--color=never", "--config", path(&config), "known-products"]);
+
+    assert!(output.status.success());
+    assert!(!output.stdout.contains(&0x1b));
+    assert!(!output.stderr.contains(&0x1b));
+}
+
+#[test]
 fn ssh_fixture_exercises_query_and_dry_run_commands() {
     let Some(target) = std::env::var_os("REPOSE_SSH_TARGET") else {
         assert!(

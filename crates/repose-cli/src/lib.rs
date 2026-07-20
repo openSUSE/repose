@@ -2,6 +2,7 @@
 
 #![forbid(unsafe_code)]
 
+use std::io::IsTerminal;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 use std::time::Duration;
@@ -11,7 +12,7 @@ use repose_core::commands::{
     default_probe, run_add, run_clear, run_install, run_known_products, run_list_products,
     run_list_repos, run_remove, run_reset, run_uninstall, CommandOptions,
 };
-use repose_core::console::{Console, OutputFormat as CoreFormat};
+use repose_core::console::{ColorMode as CoreColorMode, Console, OutputFormat as CoreFormat};
 use repose_core::host_parse::parse_host;
 use repose_core::repa::Repa;
 use repose_core::{ConnectionConfig, HostKeyPolicy, VERSION};
@@ -29,6 +30,23 @@ impl From<OutputFormat> for CoreFormat {
         match f {
             OutputFormat::Text => CoreFormat::Text,
             OutputFormat::Json => CoreFormat::Json,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, ValueEnum)]
+enum Color {
+    Auto,
+    Always,
+    Never,
+}
+
+impl From<Color> for CoreColorMode {
+    fn from(c: Color) -> Self {
+        match c {
+            Color::Auto => CoreColorMode::Auto,
+            Color::Always => CoreColorMode::Always,
+            Color::Never => CoreColorMode::Never,
         }
     }
 }
@@ -82,9 +100,12 @@ struct Cli {
     /// suppress messages from repose
     #[arg(short = 'q', long = "quiet", global = true)]
     quiet: bool,
-    /// disable ANSI color in console output (honors NO_COLOR)
+    /// disable ANSI color in console output (alias for --color=never; honors NO_COLOR)
     #[arg(long = "no-color", global = true)]
     no_color: bool,
+    /// console color mode: 'auto' (default; color on a TTY unless NO_COLOR), 'always', or 'never'
+    #[arg(long = "color", global = true, value_enum, default_value_t = Color::Auto)]
+    color: Color,
     /// console output format: 'text' (default) or 'json' (one event per line)
     #[arg(long = "format", global = true, value_enum, default_value_t = OutputFormat::Text)]
     format: OutputFormat,
@@ -395,11 +416,17 @@ async fn dispatch(cli: Cli, conn: ConnectionConfig, cmd: Commands) -> ExitCode {
 
     let mut group = RusshHostGroup::from_targets(specs, conn);
     let probe = default_probe();
+    let is_tty = std::io::stdout().is_terminal();
     let mut console = Console::new(std::io::stdout());
     console.format = opts.format;
-    if cli.no_color {
-        console.color = repose_core::console::ColorMode::Never;
-    }
+    // Auto mode reflects the real terminal; force_color is the injected TTY bit.
+    console.force_color = Some(is_tty);
+    console.color = if cli.no_color {
+        // --no-color is an alias for --color=never and wins over --color.
+        CoreColorMode::Never
+    } else {
+        cli.color.into()
+    };
 
     let code = match cmd {
         Commands::Add { .. } => match run_add(&opts, &mut group, &probe, &mut console).await {
