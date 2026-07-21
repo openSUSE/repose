@@ -11,6 +11,16 @@ extend-exclude = [
   # source that produces them is still spell-checked.
   "crates/repose-cli/completions/**",
   "crates/repose-cli/man/**",
+  # Captured performance reports/manifests and comparator fixtures: content
+  # hash digests, mangled symbol names, and timing data, not prose (e.g.
+  # digest "...ba28267" false-positives as the word "ba"). workloads.json
+  # embeds reviewed digests for the same reason.
+  # tests/performance/README.md, opportunity-matrix.md, and thresholds.json
+  # stay spell-checked — they're authored prose.
+  "tests/performance/workloads.json",
+  "tests/performance/baselines/**",
+  "tests/performance/profiles/**",
+  "tests/performance/comparator-fixtures/**",
 ]
 
 [default.extend-words]
