@@ -1,12 +1,13 @@
 //! In-memory [`Host`] / [`HostGroup`] for L2 command tests (no SSH).
 
 use std::collections::BTreeMap;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::{Arc, Mutex, PoisonError};
 use std::task::Poll;
 use std::time::Duration;
 
 use async_trait::async_trait;
+use futures_util::future::join_all;
 
 use crate::error::SshError;
 use crate::traits::{Host, HostGroup, Probe};
@@ -104,6 +105,200 @@ impl RunBarrier {
     }
 }
 
+/// Host-operation category for opt-in gating/metrics on mock test doubles.
+///
+/// Every [`Host`] method boundary maps to exactly one kind; `reboot`'s
+/// nested `run` call is counted separately under [`Self::Run`] (see
+/// [`MockMetricsSnapshot::operations_by_kind`]).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum MockOpKind {
+    Connect,
+    ReadProducts,
+    ReadRepos,
+    ParseRepos,
+    Run,
+    Reboot,
+    Close,
+}
+
+/// Manually released gate an instrumented mock operation waits on.
+///
+/// Lets a test observe an operation as in-flight (via [`MockMetrics`])
+/// before choosing to let it complete — a deterministic, non-sleeping
+/// substitute for modelling remote latency.
+#[derive(Debug, Default)]
+pub struct MockGate {
+    released: AtomicBool,
+}
+
+impl MockGate {
+    #[must_use]
+    pub fn new() -> Arc<Self> {
+        Arc::new(Self::default())
+    }
+
+    pub fn release(&self) {
+        self.released.store(true, Ordering::SeqCst);
+    }
+
+    async fn wait(&self) {
+        const MAX_SPINS: usize = 1_000_000;
+        let mut spins = 0usize;
+        std::future::poll_fn(|cx| {
+            if self.released.load(Ordering::SeqCst) {
+                return Poll::Ready(());
+            }
+            spins += 1;
+            assert!(
+                spins <= MAX_SPINS,
+                "MockGate never released (deadlock guard)"
+            );
+            cx.waker().wake_by_ref();
+            Poll::Pending
+        })
+        .await;
+    }
+}
+
+#[derive(Debug, Default)]
+struct MockCounters {
+    total_operations: AtomicUsize,
+    current_operations: AtomicUsize,
+    peak_operations: AtomicUsize,
+    operations_by_kind: Mutex<BTreeMap<MockOpKind, usize>>,
+    commands_attempted: AtomicUsize,
+    commands_completed: AtomicUsize,
+    probe_total: AtomicUsize,
+    current_probes: AtomicUsize,
+    peak_probes: AtomicUsize,
+    probe_counts: Mutex<BTreeMap<String, usize>>,
+}
+
+/// Shared, `Arc`-backed counters for [`MockHost`] / probe test doubles.
+///
+/// Cloning shares the same counters; instrumentation is opt-in so existing
+/// mocks that never attach a tracker are unaffected. Tests read an immutable
+/// [`MockMetricsSnapshot`] rather than mutating counters directly.
+#[derive(Debug, Clone, Default)]
+pub struct MockMetrics(Arc<MockCounters>);
+
+impl MockMetrics {
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    fn enter_op(&self, kind: MockOpKind) -> OpGuard {
+        self.0.total_operations.fetch_add(1, Ordering::SeqCst);
+        let current = self.0.current_operations.fetch_add(1, Ordering::SeqCst) + 1;
+        self.0.peak_operations.fetch_max(current, Ordering::SeqCst);
+        *self
+            .0
+            .operations_by_kind
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .entry(kind)
+            .or_insert(0) += 1;
+        OpGuard {
+            metrics: self.clone(),
+        }
+    }
+
+    fn enter_probe(&self, url: &str) -> ProbeGuard {
+        self.0.probe_total.fetch_add(1, Ordering::SeqCst);
+        let current = self.0.current_probes.fetch_add(1, Ordering::SeqCst) + 1;
+        self.0.peak_probes.fetch_max(current, Ordering::SeqCst);
+        *self
+            .0
+            .probe_counts
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .entry(url.to_string())
+            .or_insert(0) += 1;
+        ProbeGuard {
+            metrics: self.clone(),
+        }
+    }
+
+    fn record_command_attempted(&self) {
+        self.0.commands_attempted.fetch_add(1, Ordering::SeqCst);
+    }
+
+    fn record_command_completed(&self) {
+        self.0.commands_completed.fetch_add(1, Ordering::SeqCst);
+    }
+
+    /// Immutable point-in-time read of every counter.
+    #[must_use]
+    pub fn snapshot(&self) -> MockMetricsSnapshot {
+        MockMetricsSnapshot {
+            total_operations: self.0.total_operations.load(Ordering::SeqCst),
+            current_operations: self.0.current_operations.load(Ordering::SeqCst),
+            peak_operations: self.0.peak_operations.load(Ordering::SeqCst),
+            operations_by_kind: self
+                .0
+                .operations_by_kind
+                .lock()
+                .unwrap_or_else(PoisonError::into_inner)
+                .clone(),
+            commands_attempted: self.0.commands_attempted.load(Ordering::SeqCst),
+            commands_completed: self.0.commands_completed.load(Ordering::SeqCst),
+            probe_total: self.0.probe_total.load(Ordering::SeqCst),
+            current_probes: self.0.current_probes.load(Ordering::SeqCst),
+            peak_probes: self.0.peak_probes.load(Ordering::SeqCst),
+            probe_counts: self
+                .0
+                .probe_counts
+                .lock()
+                .unwrap_or_else(PoisonError::into_inner)
+                .clone(),
+        }
+    }
+}
+
+/// Immutable snapshot of [`MockMetrics`] at the time it was taken.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct MockMetricsSnapshot {
+    pub total_operations: usize,
+    pub current_operations: usize,
+    pub peak_operations: usize,
+    pub operations_by_kind: BTreeMap<MockOpKind, usize>,
+    /// `Host::run` calls that passed the connected-state check.
+    pub commands_attempted: usize,
+    /// Commands that appended an `out` entry (excludes transport failures).
+    pub commands_completed: usize,
+    pub probe_total: usize,
+    pub current_probes: usize,
+    pub peak_probes: usize,
+    pub probe_counts: BTreeMap<String, usize>,
+}
+
+/// RAII guard: decrements `current_operations` on drop (including early
+/// return or panic unwind), so a failure path never leaks an in-flight count.
+struct OpGuard {
+    metrics: MockMetrics,
+}
+
+impl Drop for OpGuard {
+    fn drop(&mut self) {
+        self.metrics
+            .0
+            .current_operations
+            .fetch_sub(1, Ordering::SeqCst);
+    }
+}
+
+/// RAII guard: decrements `current_probes` on drop.
+struct ProbeGuard {
+    metrics: MockMetrics,
+}
+
+impl Drop for ProbeGuard {
+    fn drop(&mut self) {
+        self.metrics.0.current_probes.fetch_sub(1, Ordering::SeqCst);
+    }
+}
+
 /// Controllable host for command unit tests.
 #[derive(Debug, Default)]
 pub struct MockHost {
@@ -129,6 +324,10 @@ pub struct MockHost {
     /// When set, `run` enters this barrier before executing (concurrency
     /// proof in fan-out tests).
     run_barrier: Option<Arc<RunBarrier>>,
+    /// Opt-in shared counters; `None` preserves plain default behavior.
+    metrics: Option<MockMetrics>,
+    /// Per-operation-kind gates a call waits on before proceeding.
+    gates: BTreeMap<MockOpKind, Arc<MockGate>>,
 }
 
 impl MockHost {
@@ -189,6 +388,23 @@ impl MockHost {
         self
     }
 
+    /// Attach shared counters; every instrumented method boundary reports
+    /// through them. Opt-in only — omitting this call preserves prior
+    /// zero-overhead default behavior.
+    #[must_use]
+    pub fn with_metrics(mut self, metrics: MockMetrics) -> Self {
+        self.metrics = Some(metrics);
+        self
+    }
+
+    /// Make every call to the `kind` method wait on `gate` before proceeding
+    /// (after metrics have already recorded it as in-flight).
+    #[must_use]
+    pub fn with_gate(mut self, kind: MockOpKind, gate: Arc<MockGate>) -> Self {
+        self.gates.insert(kind, gate);
+        self
+    }
+
     /// Queue scripted outcomes for the next `run` calls.
     pub fn push_run(&mut self, outcome: MockRunOutcome) {
         self.run_queue.push(outcome);
@@ -203,6 +419,19 @@ impl MockHost {
             MockRunOutcome::exit(0)
         } else {
             self.run_queue.remove(0)
+        }
+    }
+
+    /// Record `kind` as entered (if metrics attached) and return the guard
+    /// that marks it complete on drop.
+    fn enter_op(&self, kind: MockOpKind) -> Option<OpGuard> {
+        self.metrics.as_ref().map(|m| m.enter_op(kind))
+    }
+
+    /// Wait on the gate registered for `kind`, if any.
+    async fn wait_gate(&self, kind: MockOpKind) {
+        if let Some(gate) = self.gates.get(&kind) {
+            gate.wait().await;
         }
     }
 }
@@ -234,6 +463,8 @@ impl Host for MockHost {
     }
 
     async fn connect(&mut self) -> Result<(), SshError> {
+        let _guard = self.enter_op(MockOpKind::Connect);
+        self.wait_gate(MockOpKind::Connect).await;
         if self.connect_fail {
             self.connected = false;
             return Err(SshError::Transport(format!(
@@ -246,14 +477,22 @@ impl Host for MockHost {
     }
 
     async fn close(&mut self) -> Result<(), SshError> {
+        let _guard = self.enter_op(MockOpKind::Close);
+        self.wait_gate(MockOpKind::Close).await;
         self.connected = false;
         Ok(())
     }
 
     async fn run(&mut self, command: &str) -> Result<(), SshError> {
+        let _guard = self.enter_op(MockOpKind::Run);
         if !self.connected {
-            // Pre-append failure: not connected, no out entry.
+            // Pre-append failure: not connected, no out entry, no command
+            // counted (only attempts past the connected-state check count).
             return Err(SshError::NotConnected(self.key.clone()));
+        }
+        self.wait_gate(MockOpKind::Run).await;
+        if let Some(m) = &self.metrics {
+            m.record_command_attempted();
         }
         if let Some(barrier) = self.run_barrier.clone() {
             barrier.enter().await;
@@ -268,22 +507,31 @@ impl Host for MockHost {
             } => {
                 self.out
                     .push((command.to_string(), stdout, stderr, exitcode, runtime_secs));
+                if let Some(m) = &self.metrics {
+                    m.record_command_completed();
+                }
                 Ok(())
             }
             MockRunOutcome::Timeout { stderr } => {
                 // Contract: timeout still appends exitcode -1, returns Ok.
                 self.out
                     .push((command.to_string(), String::new(), stderr, -1, 0));
+                if let Some(m) = &self.metrics {
+                    m.record_command_completed();
+                }
                 Ok(())
             }
             MockRunOutcome::TransportErr(msg) => {
-                // Contract: no out entry when Err.
+                // Contract: no out entry when Err; command was attempted
+                // but did not complete, so it stays distinguishable.
                 Err(SshError::Transport(msg))
             }
         }
     }
 
     async fn read_products(&mut self) -> Result<(), SshError> {
+        let _guard = self.enter_op(MockOpKind::ReadProducts);
+        self.wait_gate(MockOpKind::ReadProducts).await;
         if !self.connected {
             return Err(SshError::NotConnected(self.key.clone()));
         }
@@ -298,6 +546,8 @@ impl Host for MockHost {
     }
 
     async fn read_repos(&mut self) -> Result<(), SshError> {
+        let _guard = self.enter_op(MockOpKind::ReadRepos);
+        self.wait_gate(MockOpKind::ReadRepos).await;
         if !self.connected {
             return Err(SshError::NotConnected(self.key.clone()));
         }
@@ -305,6 +555,8 @@ impl Host for MockHost {
     }
 
     async fn parse_repos(&mut self) -> Result<(), SshError> {
+        let _guard = self.enter_op(MockOpKind::ParseRepos);
+        self.wait_gate(MockOpKind::ParseRepos).await;
         if self.products.is_none() {
             self.read_products().await?;
         }
@@ -318,7 +570,10 @@ impl Host for MockHost {
     }
 
     async fn reboot(&mut self, command: &str) -> Result<bool, SshError> {
-        // Mock: record reboot command via run semantics, then "reconnect".
+        let _guard = self.enter_op(MockOpKind::Reboot);
+        self.wait_gate(MockOpKind::Reboot).await;
+        // Mock: record reboot command via run semantics (counted separately
+        // as its own Run operation/command), then "reconnect".
         self.run(command).await?;
         self.connected = true;
         // Model the post-reboot product change (e.g. product now removed).
@@ -375,51 +630,57 @@ impl HostGroup for MockHostGroup {
             .collect()
     }
 
+    // Concurrent, order-preserving, failure-isolated fan-out matching
+    // `RusshHostGroup` (see `repose-ssh/src/host.rs`): `join_all` preserves
+    // input order and the map is a `BTreeMap`, so results stay key-ordered;
+    // one host's error never stops or is counted against its siblings.
     async fn connect_and_prune(&mut self) {
-        let keys: Vec<String> = self.hosts.keys().cloned().collect();
-        for key in keys {
-            let fail = {
-                let host = self.hosts.get_mut(&key).expect("key present");
-                host.connect().await.is_err()
-            };
-            if fail {
-                self.hosts.remove(&key);
-            }
+        let failed: Vec<String> =
+            join_all(self.hosts.iter_mut().map(|(key, host)| async move {
+                host.connect().await.is_err().then(|| key.clone())
+            }))
+            .await
+            .into_iter()
+            .flatten()
+            .collect();
+        for key in failed {
+            self.hosts.remove(&key);
         }
     }
 
     async fn read_products(&mut self) {
-        for host in self.hosts.values_mut() {
+        join_all(self.hosts.values_mut().map(|host| async move {
             let _ = host.read_products().await;
-        }
+        }))
+        .await;
     }
 
     async fn read_repos(&mut self) {
-        for host in self.hosts.values_mut() {
+        join_all(self.hosts.values_mut().map(|host| async move {
             let _ = host.read_repos().await;
-        }
+        }))
+        .await;
     }
 
     async fn parse_repos(&mut self) {
-        for host in self.hosts.values_mut() {
+        join_all(self.hosts.values_mut().map(|host| async move {
             let _ = host.parse_repos().await;
-        }
+        }))
+        .await;
     }
 
     async fn run_all(&mut self, cmd: &str) {
-        // Isolated: collect keys first; errors do not stop siblings.
-        let keys: Vec<String> = self.hosts.keys().cloned().collect();
-        for key in keys {
-            if let Some(host) = self.hosts.get_mut(&key) {
-                let _ = host.run(cmd).await;
-            }
-        }
+        join_all(self.hosts.values_mut().map(|host| async move {
+            let _ = host.run(cmd).await;
+        }))
+        .await;
     }
 
     async fn close(&mut self) {
-        for host in self.hosts.values_mut() {
+        join_all(self.hosts.values_mut().map(|host| async move {
             let _ = host.close().await;
-        }
+        }))
+        .await;
     }
 }
 
@@ -459,6 +720,61 @@ impl MapProbe {
 impl Probe for MapProbe {
     async fn is_live(&self, url: &str, _timeout: Duration) -> bool {
         !self.dead_urls.contains(url)
+    }
+}
+
+/// Counting/gated [`Probe`] test double: per-URL outcome overrides on top of
+/// a default, optional shared [`MockMetrics`], and an optional [`MockGate`]
+/// for deterministic overlap proofs. `ConstProbe`/`MapProbe` remain the
+/// simple choice when metrics/gating are not needed.
+#[derive(Debug, Clone, Default)]
+pub struct MetricProbe {
+    default_live: bool,
+    overrides: std::collections::HashMap<String, bool>,
+    metrics: Option<MockMetrics>,
+    gate: Option<Arc<MockGate>>,
+}
+
+impl MetricProbe {
+    #[must_use]
+    pub fn new(default_live: bool) -> Self {
+        Self {
+            default_live,
+            ..Self::default()
+        }
+    }
+
+    #[must_use]
+    pub fn with_metrics(mut self, metrics: MockMetrics) -> Self {
+        self.metrics = Some(metrics);
+        self
+    }
+
+    #[must_use]
+    pub fn with_gate(mut self, gate: Arc<MockGate>) -> Self {
+        self.gate = Some(gate);
+        self
+    }
+
+    /// Override the outcome for one exact URL (input-independent lookup).
+    #[must_use]
+    pub fn set(mut self, url: impl Into<String>, live: bool) -> Self {
+        self.overrides.insert(url.into(), live);
+        self
+    }
+}
+
+#[async_trait]
+impl Probe for MetricProbe {
+    async fn is_live(&self, url: &str, _timeout: Duration) -> bool {
+        let _guard = self.metrics.as_ref().map(|m| m.enter_probe(url));
+        if let Some(gate) = &self.gate {
+            gate.wait().await;
+        }
+        self.overrides
+            .get(url)
+            .copied()
+            .unwrap_or(self.default_live)
     }
 }
 
@@ -587,5 +903,213 @@ mod tests {
         };
         assert!(s.is_transactional());
         assert_eq!(s.arch(), "x86_64");
+    }
+
+    #[tokio::test]
+    async fn serial_operations_peak_at_one_and_leave_zero_in_flight() {
+        let metrics = MockMetrics::new();
+        let mut h = MockHost::new("h1").with_metrics(metrics.clone());
+        h.connect().await.unwrap();
+        h.push_run(MockRunOutcome::exit(0));
+        h.run("cmd").await.unwrap();
+        h.close().await.unwrap();
+
+        let snap = metrics.snapshot();
+        assert_eq!(snap.peak_operations, 1, "no overlap under serial calls");
+        assert_eq!(snap.current_operations, 0);
+        assert_eq!(snap.total_operations, 3, "connect + run + close");
+        assert_eq!(snap.commands_attempted, 1);
+        assert_eq!(snap.commands_completed, 1);
+        assert_eq!(snap.operations_by_kind[&MockOpKind::Run], 1);
+    }
+
+    #[tokio::test]
+    async fn not_connected_run_counts_operation_but_no_command() {
+        let metrics = MockMetrics::new();
+        let mut h = MockHost::new("h1").with_metrics(metrics.clone());
+        let err = h.run("cmd").await.unwrap_err();
+        assert!(matches!(err, SshError::NotConnected(_)));
+
+        let snap = metrics.snapshot();
+        assert_eq!(snap.total_operations, 1);
+        assert_eq!(snap.current_operations, 0, "guard released on early return");
+        assert_eq!(
+            snap.commands_attempted, 0,
+            "counted only past the connected check"
+        );
+    }
+
+    #[tokio::test]
+    async fn transport_failure_does_not_leak_in_flight_guard() {
+        let metrics = MockMetrics::new();
+        let mut h = MockHost::new("h1").with_metrics(metrics.clone());
+        h.connect().await.unwrap();
+        h.push_run(MockRunOutcome::TransportErr("boom".into()));
+        assert!(h.run("cmd").await.is_err());
+
+        let snap = metrics.snapshot();
+        assert_eq!(snap.current_operations, 0);
+        assert_eq!(snap.commands_attempted, 1, "attempted past connected check");
+        assert_eq!(
+            snap.commands_completed, 0,
+            "no out entry on transport error"
+        );
+    }
+
+    #[tokio::test]
+    async fn reboot_counts_separately_from_its_nested_run_command() {
+        let metrics = MockMetrics::new();
+        let mut h = MockHost::new("h1").with_metrics(metrics.clone());
+        h.connect().await.unwrap();
+        h.reboot("systemctl reboot").await.unwrap();
+
+        let snap = metrics.snapshot();
+        assert_eq!(snap.operations_by_kind[&MockOpKind::Reboot], 1);
+        assert_eq!(snap.operations_by_kind[&MockOpKind::Run], 1);
+        assert_eq!(snap.commands_attempted, 1);
+        assert_eq!(snap.current_operations, 0);
+    }
+
+    #[tokio::test]
+    async fn gated_hosts_overlap_reaches_expected_peak_operations() {
+        let metrics = MockMetrics::new();
+        let gate = MockGate::new();
+        let mut h1 = MockHost::new("h1")
+            .with_metrics(metrics.clone())
+            .with_gate(MockOpKind::Run, gate.clone());
+        h1.connect().await.unwrap();
+        let mut h2 = MockHost::new("h2")
+            .with_metrics(metrics.clone())
+            .with_gate(MockOpKind::Run, gate.clone());
+        h2.connect().await.unwrap();
+
+        let t1 = tokio::spawn(async move {
+            h1.run("cmd").await.unwrap();
+            h1
+        });
+        let t2 = tokio::spawn(async move {
+            h2.run("cmd").await.unwrap();
+            h2
+        });
+
+        // Spin (bounded) until both operations are observably in-flight;
+        // no real sleeps, no fixed wall-clock wait.
+        for _ in 0..100_000 {
+            if metrics.snapshot().current_operations >= 2 {
+                break;
+            }
+            tokio::task::yield_now().await;
+        }
+        assert_eq!(
+            metrics.snapshot().current_operations,
+            2,
+            "both hosts must be in-flight before release"
+        );
+        gate.release();
+        let (h1, h2) = tokio::join!(t1, t2);
+        drop((h1.unwrap(), h2.unwrap()));
+
+        let snap = metrics.snapshot();
+        assert_eq!(snap.peak_operations, 2);
+        assert_eq!(snap.current_operations, 0);
+        assert_eq!(snap.commands_completed, 2);
+    }
+
+    #[tokio::test]
+    async fn group_fan_out_is_concurrent_ordered_and_failure_isolated() {
+        let metrics = MockMetrics::new();
+        let gate = MockGate::new();
+        let mut g = MockHostGroup::new();
+        for key in ["a", "b", "c"] {
+            let mut h = MockHost::new(key)
+                .with_metrics(metrics.clone())
+                .with_gate(MockOpKind::Run, gate.clone());
+            h.connect().await.unwrap();
+            if key == "b" {
+                h.push_run(MockRunOutcome::TransportErr("fail".into()));
+            }
+            g.insert(h);
+        }
+
+        let run = tokio::spawn(async move {
+            g.run_all("true").await;
+            g
+        });
+        for _ in 0..100_000 {
+            if metrics.snapshot().current_operations >= 3 {
+                break;
+            }
+            tokio::task::yield_now().await;
+        }
+        assert_eq!(
+            metrics.snapshot().current_operations,
+            3,
+            "all three hosts must run concurrently"
+        );
+        gate.release();
+        let mut g = run.await.unwrap();
+
+        assert_eq!(g.keys(), vec!["a", "b", "c"], "BTreeMap keeps key order");
+        assert!(g.get_mock_mut("a").unwrap().out().len() == 1);
+        assert!(
+            g.get_mock_mut("b").unwrap().out().is_empty(),
+            "b's transport failure leaves no out entry"
+        );
+        assert!(
+            g.get_mock_mut("c").unwrap().out().len() == 1,
+            "sibling failure does not cancel c"
+        );
+
+        let snap = metrics.snapshot();
+        assert_eq!(snap.peak_operations, 3);
+        assert_eq!(snap.current_operations, 0);
+        assert_eq!(snap.commands_completed, 2, "a and c completed; b did not");
+    }
+
+    #[tokio::test]
+    async fn probe_metrics_count_per_url_and_reset_current_after_completion() {
+        let metrics = MockMetrics::new();
+        let probe = MetricProbe::new(true)
+            .with_metrics(metrics.clone())
+            .set("http://dead/", false);
+
+        assert!(probe.is_live("http://a/", Duration::from_secs(1)).await);
+        assert!(probe.is_live("http://a/", Duration::from_secs(1)).await);
+        assert!(!probe.is_live("http://dead/", Duration::from_secs(1)).await);
+
+        let snap = metrics.snapshot();
+        assert_eq!(snap.probe_total, 3);
+        assert_eq!(snap.current_probes, 0);
+        assert_eq!(snap.probe_counts.get("http://a/"), Some(&2));
+        assert_eq!(snap.probe_counts.get("http://dead/"), Some(&1));
+    }
+
+    #[tokio::test]
+    async fn gated_probes_reach_expected_peak_overlap() {
+        let metrics = MockMetrics::new();
+        let gate = MockGate::new();
+        let p1 = MetricProbe::new(true)
+            .with_metrics(metrics.clone())
+            .with_gate(gate.clone());
+        let p2 = p1.clone();
+
+        let t1 = tokio::spawn(async move { p1.is_live("http://a/", Duration::from_secs(1)).await });
+        let t2 = tokio::spawn(async move { p2.is_live("http://b/", Duration::from_secs(1)).await });
+
+        for _ in 0..100_000 {
+            if metrics.snapshot().current_probes >= 2 {
+                break;
+            }
+            tokio::task::yield_now().await;
+        }
+        assert_eq!(metrics.snapshot().current_probes, 2);
+        gate.release();
+        let (r1, r2) = tokio::join!(t1, t2);
+        assert!(r1.unwrap());
+        assert!(r2.unwrap());
+
+        let snap = metrics.snapshot();
+        assert_eq!(snap.peak_probes, 2);
+        assert_eq!(snap.current_probes, 0);
     }
 }

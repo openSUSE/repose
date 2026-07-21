@@ -1,0 +1,68 @@
+{
+  "contract_version": 1,
+  "workload_id": "mock-list-products-100h",
+  "platform": {
+    "os": "darwin",
+    "arch": "arm64"
+  },
+  "measured_command": "/Users/mimi/work/repose/.wt/performace_one/target/release/examples/baseline_report mock-list-products-100h 200000 1",
+  "measured_pid": 91866,
+  "setup_excluded": true,
+  "generated_at": "2026-07-21T20:01:38Z",
+  "classes": {
+    "cpu": {
+      "tool": "sample",
+      "raw_artifact": "/Users/mimi/work/repose/.wt/performace_one/tests/performance/profiles/raw/mock-list-products-100h.cpu.sample.txt",
+      "total_top_of_stack_samples": 2215,
+      "top_symbols": [
+        {
+          "symbol": "_platform_memmove (in libsystem_platform.dylib)",
+          "samples": 233
+        },
+        {
+          "symbol": "_RNvCslPJ0aWzvJP5_15baseline_report17check_expectation (in baseline_report)",
+          "samples": 185
+        },
+        {
+          "symbol": "_xzm_free_tc (in libsystem_malloc.dylib)",
+          "samples": 155
+        },
+        {
+          "symbol": "_xzm_malloc_tc (in libsystem_malloc.dylib)",
+          "samples": 118
+        },
+        {
+          "symbol": "_RNvXs2_NtNtCsaTNopw4qKPP_4core3str5lossyNtB5_10Utf8ChunksNtNtNtNtB9_4iter6traits8iterator8Iterator4next (in baseline_report)",
+          "samples": 114
+        },
+        {
+          "symbol": "_free (in libsystem_malloc.dylib)",
+          "samples": 103
+        },
+        {
+          "symbol": "_platform_memcmp (in libsystem_platform.dylib)",
+          "samples": 101
+        },
+        {
+          "symbol": "_malloc_zone_malloc (in libsystem_malloc.dylib)",
+          "samples": 96
+        },
+        {
+          "symbol": "_RNvMsi_NtNtNtCs3XW7gbOxCtj_5alloc11collections5btree3mapINtB5_8BTreeMapNtNtBb_6string6StringNtNtCscFKwzjhlyO7_11repose_core4mock8MockHostE6insertB1w_ (in baseline_report)",
+          "samples": 83
+        },
+        {
+          "symbol": "_RNvXs_NtCscFKwzjhlyO7_11repose_core7consoleNtB4_6BufferNtNtCs106jutQF6X5_3std2io5Write5write (in baseline_report)",
+          "samples": 68
+        }
+      ]
+    },
+    "alloc": {
+      "tool": "heap",
+      "raw_artifact": "/Users/mimi/work/repose/.wt/performace_one/tests/performance/profiles/raw/mock-list-products-100h.alloc.heap.txt",
+      "physical_footprint": "3328K",
+      "node_count": 1434,
+      "total_bytes": 3396976
+    }
+  }
+}

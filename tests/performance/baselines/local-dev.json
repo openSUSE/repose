@@ -1,0 +1,240 @@
+{
+  "contract_version": 1,
+  "runner": {
+    "arch": "aarch64",
+    "os": "macos",
+    "toolchain": "rustc 1.97.1 (8bab26f4f 2026-07-14) (Homebrew)",
+    "runner_class": "local-dev"
+  },
+  "generated_at": "2026-07-21T20:03:53Z",
+  "workloads": [
+    {
+      "workload_id": "mock-add-100h",
+      "kind": "mock",
+      "repetitions": 5,
+      "warmup_repetitions": 1,
+      "latency_ns": {
+        "p50": 202584,
+        "p95": 213708,
+        "p99": 213708
+      },
+      "throughput_ops_per_sec": 493622.3986099593,
+      "peak_rss_bytes": 7340032,
+      "command_count": 200,
+      "probe_count": 100,
+      "peak_concurrency": 1,
+      "exit_code": 0,
+      "stdout_digest": "fnv1a64:cbf29ce484222325",
+      "stderr_digest": "fnv1a64:cbf29ce484222325"
+    },
+    {
+      "workload_id": "mock-add-100h-repeated-urls",
+      "kind": "mock",
+      "repetitions": 5,
+      "warmup_repetitions": 1,
+      "latency_ns": {
+        "p50": 275875,
+        "p95": 286792,
+        "p99": 286792
+      },
+      "throughput_ops_per_sec": 362483.00860897143,
+      "peak_rss_bytes": 7323648,
+      "command_count": 200,
+      "probe_count": 200,
+      "peak_concurrency": 1,
+      "exit_code": 0,
+      "stdout_digest": "fnv1a64:cbf29ce484222325",
+      "stderr_digest": "fnv1a64:cbf29ce484222325"
+    },
+    {
+      "workload_id": "mock-add-100h-slow-host",
+      "kind": "mock",
+      "repetitions": 5,
+      "warmup_repetitions": 1,
+      "latency_ns": {
+        "p50": 20999833,
+        "p95": 21009125,
+        "p99": 21009125
+      },
+      "throughput_ops_per_sec": 4761.942630686634,
+      "peak_rss_bytes": 7323648,
+      "command_count": 200,
+      "probe_count": 100,
+      "peak_concurrency": 2,
+      "exit_code": 0,
+      "stdout_digest": "fnv1a64:cbf29ce484222325",
+      "stderr_digest": "fnv1a64:cbf29ce484222325"
+    },
+    {
+      "workload_id": "mock-add-1h",
+      "kind": "mock",
+      "repetitions": 5,
+      "warmup_repetitions": 1,
+      "latency_ns": {
+        "p50": 48125,
+        "p95": 69291,
+        "p99": 69291
+      },
+      "throughput_ops_per_sec": 20779.22077922078,
+      "peak_rss_bytes": 6782976,
+      "command_count": 2,
+      "probe_count": 1,
+      "peak_concurrency": 1,
+      "exit_code": 0,
+      "stdout_digest": "fnv1a64:cbf29ce484222325",
+      "stderr_digest": "fnv1a64:cbf29ce484222325"
+    },
+    {
+      "workload_id": "mock-add-20h",
+      "kind": "mock",
+      "repetitions": 5,
+      "warmup_repetitions": 1,
+      "latency_ns": {
+        "p50": 61000,
+        "p95": 85709,
+        "p99": 85709
+      },
+      "throughput_ops_per_sec": 327868.8524590164,
+      "peak_rss_bytes": 7094272,
+      "command_count": 40,
+      "probe_count": 20,
+      "peak_concurrency": 1,
+      "exit_code": 0,
+      "stdout_digest": "fnv1a64:cbf29ce484222325",
+      "stderr_digest": "fnv1a64:cbf29ce484222325"
+    },
+    {
+      "workload_id": "mock-add-20h-json",
+      "kind": "mock",
+      "repetitions": 5,
+      "warmup_repetitions": 1,
+      "latency_ns": {
+        "p50": 63458,
+        "p95": 80250,
+        "p99": 80250
+      },
+      "throughput_ops_per_sec": 315169.08821582777,
+      "peak_rss_bytes": 7061504,
+      "command_count": 40,
+      "probe_count": 20,
+      "peak_concurrency": 1,
+      "exit_code": 0,
+      "stdout_digest": "fnv1a64:cbf29ce484222325",
+      "stderr_digest": "fnv1a64:cbf29ce484222325"
+    },
+    {
+      "workload_id": "mock-install-100h",
+      "kind": "mock",
+      "repetitions": 5,
+      "warmup_repetitions": 1,
+      "latency_ns": {
+        "p50": 252125,
+        "p95": 267083,
+        "p99": 267083
+      },
+      "throughput_ops_per_sec": 396628.6564204263,
+      "peak_rss_bytes": 7372800,
+      "command_count": 300,
+      "probe_count": 100,
+      "peak_concurrency": 1,
+      "exit_code": 0,
+      "stdout_digest": "fnv1a64:cbf29ce484222325",
+      "stderr_digest": "fnv1a64:cbf29ce484222325"
+    },
+    {
+      "workload_id": "mock-install-1h",
+      "kind": "mock",
+      "repetitions": 5,
+      "warmup_repetitions": 1,
+      "latency_ns": {
+        "p50": 38166,
+        "p95": 56583,
+        "p99": 56583
+      },
+      "throughput_ops_per_sec": 26201.3310276162,
+      "peak_rss_bytes": 6881280,
+      "command_count": 3,
+      "probe_count": 1,
+      "peak_concurrency": 1,
+      "exit_code": 0,
+      "stdout_digest": "fnv1a64:cbf29ce484222325",
+      "stderr_digest": "fnv1a64:cbf29ce484222325"
+    },
+    {
+      "workload_id": "mock-install-20h",
+      "kind": "mock",
+      "repetitions": 5,
+      "warmup_repetitions": 1,
+      "latency_ns": {
+        "p50": 75167,
+        "p95": 87000,
+        "p99": 87000
+      },
+      "throughput_ops_per_sec": 266074.20809663815,
+      "peak_rss_bytes": 7143424,
+      "command_count": 60,
+      "probe_count": 20,
+      "peak_concurrency": 1,
+      "exit_code": 0,
+      "stdout_digest": "fnv1a64:cbf29ce484222325",
+      "stderr_digest": "fnv1a64:cbf29ce484222325"
+    },
+    {
+      "workload_id": "mock-list-products-100h",
+      "kind": "mock",
+      "repetitions": 5,
+      "warmup_repetitions": 1,
+      "latency_ns": {
+        "p50": 66584,
+        "p95": 70917,
+        "p99": 70917
+      },
+      "throughput_ops_per_sec": 1501862.3092634869,
+      "peak_rss_bytes": 6651904,
+      "command_count": 0,
+      "probe_count": 0,
+      "peak_concurrency": 1,
+      "exit_code": 0,
+      "stdout_digest": "fnv1a64:d8687c62ab369b7a",
+      "stderr_digest": "fnv1a64:cbf29ce484222325"
+    },
+    {
+      "workload_id": "mock-list-products-1h",
+      "kind": "mock",
+      "repetitions": 5,
+      "warmup_repetitions": 1,
+      "latency_ns": {
+        "p50": 2125,
+        "p95": 3666,
+        "p99": 3666
+      },
+      "throughput_ops_per_sec": 470588.23529411765,
+      "peak_rss_bytes": 6307840,
+      "command_count": 0,
+      "probe_count": 0,
+      "peak_concurrency": 1,
+      "exit_code": 0,
+      "stdout_digest": "fnv1a64:aed4be552ba28267",
+      "stderr_digest": "fnv1a64:cbf29ce484222325"
+    },
+    {
+      "workload_id": "mock-list-products-20h-json",
+      "kind": "mock",
+      "repetitions": 5,
+      "warmup_repetitions": 1,
+      "latency_ns": {
+        "p50": 18459,
+        "p95": 20292,
+        "p99": 20292
+      },
+      "throughput_ops_per_sec": 1083482.3121512542,
+      "peak_rss_bytes": 6504448,
+      "command_count": 0,
+      "probe_count": 0,
+      "peak_concurrency": 1,
+      "exit_code": 0,
+      "stdout_digest": "fnv1a64:2c96a1505b9714c1",
+      "stderr_digest": "fnv1a64:cbf29ce484222325"
+    }
+  ]
+}

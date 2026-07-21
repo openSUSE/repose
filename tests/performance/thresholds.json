@@ -1,0 +1,58 @@
+{
+  "contract_version": 1,
+  "minimum_repetitions": 10,
+  "baseline_refresh_policy": "A baseline is only replaced with reviewed evidence: linked before/after reports, the reason for the change (an approved optimization, an accepted regression trade-off, or a runner-class migration), and explicit reviewer sign-off in the PR description. No automatic or silent widening — see tests/performance/README.md#baseline-update-review-requirements.",
+  "owner": "See CODEOWNERS / PR reviewer for crates/repose-core/benches and tests/performance.",
+  "metrics": {
+    "exit_code": {
+      "rule": "exact",
+      "reason": "Semantic contract, not a measurement; any change is a correctness regression."
+    },
+    "command_count": {
+      "rule": "exact",
+      "reason": "Deterministic for mock-kind workloads; a change means the algorithm now issues a different number of remote commands."
+    },
+    "probe_count": {
+      "rule": "exact",
+      "reason": "Deterministic for mock-kind workloads."
+    },
+    "stdout_digest": {
+      "rule": "exact",
+      "reason": "Deterministic for mock-kind workloads; a change means observable output changed."
+    },
+    "stderr_digest": {
+      "rule": "exact",
+      "reason": "Deterministic for mock-kind workloads."
+    },
+    "peak_concurrency": {
+      "rule": "ceiling",
+      "reason": "Candidate must not exceed baseline's observed peak in-flight operations; concurrency can drop (fan-out becoming more serial is caught by the fleet_add/fleet_install Criterion assertions and repose-core::mock's own gated tests, not by this numeric comparison alone)."
+    },
+    "latency_ns.p50": {
+      "rule": "max_increase_ratio",
+      "value": 1.0,
+      "evidence": "5 independent local runs of mock-add-100h (20 reps, 3 warmup) on this shared/uncontrolled runner ranged 189625-296375 ns p50 (~56% spread); mock-add-1h ranged 33708-44916 ns (~33% spread). A 100% (2x) threshold sits comfortably above observed noise while still catching a real regression. Tighten per-runner-class once a controlled/scheduled runner has its own variance study (see baseline_refresh_policy)."
+    },
+    "latency_ns.p95": {
+      "rule": "max_increase_ratio",
+      "value": 1.0,
+      "evidence": "Same measurement set as latency_ns.p50; p95 showed comparable relative spread across the 5 runs."
+    },
+    "latency_ns.p99": {
+      "rule": "max_increase_ratio",
+      "value": 1.2,
+      "evidence": "Tail percentile from a 20-repetition sample is the noisiest single number collected; a slightly wider margin than p50/p95 avoids flagging sampling noise as a regression."
+    },
+    "throughput_ops_per_sec": {
+      "rule": "max_decrease_ratio",
+      "value": 0.5,
+      "evidence": "Derived from latency_ns.p50 (throughput = host_count / p50_seconds); the ratio is the inverse of the p50 tolerance above."
+    },
+    "peak_rss_bytes": {
+      "rule": "max_increase_ratio",
+      "value": 0.2,
+      "evidence": "3 independent runs of mock-add-100h RSS ranged 7307264-7389184 bytes (~1.1% spread) — far tighter than latency. 20% leaves headroom for legitimate allocator/runtime variation while still catching a material memory regression.",
+      "skip_if_null": true
+    }
+  }
+}

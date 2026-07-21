@@ -1,0 +1,311 @@
+{
+  "contract_version": 1,
+  "workloads": [
+    {
+      "id": "mock-add-1h",
+      "kind": "mock",
+      "command": "add",
+      "host_count": 1,
+      "repa": [
+        "SLES:15-SP3:x86_64:update"
+      ],
+      "repeated_urls": false,
+      "slow_host": false,
+      "output_format": "text",
+      "expect": {
+        "exit_code": 0,
+        "command_count": 2,
+        "probe_count": 1,
+        "peak_operations_max": 1,
+        "host_order": [
+          "h1"
+        ],
+        "stdout_digest": "fnv1a64:cbf29ce484222325"
+      }
+    },
+    {
+      "id": "mock-add-20h",
+      "kind": "mock",
+      "command": "add",
+      "host_count": 20,
+      "repa": [
+        "SLES:15-SP3:x86_64:update"
+      ],
+      "repeated_urls": false,
+      "slow_host": false,
+      "output_format": "text",
+      "expect": {
+        "exit_code": 0,
+        "command_count": 40,
+        "probe_count": 20,
+        "peak_operations_max": 20,
+        "host_order": [],
+        "stdout_digest": "fnv1a64:cbf29ce484222325"
+      }
+    },
+    {
+      "id": "mock-add-100h",
+      "kind": "mock",
+      "command": "add",
+      "host_count": 100,
+      "repa": [
+        "SLES:15-SP3:x86_64:update"
+      ],
+      "repeated_urls": false,
+      "slow_host": false,
+      "output_format": "text",
+      "expect": {
+        "exit_code": 0,
+        "command_count": 200,
+        "probe_count": 100,
+        "peak_operations_max": 100,
+        "host_order": [],
+        "stdout_digest": "fnv1a64:cbf29ce484222325"
+      }
+    },
+    {
+      "id": "mock-add-100h-repeated-urls",
+      "kind": "mock",
+      "command": "add",
+      "host_count": 100,
+      "repa": [
+        "SLES:15-SP3:x86_64:update"
+      ],
+      "repeated_urls": true,
+      "slow_host": false,
+      "output_format": "text",
+      "expect": {
+        "exit_code": 0,
+        "command_count": 200,
+        "probe_count": 200,
+        "peak_operations_max": 100,
+        "host_order": [],
+        "stdout_digest": "fnv1a64:cbf29ce484222325"
+      }
+    },
+    {
+      "id": "mock-add-100h-slow-host",
+      "kind": "mock",
+      "command": "add",
+      "host_count": 100,
+      "repa": [
+        "SLES:15-SP3:x86_64:update"
+      ],
+      "repeated_urls": false,
+      "slow_host": true,
+      "output_format": "text",
+      "expect": {
+        "exit_code": 0,
+        "command_count": 200,
+        "probe_count": 100,
+        "peak_operations_max": 100,
+        "host_order": [],
+        "stdout_digest": "fnv1a64:cbf29ce484222325"
+      }
+    },
+    {
+      "id": "mock-add-20h-json",
+      "kind": "mock",
+      "command": "add",
+      "host_count": 20,
+      "repa": [
+        "SLES:15-SP3:x86_64:update"
+      ],
+      "repeated_urls": false,
+      "slow_host": false,
+      "output_format": "json",
+      "expect": {
+        "exit_code": 0,
+        "command_count": 40,
+        "probe_count": 20,
+        "peak_operations_max": 20,
+        "host_order": [],
+        "stdout_digest": "fnv1a64:cbf29ce484222325"
+      }
+    },
+    {
+      "id": "mock-install-1h",
+      "kind": "mock",
+      "command": "install",
+      "host_count": 1,
+      "repa": [
+        "SLES:15-SP3:x86_64:update"
+      ],
+      "repeated_urls": false,
+      "slow_host": false,
+      "output_format": "text",
+      "expect": {
+        "exit_code": 0,
+        "command_count": 3,
+        "probe_count": 1,
+        "peak_operations_max": 1,
+        "host_order": [
+          "h1"
+        ],
+        "stdout_digest": "fnv1a64:cbf29ce484222325"
+      }
+    },
+    {
+      "id": "mock-install-20h",
+      "kind": "mock",
+      "command": "install",
+      "host_count": 20,
+      "repa": [
+        "SLES:15-SP3:x86_64:update"
+      ],
+      "repeated_urls": false,
+      "slow_host": false,
+      "output_format": "text",
+      "expect": {
+        "exit_code": 0,
+        "command_count": 60,
+        "probe_count": 20,
+        "peak_operations_max": 20,
+        "host_order": [],
+        "stdout_digest": "fnv1a64:cbf29ce484222325"
+      }
+    },
+    {
+      "id": "mock-install-100h",
+      "kind": "mock",
+      "command": "install",
+      "host_count": 100,
+      "repa": [
+        "SLES:15-SP3:x86_64:update"
+      ],
+      "repeated_urls": false,
+      "slow_host": false,
+      "output_format": "text",
+      "expect": {
+        "exit_code": 0,
+        "command_count": 300,
+        "probe_count": 100,
+        "peak_operations_max": 100,
+        "host_order": [],
+        "stdout_digest": "fnv1a64:cbf29ce484222325"
+      }
+    },
+    {
+      "id": "mock-list-products-1h",
+      "kind": "mock",
+      "command": "list-products",
+      "host_count": 1,
+      "repa": [],
+      "repeated_urls": false,
+      "slow_host": false,
+      "output_format": "text",
+      "expect": {
+        "exit_code": 0,
+        "command_count": 0,
+        "probe_count": 0,
+        "peak_operations_max": 1,
+        "host_order": [
+          "h1"
+        ],
+        "stdout_digest": "fnv1a64:aed4be552ba28267"
+      }
+    },
+    {
+      "id": "mock-list-products-20h-json",
+      "kind": "mock",
+      "command": "list-products",
+      "host_count": 20,
+      "repa": [],
+      "repeated_urls": false,
+      "slow_host": false,
+      "output_format": "json",
+      "expect": {
+        "exit_code": 0,
+        "command_count": 0,
+        "probe_count": 0,
+        "peak_operations_max": 20,
+        "host_order": [],
+        "stdout_digest": "fnv1a64:2c96a1505b9714c1"
+      }
+    },
+    {
+      "id": "mock-list-products-100h",
+      "kind": "mock",
+      "command": "list-products",
+      "host_count": 100,
+      "repa": [],
+      "repeated_urls": false,
+      "slow_host": false,
+      "output_format": "text",
+      "expect": {
+        "exit_code": 0,
+        "command_count": 0,
+        "probe_count": 0,
+        "peak_operations_max": 100,
+        "host_order": [],
+        "stdout_digest": "fnv1a64:d8687c62ab369b7a"
+      }
+    },
+    {
+      "id": "ssh-list-products-1h",
+      "kind": "ssh",
+      "command": "list-products",
+      "host_count": 1,
+      "output_format": "text",
+      "debug": false,
+      "known_hosts_state": "prepopulated",
+      "host_key_policy": "yes",
+      "expect": {
+        "exit_code": 0,
+        "stdout_contains": [
+          "Base product: SLES-16.0-x86_64",
+          "Addon: qa"
+        ]
+      }
+    },
+    {
+      "id": "ssh-list-products-1h-json-debug",
+      "kind": "ssh",
+      "command": "list-products",
+      "host_count": 1,
+      "output_format": "json",
+      "debug": true,
+      "known_hosts_state": "prepopulated",
+      "host_key_policy": "yes",
+      "expect": {
+        "exit_code": 0,
+        "stdout_contains": [
+          "\"event\": \"product\""
+        ]
+      }
+    },
+    {
+      "id": "ssh-dry-clear-1h",
+      "kind": "ssh",
+      "command": "clear",
+      "host_count": 1,
+      "dry": true,
+      "output_format": "text",
+      "debug": false,
+      "known_hosts_state": "prepopulated",
+      "host_key_policy": "yes",
+      "expect": {
+        "exit_code": 0,
+        "stdout_contains": [
+          "zypper -n rr"
+        ]
+      }
+    },
+    {
+      "id": "ssh-first-contact-accept-new-1h",
+      "kind": "ssh",
+      "command": "list-products",
+      "host_count": 1,
+      "output_format": "text",
+      "debug": false,
+      "known_hosts_state": "empty",
+      "host_key_policy": "accept-new",
+      "expect": {
+        "exit_code": 0,
+        "stdout_contains": [
+          "Base product: SLES-16.0-x86_64"
+        ]
+      }
+    }
+  ]
+}

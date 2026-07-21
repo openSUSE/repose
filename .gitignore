@@ -5,3 +5,13 @@
 /coverage/
 *.rs.bk
 Cargo.lock.bak
+
+# Raw per-workload performance reports (full sample arrays, host_order,
+# etc.) — only the compact tests/performance/baselines/<runner-class>.json
+# summary is committed. See tests/performance/README.md.
+/tests/performance/baselines/raw/
+# Local profiling artifacts (traces are large/tool-specific); only compact
+# manifests under tests/performance/profiles/ are committed.
+/tests/performance/profiles/raw/
+# Criterion's own HTML/statistics reports.
+/target/criterion/
