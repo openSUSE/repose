@@ -1,13 +1,14 @@
 //! In-memory [`Host`] / [`HostGroup`] for L2 command tests (no SSH).
 
 use std::collections::BTreeMap;
+use std::num::NonZeroUsize;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, PoisonError};
 use std::task::Poll;
 use std::time::Duration;
 
 use async_trait::async_trait;
-use futures_util::future::join_all;
+use futures_util::{StreamExt, stream};
 
 use crate::error::SshError;
 use crate::traits::{Host, HostGroup, Probe};
@@ -588,15 +589,37 @@ impl Host for MockHost {
 }
 
 /// Map of mock hosts with isolated `run_all`.
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct MockHostGroup {
     hosts: BTreeMap<String, MockHost>,
+    host_operation_limit: NonZeroUsize,
+}
+
+impl Default for MockHostGroup {
+    fn default() -> Self {
+        Self {
+            hosts: BTreeMap::new(),
+            // Single source of truth for the approved default (see
+            // `tests/performance/p1-limit-decision.md`) rather than a
+            // second copy of the magic number.
+            host_operation_limit: crate::config::ConnectionConfig::default().host_operation_limit,
+        }
+    }
 }
 
 impl MockHostGroup {
     #[must_use]
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Override the configured host-operation concurrency cap (default:
+    /// the approved P1 value). Mainly for tests exercising limits of `1`
+    /// and values greater than the host count.
+    #[must_use]
+    pub fn with_host_operation_limit(mut self, limit: NonZeroUsize) -> Self {
+        self.host_operation_limit = limit;
+        self
     }
 
     pub fn insert(&mut self, host: MockHost) {
@@ -630,58 +653,110 @@ impl HostGroup for MockHostGroup {
             .collect()
     }
 
-    // Concurrent, order-preserving, failure-isolated fan-out matching
-    // `RusshHostGroup` (see `repose-ssh/src/host.rs`): `join_all` preserves
-    // input order and the map is a `BTreeMap`, so results stay key-ordered;
-    // one host's error never stops or is counted against its siblings.
+    fn host_operation_limit(&self) -> NonZeroUsize {
+        self.host_operation_limit
+    }
+
+    // Bounded, order-preserving (for connect_and_prune's removal set;
+    // BTreeMap iteration is key-ordered), failure-isolated fan-out matching
+    // `RusshHostGroup` (see `repose-ssh/src/host.rs`): `buffer_unordered`
+    // admits at most `host_operation_limit` operations at once — unlike
+    // `.buffered`, a slow early host cannot block admission of later ones —
+    // and one host's error never stops or is counted against its siblings.
+    // These phases mutate host state in place (no per-host result vector to
+    // reorder); order restoration is a mutation-worker concern (P1 steps
+    // 13–18), not this trait's.
     async fn connect_and_prune(&mut self) {
-        let failed: Vec<String> =
-            join_all(self.hosts.iter_mut().map(|(key, host)| async move {
-                host.connect().await.is_err().then(|| key.clone())
-            }))
-            .await
-            .into_iter()
-            .flatten()
-            .collect();
+        let cap = self.host_operation_limit.get();
+        let failed: Vec<String> = stream::iter(self.hosts.iter_mut())
+            .map(connect_one)
+            .buffer_unordered(cap)
+            .filter_map(std::future::ready)
+            .collect()
+            .await;
         for key in failed {
             self.hosts.remove(&key);
         }
     }
 
     async fn read_products(&mut self) {
-        join_all(self.hosts.values_mut().map(|host| async move {
-            let _ = host.read_products().await;
-        }))
-        .await;
+        let cap = self.host_operation_limit.get();
+        stream::iter(self.hosts.values_mut())
+            .map(read_products_one)
+            .buffer_unordered(cap)
+            .collect::<Vec<()>>()
+            .await;
     }
 
     async fn read_repos(&mut self) {
-        join_all(self.hosts.values_mut().map(|host| async move {
-            let _ = host.read_repos().await;
-        }))
-        .await;
+        let cap = self.host_operation_limit.get();
+        stream::iter(self.hosts.values_mut())
+            .map(read_repos_one)
+            .buffer_unordered(cap)
+            .collect::<Vec<()>>()
+            .await;
     }
 
     async fn parse_repos(&mut self) {
-        join_all(self.hosts.values_mut().map(|host| async move {
-            let _ = host.parse_repos().await;
-        }))
-        .await;
+        let cap = self.host_operation_limit.get();
+        stream::iter(self.hosts.values_mut())
+            .map(parse_repos_one)
+            .buffer_unordered(cap)
+            .collect::<Vec<()>>()
+            .await;
     }
 
     async fn run_all(&mut self, cmd: &str) {
-        join_all(self.hosts.values_mut().map(|host| async move {
-            let _ = host.run(cmd).await;
-        }))
-        .await;
+        let cap = self.host_operation_limit.get();
+        // `.zip(repeat(cmd))` instead of a capturing closure: `.map(run_one)`
+        // then stays a bare function item (see the note below `close`).
+        stream::iter(self.hosts.values_mut().zip(std::iter::repeat(cmd)))
+            .map(run_one)
+            .buffer_unordered(cap)
+            .collect::<Vec<()>>()
+            .await;
     }
 
     async fn close(&mut self) {
-        join_all(self.hosts.values_mut().map(|host| async move {
-            let _ = host.close().await;
-        }))
-        .await;
+        let cap = self.host_operation_limit.get();
+        stream::iter(self.hosts.values_mut())
+            .map(close_one)
+            .buffer_unordered(cap)
+            .collect::<Vec<()>>()
+            .await;
     }
+}
+
+// Named async fns (not closures) as `.map()` arguments below: a closure
+// returning `async move { host.method().await }` over a `&mut MockHost`
+// borrowed per stream item fails higher-ranked lifetime inference against
+// `buffer_unordered` ("implementation of `FnOnce` is not general enough")
+// because async_trait's boxed-future return type ties the future to the
+// closure's argument lifetime. A plain `fn` item has a concrete
+// `for<'a> fn(&'a mut MockHost) -> impl Future + 'a` signature the
+// compiler resolves without that ambiguity.
+async fn connect_one((key, host): (&String, &mut MockHost)) -> Option<String> {
+    host.connect().await.is_err().then(|| key.clone())
+}
+
+async fn read_products_one(host: &mut MockHost) {
+    let _ = host.read_products().await;
+}
+
+async fn read_repos_one(host: &mut MockHost) {
+    let _ = host.read_repos().await;
+}
+
+async fn parse_repos_one(host: &mut MockHost) {
+    let _ = host.parse_repos().await;
+}
+
+async fn run_one((host, cmd): (&mut MockHost, &str)) {
+    let _ = host.run(cmd).await;
+}
+
+async fn close_one(host: &mut MockHost) {
+    let _ = host.close().await;
 }
 
 /// Probe that always returns the configured answer (tests).
@@ -850,6 +925,20 @@ mod tests {
         let order: Vec<String> = g.hosts_mut().iter().map(|h| h.key().to_string()).collect();
         assert_eq!(order, vec!["a", "b", "c"]);
         assert_eq!(order, g.keys());
+    }
+
+    #[test]
+    fn host_operation_limit_defaults_and_overrides_through_the_trait_object() {
+        // Compile-time proof (P1 step 9): the accessor is callable through
+        // `&mut dyn HostGroup`, not only the concrete type.
+        let mut default_group = MockHostGroup::new();
+        let as_trait_object: &mut dyn HostGroup = &mut default_group;
+        assert_eq!(as_trait_object.host_operation_limit().get(), 32);
+
+        let mut overridden =
+            MockHostGroup::new().with_host_operation_limit(NonZeroUsize::new(1).unwrap());
+        let as_trait_object: &mut dyn HostGroup = &mut overridden;
+        assert_eq!(as_trait_object.host_operation_limit().get(), 1);
     }
 
     #[tokio::test]
@@ -1064,6 +1153,116 @@ mod tests {
         assert_eq!(snap.peak_operations, 3);
         assert_eq!(snap.current_operations, 0);
         assert_eq!(snap.commands_completed, 2, "a and c completed; b did not");
+    }
+
+    /// P1 step 11: `run_all` never admits more than `host_operation_limit`
+    /// operations concurrently, even with more hosts than the limit and a
+    /// gate that stays closed for the whole observation window.
+    #[tokio::test]
+    async fn bounded_run_all_never_exceeds_the_configured_limit() {
+        let metrics = MockMetrics::new();
+        let gate = MockGate::new();
+        const LIMIT: usize = 2;
+        const HOSTS: usize = 5;
+        let mut g =
+            MockHostGroup::new().with_host_operation_limit(NonZeroUsize::new(LIMIT).unwrap());
+        for i in 0..HOSTS {
+            let mut h = MockHost::new(format!("h{i}"))
+                .with_metrics(metrics.clone())
+                .with_gate(MockOpKind::Run, gate.clone());
+            h.connect().await.unwrap();
+            g.insert(h);
+        }
+
+        let run = tokio::spawn(async move {
+            g.run_all("true").await;
+            g
+        });
+
+        // Observe admission staying pinned at the limit (not the host
+        // count) across many polls, proving the cap actually bounds
+        // concurrency rather than just eventually reaching it once. Bounded
+        // well under `MockGate`'s own 1_000_000-spin deadlock guard, which
+        // every still-blocked host future also consumes on each poll.
+        let mut saw_limit = false;
+        for _ in 0..2_000 {
+            let current = metrics.snapshot().current_operations;
+            assert!(
+                current <= LIMIT,
+                "admitted {current} operations, exceeding the configured limit {LIMIT}"
+            );
+            if current == LIMIT {
+                saw_limit = true;
+            }
+            tokio::task::yield_now().await;
+        }
+        assert!(saw_limit, "never observed the fleet saturate the limit");
+
+        gate.release();
+        let g = run.await.unwrap();
+
+        let snap = metrics.snapshot();
+        assert_eq!(
+            snap.peak_operations, LIMIT,
+            "peak must equal, not exceed, the limit"
+        );
+        assert_eq!(snap.current_operations, 0, "no leaked in-flight guard");
+        assert_eq!(
+            snap.commands_completed, HOSTS,
+            "every host ran exactly once"
+        );
+        for i in 0..HOSTS {
+            assert_eq!(g.get(&format!("h{i}")).unwrap().out().len(), 1);
+        }
+    }
+
+    /// P1 step 11: `connect_and_prune` at limit 1 (fully serial admission)
+    /// still prunes exactly the failed host and keeps the rest key-ordered.
+    #[tokio::test]
+    async fn bounded_connect_and_prune_at_limit_one_still_prunes_correctly() {
+        let mut g = MockHostGroup::new().with_host_operation_limit(NonZeroUsize::new(1).unwrap());
+        for key in ["c", "a", "b"] {
+            let mut h = MockHost::new(key);
+            if key == "b" {
+                h.fail_connect();
+            }
+            g.insert(h);
+        }
+        g.connect_and_prune().await;
+        assert_eq!(
+            g.keys(),
+            vec!["a".to_string(), "c".to_string()],
+            "BTreeMap keeps ascending key order after pruning"
+        );
+    }
+
+    /// P1 step 11: a limit above the host count behaves exactly like the
+    /// unbounded `join_all` fan-out it replaces.
+    #[tokio::test]
+    async fn limit_above_host_count_admits_the_whole_fleet_at_once() {
+        let metrics = MockMetrics::new();
+        let gate = MockGate::new();
+        let mut g = MockHostGroup::new().with_host_operation_limit(NonZeroUsize::new(100).unwrap());
+        for key in ["a", "b", "c"] {
+            let mut h = MockHost::new(key)
+                .with_metrics(metrics.clone())
+                .with_gate(MockOpKind::Run, gate.clone());
+            h.connect().await.unwrap();
+            g.insert(h);
+        }
+        let run = tokio::spawn(async move {
+            g.run_all("true").await;
+        });
+        for _ in 0..100_000 {
+            if metrics.snapshot().current_operations >= 3 {
+                break;
+            }
+            tokio::task::yield_now().await;
+        }
+        assert_eq!(metrics.snapshot().current_operations, 3);
+        gate.release();
+        run.await.unwrap();
+        assert_eq!(metrics.snapshot().peak_operations, 3);
     }
 
     #[tokio::test]

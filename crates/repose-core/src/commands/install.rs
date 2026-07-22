@@ -1,8 +1,8 @@
 //! `repose install` — ar + ref + product install; transactional path.
 
 use crate::commands::{
-    CommandOptions, SharedConsole, aggregate, filter_live, load_repoq, reboot_and_verify_shared,
-    run_reported_shared,
+    CommandOptions, ProbeBudget, SharedConsole, aggregate, filter_live, load_repoq,
+    reboot_and_verify_shared, run_reported_shared,
 };
 use crate::console::Console;
 use crate::repoq::Repos;
@@ -12,6 +12,8 @@ use crate::types::ExitCode;
 use futures_util::future::join_all;
 use std::collections::BTreeMap;
 use std::io::Write;
+use std::sync::Arc;
+use tokio::sync::Semaphore;
 
 /// Product → repos accumulator preserving REPA/dict insertion order.
 ///
@@ -52,14 +54,29 @@ pub async fn run_install<W: Write>(
     group.read_repos().await;
 
     // Fan out per-host work concurrently (Python spawned one worker task per
-    // target); `join_all` preserves key order for exit aggregation.
+    // target); `join_all` preserves key order for exit aggregation. Bounded
+    // by a semaphore (P1 step 14) — see `add.rs`'s `run_add` for why this
+    // avoids both the head-of-line blocking `.buffered(cap)` would cause
+    // and the index/sort step `buffer_unordered` would need.
+    let cap = group.host_operation_limit().get();
+    let semaphore = Arc::new(Semaphore::new(cap));
+    // One fleet-wide probe budget (P1 step 22) shared by every host worker,
+    // replacing the old per-host `min(16, n)` local cap.
+    let probe_budget = ProbeBudget::new(opts.probe_concurrency_limit);
     let console = SharedConsole::new(console);
-    let results = join_all(
-        group
-            .hosts_mut()
-            .into_iter()
-            .map(|host| install_one(opts, host, probe, &repoq, &console)),
-    )
+    let results = join_all(group.hosts_mut().into_iter().map(|host| {
+        let semaphore = Arc::clone(&semaphore);
+        let probe_budget = probe_budget.clone();
+        let repoq = &repoq;
+        let console = &console;
+        async move {
+            let _permit = semaphore
+                .acquire()
+                .await
+                .expect("host-operation semaphore is never closed");
+            install_one(opts, host, probe, repoq, console, &probe_budget).await
+        }
+    }))
     .await;
     group.close().await;
     Ok(aggregate(results))
@@ -71,6 +88,7 @@ async fn install_one<W: Write>(
     probe: &dyn Probe,
     repoq: &crate::repoq::Repoq,
     console: &SharedConsole<'_, W>,
+    probe_budget: &ProbeBudget,
 ) -> bool {
     let Some(products) = host.products() else {
         return false;
@@ -95,7 +113,14 @@ async fn install_one<W: Write>(
         .flat_map(|(_, v)| v.iter())
         .cloned()
         .collect();
-    let live = filter_live(probe, all_repos, opts.probe_timeout, opts.no_probe).await;
+    let live = filter_live(
+        probe,
+        all_repos,
+        opts.probe_timeout,
+        opts.no_probe,
+        probe_budget,
+    )
+    .await;
 
     for repo in &live {
         let addcmd = cmd::zypper_ar(repo.refresh, &repo.name, &repo.url);
@@ -372,5 +397,56 @@ mod tests {
         assert!(ran.is_empty());
         assert!(buf.contains("No products to install"));
         assert_eq!(code, c.exit_code());
+    }
+
+    /// P1 step 14: a configured host-operation limit below the host count
+    /// bounds the per-host worker semaphore, while every host still
+    /// installs exactly once.
+    #[tokio::test]
+    async fn bounded_install_never_exceeds_the_configured_host_operation_limit() {
+        use crate::mock::{MockGate, MockMetrics, MockOpKind};
+        use std::num::NonZeroUsize;
+
+        let metrics = MockMetrics::new();
+        let gate = MockGate::new();
+        const LIMIT: usize = 2;
+        const HOSTS: usize = 5;
+        let mut g =
+            MockHostGroup::new().with_host_operation_limit(NonZeroUsize::new(LIMIT).unwrap());
+        for i in 0..HOSTS {
+            let h = MockHost::new(format!("h{i}"))
+                .with_products(system("SLES", false))
+                .with_metrics(metrics.clone())
+                .with_gate(MockOpKind::Run, gate.clone());
+            g.insert(h);
+        }
+        let opts = opts(&["SLES:15-SP3:x86_64:update"], false, false);
+        let mut buf = Buffer::default();
+        let mut c = Console::new(&mut buf);
+        let probe = ConstProbe { live: true };
+
+        let driver = async {
+            let mut saw_limit = false;
+            for _ in 0..2_000 {
+                let current = metrics.snapshot().current_operations;
+                assert!(current <= LIMIT, "admitted {current}, exceeding {LIMIT}");
+                if current == LIMIT {
+                    saw_limit = true;
+                }
+                tokio::task::yield_now().await;
+            }
+            assert!(saw_limit, "never observed the fleet saturate the limit");
+            gate.release();
+        };
+        let (code, ()) = tokio::join!(run_install(&opts, &mut g, &probe, &mut c), driver);
+        assert_eq!(code.unwrap(), ExitCode::Ok);
+
+        for i in 0..HOSTS {
+            let ran = g.get_mock_mut(&format!("h{i}")).unwrap().ran.clone();
+            assert!(
+                ran.iter().any(|cmd| cmd.starts_with("zypper -n in")),
+                "h{i} must have installed exactly once, ran: {ran:?}"
+            );
+        }
     }
 }

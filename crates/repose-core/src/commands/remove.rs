@@ -9,6 +9,8 @@ use crate::types::{ExitCode, Product};
 use futures_util::future::join_all;
 use std::collections::BTreeSet;
 use std::io::Write;
+use std::sync::Arc;
+use tokio::sync::Semaphore;
 
 /// Patterns `product:version::` or `product:version::repo`.
 pub(crate) fn calculate_patterns(repas: &[Repa], products: &[Product]) -> BTreeSet<String> {
@@ -65,14 +67,24 @@ pub async fn run_remove<W: Write>(
     group.parse_repos().await;
 
     // Fan out per-host work concurrently (Python spawned one worker task per
-    // target); `join_all` preserves key order for exit aggregation.
+    // target); `join_all` preserves key order for exit aggregation. Bounded
+    // by a semaphore (P1 step 16) — see `add.rs`'s `run_add` for why this
+    // avoids both the head-of-line blocking `.buffered(cap)` would cause
+    // and the index/sort step `buffer_unordered` would need.
+    let cap = group.host_operation_limit().get();
+    let semaphore = Arc::new(Semaphore::new(cap));
     let console = SharedConsole::new(console);
-    let results = join_all(
-        group
-            .hosts_mut()
-            .into_iter()
-            .map(|host| remove_one(opts, host, &console)),
-    )
+    let results = join_all(group.hosts_mut().into_iter().map(|host| {
+        let semaphore = Arc::clone(&semaphore);
+        let console = &console;
+        async move {
+            let _permit = semaphore
+                .acquire()
+                .await
+                .expect("host-operation semaphore is never closed");
+            remove_one(opts, host, console).await
+        }
+    }))
     .await;
 
     group.close().await;
@@ -222,6 +234,71 @@ mod tests {
                 .into_iter()
                 .collect();
             assert_eq!(got, expected, "case {name}");
+        }
+    }
+
+    /// P1 step 16: a configured host-operation limit below the host count
+    /// bounds the per-host worker semaphore, while every host still
+    /// removes exactly once.
+    #[tokio::test]
+    async fn bounded_remove_never_exceeds_the_configured_host_operation_limit() {
+        use crate::mock::MockGate;
+        use crate::types::Repositories;
+        use std::num::NonZeroUsize;
+
+        let metrics = crate::mock::MockMetrics::new();
+        let gate = MockGate::new();
+        const LIMIT: usize = 2;
+        const HOSTS: usize = 5;
+        let mut g =
+            MockHostGroup::new().with_host_operation_limit(NonZeroUsize::new(LIMIT).unwrap());
+        for i in 0..HOSTS {
+            let mut repos = Repositories::new();
+            repos.insert("SLES:15-SP3::existing-repo1".into(), None);
+            let h = MockHost::new(format!("h{i}"))
+                .with_products(System {
+                    base: Product {
+                        name: "SLES".into(),
+                        version: "15-SP3".into(),
+                        arch: "x86_64".into(),
+                    },
+                    addons: vec![],
+                    transactional: false,
+                })
+                .with_repos(repos)
+                .with_metrics(metrics.clone())
+                .with_gate(crate::mock::MockOpKind::Run, gate.clone());
+            g.insert(h);
+        }
+        let opts = CommandOptions {
+            repa: vec![Repa::parse("SLES:15-SP3").unwrap()],
+            ..Default::default()
+        };
+        let mut buf = Buffer::default();
+        let mut c = Console::new(&mut buf);
+
+        let driver = async {
+            let mut saw_limit = false;
+            for _ in 0..2_000 {
+                let current = metrics.snapshot().current_operations;
+                assert!(current <= LIMIT, "admitted {current}, exceeding {LIMIT}");
+                if current == LIMIT {
+                    saw_limit = true;
+                }
+                tokio::task::yield_now().await;
+            }
+            assert!(saw_limit, "never observed the fleet saturate the limit");
+            gate.release();
+        };
+        let (code, ()) = tokio::join!(run_remove(&opts, &mut g, &mut c), driver);
+        assert_eq!(code, ExitCode::Ok);
+
+        for i in 0..HOSTS {
+            let ran = g.get_mock_mut(&format!("h{i}")).unwrap().ran.clone();
+            assert!(
+                ran.iter().any(|cmd| cmd.starts_with("zypper -n rr")),
+                "h{i} must have removed exactly once, ran: {ran:?}"
+            );
         }
     }
 }

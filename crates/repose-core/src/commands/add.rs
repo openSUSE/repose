@@ -1,7 +1,8 @@
 //! `repose add` — resolve REPA, probe, zypper ar, cohort refresh.
 
 use crate::commands::{
-    CommandOptions, SharedConsole, aggregate, filter_live, load_repoq, run_reported_shared,
+    CommandOptions, ProbeBudget, SharedConsole, aggregate, filter_live, load_repoq,
+    run_reported_shared,
 };
 use crate::console::Console;
 use crate::shell::cmd;
@@ -9,6 +10,8 @@ use crate::traits::{Host, HostGroup, Probe};
 use crate::types::ExitCode;
 use futures_util::future::join_all;
 use std::io::Write;
+use std::sync::Arc;
+use tokio::sync::Semaphore;
 
 pub async fn run_add<W: Write>(
     opts: &CommandOptions,
@@ -21,14 +24,33 @@ pub async fn run_add<W: Write>(
     group.read_products().await;
 
     // Fan out per-host work concurrently (Python spawned one worker task per
-    // target); `join_all` preserves key order for exit aggregation.
+    // target); `join_all` preserves key order for exit aggregation. Bounded
+    // by a semaphore (P1 step 13) rather than `.buffered(cap)`: every
+    // future is created up front and races for a permit, so one slow host
+    // holding a permit never blocks a *different* freed permit from
+    // admitting a later host — the same non-head-of-line-blocking property
+    // `buffer_unordered` would give, without needing an index/sort step,
+    // since `join_all`'s output stays in input (key) order regardless of
+    // acquisition order.
+    let cap = group.host_operation_limit().get();
+    let semaphore = Arc::new(Semaphore::new(cap));
+    // One fleet-wide probe budget (P1 step 21) shared by every host worker,
+    // replacing the old per-host `min(16, n)` local cap.
+    let probe_budget = ProbeBudget::new(opts.probe_concurrency_limit);
     let console = SharedConsole::new(console);
-    let results = join_all(
-        group
-            .hosts_mut()
-            .into_iter()
-            .map(|host| add_one(opts, host, probe, &repoq, &console)),
-    )
+    let results = join_all(group.hosts_mut().into_iter().map(|host| {
+        let semaphore = Arc::clone(&semaphore);
+        let probe_budget = probe_budget.clone();
+        let repoq = &repoq;
+        let console = &console;
+        async move {
+            let _permit = semaphore
+                .acquire()
+                .await
+                .expect("host-operation semaphore is never closed");
+            add_one(opts, host, probe, repoq, console, &probe_budget).await
+        }
+    }))
     .await;
 
     if !opts.dry {
@@ -44,6 +66,7 @@ async fn add_one<W: Write>(
     probe: &dyn Probe,
     repoq: &crate::repoq::Repoq,
     console: &SharedConsole<'_, W>,
+    probe_budget: &ProbeBudget,
 ) -> bool {
     let Some(products) = host.products() else {
         return false;
@@ -64,7 +87,14 @@ async fn add_one<W: Write>(
             }
         }
     }
-    let live = filter_live(probe, candidates, opts.probe_timeout, opts.no_probe).await;
+    let live = filter_live(
+        probe,
+        candidates,
+        opts.probe_timeout,
+        opts.no_probe,
+        probe_budget,
+    )
+    .await;
     let mut cmds: Vec<String> = live
         .iter()
         .map(|r| cmd::zypper_ar(r.refresh, &r.name, &r.url))
@@ -239,5 +269,152 @@ mod tests {
         let code = run_add(&opts, &mut g, &probe, &mut c).await.unwrap();
         assert_eq!(code, ExitCode::Ok);
         assert!(buf.0.contains("zypper") && buf.0.contains("ar"));
+    }
+
+    /// P1 step 13: a configured host-operation limit below the host count
+    /// bounds the per-host worker semaphore, not just `Host::run` itself —
+    /// while every host still runs exactly once and command/output vectors
+    /// are unchanged.
+    #[tokio::test]
+    async fn bounded_add_never_exceeds_the_configured_host_operation_limit() {
+        use crate::mock::{MockGate, MockMetrics, MockOpKind};
+        use std::num::NonZeroUsize;
+
+        let metrics = MockMetrics::new();
+        let gate = MockGate::new();
+        const LIMIT: usize = 2;
+        const HOSTS: usize = 5;
+        let mut g =
+            MockHostGroup::new().with_host_operation_limit(NonZeroUsize::new(LIMIT).unwrap());
+        for i in 0..HOSTS {
+            let h = MockHost::new(format!("h{i}"))
+                .with_products(System {
+                    base: Product {
+                        name: "SLES".into(),
+                        version: "15-SP3".into(),
+                        arch: "x86_64".into(),
+                    },
+                    addons: vec![],
+                    transactional: false,
+                })
+                .with_metrics(metrics.clone())
+                .with_gate(MockOpKind::Run, gate.clone());
+            g.insert(h);
+        }
+        let opts = CommandOptions {
+            config: sample_config(),
+            repa: vec![Repa::parse("SLES:15-SP3:x86_64:update").unwrap()],
+            no_probe: true,
+            ..Default::default()
+        };
+        let mut buf = Buffer::default();
+        let mut c = Console::new(&mut buf);
+        let probe = ConstProbe { live: true };
+
+        // `tokio::join!` (not `spawn`, which needs `'static`) runs the
+        // command and this driver as sibling futures of one task.
+        let driver = async {
+            let mut saw_limit = false;
+            for _ in 0..2_000 {
+                let current = metrics.snapshot().current_operations;
+                assert!(
+                    current <= LIMIT,
+                    "admitted {current} operations, exceeding the configured limit {LIMIT}"
+                );
+                if current == LIMIT {
+                    saw_limit = true;
+                }
+                tokio::task::yield_now().await;
+            }
+            assert!(saw_limit, "never observed the fleet saturate the limit");
+            gate.release();
+        };
+        let (code, ()) = tokio::join!(run_add(&opts, &mut g, &probe, &mut c), driver);
+        assert_eq!(code.unwrap(), ExitCode::Ok);
+
+        for i in 0..HOSTS {
+            let ran = g.get_mock_mut(&format!("h{i}")).unwrap().ran.clone();
+            assert!(
+                ran.iter().any(|cmd| cmd.starts_with("zypper -n ar")),
+                "h{i} must have run zypper ar exactly once, ran: {ran:?}"
+            );
+        }
+    }
+
+    /// P1 step 21: the probe budget is *fleet*-wide, not per-host — with 3
+    /// hosts each resolving 2 candidates (6 possible concurrent probes),
+    /// a global cap of 2 must still hold, and repository order / command
+    /// history stay unchanged for every host.
+    #[tokio::test]
+    async fn bounded_add_probe_budget_is_fleet_wide_not_per_host() {
+        use crate::mock::{MetricProbe, MockGate, MockMetrics};
+
+        let metrics = MockMetrics::new();
+        let gate = MockGate::new();
+        const PROBE_LIMIT: usize = 2;
+        const HOSTS: usize = 3;
+        let mut g = MockHostGroup::new();
+        for i in 0..HOSTS {
+            let h = MockHost::new(format!("h{i}")).with_products(System {
+                base: Product {
+                    name: "SLES".into(),
+                    version: "15-SP3".into(),
+                    arch: "x86_64".into(),
+                },
+                addons: vec![],
+                transactional: false,
+            });
+            g.insert(h);
+        }
+        let opts = CommandOptions {
+            config: sample_config(),
+            repa: vec![
+                Repa::parse("SLES:15-SP3:x86_64:update").unwrap(),
+                Repa::parse("SLES:15-SP3:x86_64:pool").unwrap(),
+            ],
+            no_probe: false,
+            probe_concurrency_limit: std::num::NonZeroUsize::new(PROBE_LIMIT).unwrap(),
+            ..Default::default()
+        };
+        let mut buf = Buffer::default();
+        let mut c = Console::new(&mut buf);
+        let probe = MetricProbe::new(true)
+            .with_metrics(metrics.clone())
+            .with_gate(gate.clone());
+
+        let driver = async {
+            let mut saw_limit = false;
+            for _ in 0..2_000 {
+                let current = metrics.snapshot().current_probes;
+                assert!(
+                    current <= PROBE_LIMIT,
+                    "admitted {current} probes, exceeding the global cap {PROBE_LIMIT}"
+                );
+                if current == PROBE_LIMIT {
+                    saw_limit = true;
+                }
+                tokio::task::yield_now().await;
+            }
+            assert!(
+                saw_limit,
+                "never observed the fleet saturate the probe budget"
+            );
+            gate.release();
+        };
+        let (code, ()) = tokio::join!(run_add(&opts, &mut g, &probe, &mut c), driver);
+        assert_eq!(code.unwrap(), ExitCode::Ok);
+
+        let snap = metrics.snapshot();
+        assert_eq!(snap.probe_total, HOSTS * 2, "every candidate probed once");
+        assert_eq!(snap.current_probes, 0, "no leaked in-flight probe");
+        let expected_ran = g.get_mock_mut("h0").unwrap().ran.clone();
+        assert_eq!(expected_ran.len(), 3, "2 ar commands + 1 cohort refresh");
+        for i in 1..HOSTS {
+            let ran = g.get_mock_mut(&format!("h{i}")).unwrap().ran.clone();
+            assert_eq!(
+                ran, expected_ran,
+                "h{i} repository order/command history must match h0's"
+            );
+        }
     }
 }
