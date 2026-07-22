@@ -3,6 +3,7 @@
 //! Implementations live in `repose-ssh`. Command algorithms depend only
 //! on these traits (see design: acyclic `ssh → core`).
 
+use std::num::NonZeroUsize;
 use std::time::Duration;
 
 use async_trait::async_trait;
@@ -95,6 +96,22 @@ pub trait Host: Send {
 ///
 /// Object-safe: hosts are accessed by key rather than returning
 /// `impl Iterator<Item = &mut dyn Host>` (not object-safe).
+///
+/// # Bounded, key-order-preserving, failure-isolated execution
+///
+/// [`Self::host_operation_limit`] is the single configured cap (see
+/// `ConnectionConfig::host_operation_limit`,
+/// `tests/performance/p1-limit-decision.md`) that every group phase below
+/// — and every caller's complete per-host mutation worker, which shares
+/// the same cap rather than a separate one — must respect:
+///
+/// - No more than `host_operation_limit` host operations run concurrently.
+/// - Every host still receives each applicable operation exactly once;
+///   only start times may change, not host-local command order.
+/// - Completion order is unspecified, but results are restored to
+///   ascending key order before aggregation (matching [`Self::keys`] /
+///   [`Self::hosts_mut`]).
+/// - One host's failure never cancels or is counted against a sibling.
 #[async_trait]
 pub trait HostGroup: Send {
     fn keys(&self) -> Vec<String>;
@@ -107,9 +124,14 @@ pub trait HostGroup: Send {
     /// [`Self::keys`]).
     ///
     /// Mutation commands fan their per-host work out concurrently over this
-    /// list (`join_all`, which preserves input order), so per-host results
+    /// list, bounded by [`Self::host_operation_limit`], so per-host results
     /// line up with `keys()` for exit aggregation.
     fn hosts_mut(&mut self) -> Vec<&mut dyn Host>;
+
+    /// The configured host-operation concurrency cap (see the trait-level
+    /// documentation above). Core command workers and this group's own
+    /// phases consume this one value rather than each defining their own.
+    fn host_operation_limit(&self) -> NonZeroUsize;
 
     /// Connect all; drop hosts that fail to connect.
     async fn connect_and_prune(&mut self);

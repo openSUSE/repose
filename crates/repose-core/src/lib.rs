@@ -26,7 +26,7 @@ pub mod types;
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 pub use config::{ConnectionConfig, HostKeyPolicy};
-pub use error::SshError;
+pub use error::{OutputStream, SshError, TimeoutPhase};
 pub use host_parse::{HostParseError, HostSpec, parse_host};
 pub use repa::{Repa, RepaError};
 pub use shell::{join as shell_join, quote as shell_quote};

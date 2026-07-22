@@ -258,6 +258,20 @@ pub fn command() -> clap::Command {
     Cli::command()
 }
 
+/// Build the [`ConnectionConfig`] for one CLI invocation.
+///
+/// P1 resource limits/deadlines are internal policy, not CLI flags (see
+/// `tests/performance/p1-limit-decision.md`) — every field left unset here
+/// takes the reviewed `ConnectionConfig::default()` value.
+fn connection_config(cli: &Cli) -> ConnectionConfig {
+    ConnectionConfig {
+        host_key_policy: cli.strict_host_key_checking.into(),
+        known_hosts: cli.known_hosts.clone(),
+        timeout: 120.0,
+        ..ConnectionConfig::default()
+    }
+}
+
 async fn async_main() -> ExitCode {
     let mut cli = Cli::parse();
     if cli.version {
@@ -270,11 +284,7 @@ async fn async_main() -> ExitCode {
     }
     init_logging(cli.debug, cli.quiet, cli.no_color);
 
-    let conn = ConnectionConfig {
-        host_key_policy: cli.strict_host_key_checking.into(),
-        known_hosts: cli.known_hosts.clone(),
-        timeout: 120.0,
-    };
+    let conn = connection_config(&cli);
 
     let cmd = match cli.command.take() {
         None => {
@@ -442,6 +452,7 @@ async fn dispatch(cli: Cli, conn: ConnectionConfig, cmd: Commands) -> ExitCode {
         format: cli.format.into(),
         yaml: matches!(&cmd, Commands::ListProducts { yaml: true, .. }),
         color: resolve_color(cli.no_color, cli.color, std::io::stdout().is_terminal()),
+        probe_concurrency_limit: conn.probe_concurrency_limit,
     };
 
     let mut group = RusshHostGroup::from_targets(specs, conn);
@@ -541,5 +552,43 @@ mod tests {
         let err = Cli::try_parse_from(["repose", "add", "-t", "h", "--probe-timeout=-1", "R"])
             .unwrap_err();
         assert_eq!(err.exit_code(), 2);
+    }
+
+    #[test]
+    fn connection_config_carries_the_approved_p1_defaults() {
+        // No CLI flags exist for the P1 resource limits/deadlines (they
+        // are internal policy — see tests/performance/p1-limit-decision.md);
+        // every real invocation must get exactly the reviewed defaults.
+        let cli = Cli::try_parse_from(["repose", "add", "-t", "h", "R"]).unwrap();
+        let conn = connection_config(&cli);
+        let defaults = ConnectionConfig::default();
+        assert_eq!(conn.host_operation_limit, defaults.host_operation_limit);
+        assert_eq!(
+            conn.probe_concurrency_limit,
+            defaults.probe_concurrency_limit
+        );
+        assert_eq!(
+            conn.sftp_read_concurrency_limit,
+            defaults.sftp_read_concurrency_limit
+        );
+        assert_eq!(conn.max_products_d_entries, defaults.max_products_d_entries);
+        assert_eq!(conn.max_sftp_file_bytes, defaults.max_sftp_file_bytes);
+        assert_eq!(conn.max_stdout_bytes, defaults.max_stdout_bytes);
+        assert_eq!(conn.max_stderr_bytes, defaults.max_stderr_bytes);
+        assert_eq!(conn.connect_deadline, defaults.connect_deadline);
+        assert_eq!(conn.auth_deadline, defaults.auth_deadline);
+        assert_eq!(conn.channel_open_deadline, defaults.channel_open_deadline);
+        assert_eq!(conn.dispatch_deadline, defaults.dispatch_deadline);
+        assert_eq!(
+            conn.sftp_operation_deadline,
+            defaults.sftp_operation_deadline
+        );
+        assert_eq!(
+            conn.overflow_cleanup_deadline,
+            defaults.overflow_cleanup_deadline
+        );
+        // CLI-set fields still come from flags/defaults as before.
+        assert_eq!(conn.host_key_policy, HostKeyPolicy::AcceptNew);
+        assert_eq!(conn.timeout, 120.0);
     }
 }
