@@ -1,7 +1,8 @@
 //! `repose reset` — rr then ar only if full live replacement set.
 
 use crate::commands::{
-    CommandOptions, SharedConsole, aggregate, load_repoq, partition_live, run_reported_shared,
+    CommandOptions, ProbeBudget, SharedConsole, aggregate, load_repoq, partition_live,
+    run_reported_shared,
 };
 use crate::console::Console;
 use crate::shell::cmd;
@@ -9,6 +10,8 @@ use crate::traits::{Host, HostGroup, Probe};
 use crate::types::ExitCode;
 use futures_util::future::join_all;
 use std::io::Write;
+use std::sync::Arc;
+use tokio::sync::Semaphore;
 
 pub async fn run_reset<W: Write>(
     opts: &CommandOptions,
@@ -22,14 +25,29 @@ pub async fn run_reset<W: Write>(
     group.read_repos().await;
 
     // Fan out per-host work concurrently (Python spawned one worker task per
-    // target); `join_all` preserves key order for exit aggregation.
+    // target); `join_all` preserves key order for exit aggregation. Bounded
+    // by a semaphore (P1 step 15) — see `add.rs`'s `run_add` for why this
+    // avoids both the head-of-line blocking `.buffered(cap)` would cause
+    // and the index/sort step `buffer_unordered` would need.
+    let cap = group.host_operation_limit().get();
+    let semaphore = Arc::new(Semaphore::new(cap));
+    // One fleet-wide probe budget (P1 step 23) shared by every host worker,
+    // replacing the old per-host `min(16, n)` local cap.
+    let probe_budget = ProbeBudget::new(opts.probe_concurrency_limit);
     let console = SharedConsole::new(console);
-    let results = join_all(
-        group
-            .hosts_mut()
-            .into_iter()
-            .map(|host| reset_one(opts, host, probe, &repoq, &console)),
-    )
+    let results = join_all(group.hosts_mut().into_iter().map(|host| {
+        let semaphore = Arc::clone(&semaphore);
+        let probe_budget = probe_budget.clone();
+        let repoq = &repoq;
+        let console = &console;
+        async move {
+            let _permit = semaphore
+                .acquire()
+                .await
+                .expect("host-operation semaphore is never closed");
+            reset_one(opts, host, probe, repoq, console, &probe_budget).await
+        }
+    }))
     .await;
     group.close().await;
     Ok(aggregate(results))
@@ -41,6 +59,7 @@ async fn reset_one<W: Write>(
     probe: &dyn Probe,
     repoq: &crate::repoq::Repoq,
     console: &SharedConsole<'_, W>,
+    probe_budget: &ProbeBudget,
 ) -> bool {
     let aliases: Vec<String> = host
         .raw_repos()
@@ -71,7 +90,14 @@ async fn reset_one<W: Write>(
     let candidates: Vec<_> = resolved.into_values().flatten().collect();
     // Partition in one pass instead of probing a clone of `candidates` and
     // re-deriving the dropped set with per-element (name, url) clones.
-    let (live, dead) = partition_live(probe, candidates, opts.probe_timeout, opts.no_probe).await;
+    let (live, dead) = partition_live(
+        probe,
+        candidates,
+        opts.probe_timeout,
+        opts.no_probe,
+        probe_budget,
+    )
+    .await;
     let mut dropped: Vec<&str> = dead.iter().map(|r| r.name.as_str()).collect();
     // Python reports `", ".join(sorted(dropped))`.
     dropped.sort_unstable();
@@ -274,5 +300,57 @@ mod tests {
         assert!(!buf.contains("zypper -n ar"));
         assert!(!buf.contains("zypper -n rr"));
         assert_eq!(code, c.exit_code());
+    }
+
+    /// P1 step 15: a configured host-operation limit below the host count
+    /// bounds the per-host worker semaphore, while every host still resets
+    /// exactly once.
+    #[tokio::test]
+    async fn bounded_reset_never_exceeds_the_configured_host_operation_limit() {
+        use crate::mock::{MockGate, MockMetrics, MockOpKind};
+        use std::num::NonZeroUsize;
+
+        let metrics = MockMetrics::new();
+        let gate = MockGate::new();
+        const LIMIT: usize = 2;
+        const HOSTS: usize = 5;
+        let mut g =
+            MockHostGroup::new().with_host_operation_limit(NonZeroUsize::new(LIMIT).unwrap());
+        for i in 0..HOSTS {
+            let h = MockHost::new(format!("h{i}"))
+                .with_products(sles_system())
+                .with_raw_repos(vec![raw_repo("existing-repo1")])
+                .with_metrics(metrics.clone())
+                .with_gate(MockOpKind::Run, gate.clone());
+            g.insert(h);
+        }
+        let opts = opts(false);
+        let mut buf = Buffer::default();
+        let mut c = Console::new(&mut buf);
+        let probe = ConstProbe { live: true };
+
+        let driver = async {
+            let mut saw_limit = false;
+            for _ in 0..2_000 {
+                let current = metrics.snapshot().current_operations;
+                assert!(current <= LIMIT, "admitted {current}, exceeding {LIMIT}");
+                if current == LIMIT {
+                    saw_limit = true;
+                }
+                tokio::task::yield_now().await;
+            }
+            assert!(saw_limit, "never observed the fleet saturate the limit");
+            gate.release();
+        };
+        let (code, ()) = tokio::join!(run_reset(&opts, &mut g, &probe, &mut c), driver);
+        assert_eq!(code.unwrap(), ExitCode::Ok);
+
+        for i in 0..HOSTS {
+            let ran = g.get_mock_mut(&format!("h{i}")).unwrap().ran.clone();
+            assert!(
+                ran.iter().any(|cmd| cmd.starts_with("zypper -n rr")),
+                "h{i} must have reset exactly once, ran: {ran:?}"
+            );
+        }
     }
 }

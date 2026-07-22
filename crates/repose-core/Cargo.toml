@@ -25,6 +25,11 @@ thiserror = "2"
 reqwest = { version = "0.13", default-features = false, features = ["rustls", "http2"] }
 # Bounded-concurrency probe fan-out (StreamExt::buffered)
 futures-util = { version = "0.3", default-features = false, features = ["std", "async-await"] }
+# Command-scoped semaphores bounding host-operation (P1 step 13-18) and
+# probe (P1 step 19-23) fan-out. Already present transitively via reqwest's
+# async HTTP client — this only makes the already-in-tree crate directly
+# usable, with the minimal `sync` feature (no added runtime/IO/macros).
+tokio = { version = "1", default-features = false, features = ["sync"] }
 # XML parsers (zypper -x lr, .prod)
 quick-xml = { version = "0.41", features = ["serialize"] }
 

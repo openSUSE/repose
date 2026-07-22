@@ -17,9 +17,11 @@ pub use reset::run_reset;
 pub use uninstall::run_uninstall;
 
 use std::io::Write;
+use std::num::NonZeroUsize;
 use std::path::PathBuf;
-use std::sync::{Mutex, PoisonError};
+use std::sync::{Arc, Mutex, PoisonError};
 use std::time::Duration;
+use tokio::sync::Semaphore;
 
 use crate::console::{Console, Level, OutputFormat};
 use crate::probe::HttpProbe;
@@ -44,6 +46,12 @@ pub struct CommandOptions {
     /// Emit ANSI color in `list-*` text output (resolved from `--color` /
     /// `--no-color` / `NO_COLOR` / TTY by the CLI).
     pub color: bool,
+    /// Fleet-wide URL-liveness probe concurrency cap for this invocation
+    /// (P1; see `ConnectionConfig::probe_concurrency_limit` and
+    /// `tests/performance/p1-limit-decision.md`). One probe budget is
+    /// built from this per `run_add`/`run_install`/`run_reset` call and
+    /// shared by every host worker.
+    pub probe_concurrency_limit: NonZeroUsize,
 }
 
 impl Default for CommandOptions {
@@ -58,6 +66,8 @@ impl Default for CommandOptions {
             format: OutputFormat::Text,
             yaml: false,
             color: false,
+            probe_concurrency_limit: crate::config::ConnectionConfig::default()
+                .probe_concurrency_limit,
         }
     }
 }
@@ -273,6 +283,23 @@ pub fn aggregate(results: impl IntoIterator<Item = bool>) -> ExitCode {
     ExitCode::aggregate(results)
 }
 
+/// Fleet-wide URL-liveness probe concurrency budget (P1 steps 19–23),
+/// created once per CLI command invocation and shared by every host
+/// worker's [`partition_live`]/[`filter_live`] calls. Replaces the old
+/// per-host `min(16, n)` cap, which multiplied to `16 * host_count`
+/// in-flight probes fleet-wide with no ceiling at all — permits delay
+/// probe start only; they neither deduplicate nor cache calls, so probe
+/// counts and per-host order are unchanged.
+#[derive(Clone)]
+pub(crate) struct ProbeBudget(Arc<Semaphore>);
+
+impl ProbeBudget {
+    #[must_use]
+    pub(crate) fn new(limit: NonZeroUsize) -> Self {
+        Self(Arc::new(Semaphore::new(limit.get())))
+    }
+}
+
 /// Probe `repos` and split them into `(live, dropped)`, both preserving
 /// input order. With `no_probe` everything is live.
 ///
@@ -284,17 +311,28 @@ pub(crate) async fn partition_live(
     repos: Vec<crate::repoq::Repos>,
     timeout: Duration,
     no_probe: bool,
+    probe_budget: &ProbeBudget,
 ) -> (Vec<crate::repoq::Repos>, Vec<crate::repoq::Repos>) {
     use futures_util::StreamExt;
     if no_probe || repos.is_empty() {
         return (repos, Vec::new());
     }
-    // Probe concurrently, bounded to 16 in-flight (Python `_afilter_live_urls`
-    // uses `asyncio.Semaphore(min(16, n))`); `buffered` preserves input order.
-    let cap = std::cmp::min(16, repos.len());
+    // One *global* permit per probe (P1 step 20) instead of the old
+    // per-host `min(16, n)` local cap: the `buffered` window is sized to
+    // this host's own candidate count (never a fleet-wide bottleneck by
+    // itself), and `probe_budget` is the only real throttle, shared by
+    // every concurrently-running host worker's own call to this function.
+    let window = repos.len();
     let alive: Vec<bool> = futures_util::stream::iter(repos.iter())
-        .map(|r| probe.is_live(&r.url, timeout))
-        .buffered(cap)
+        .map(|r| async {
+            let _permit = probe_budget
+                .0
+                .acquire()
+                .await
+                .expect("probe semaphore is never closed");
+            probe.is_live(&r.url, timeout).await
+        })
+        .buffered(window)
         .collect()
         .await;
     let mut live = Vec::new();
@@ -314,8 +352,11 @@ pub(crate) async fn filter_live(
     repos: Vec<crate::repoq::Repos>,
     timeout: Duration,
     no_probe: bool,
+    probe_budget: &ProbeBudget,
 ) -> Vec<crate::repoq::Repos> {
-    partition_live(probe, repos, timeout, no_probe).await.0
+    partition_live(probe, repos, timeout, no_probe, probe_budget)
+        .await
+        .0
 }
 
 /// Default HTTP probe; tests inject [`crate::mock::ConstProbe`].
@@ -342,6 +383,10 @@ mod filter_tests {
         }
     }
 
+    fn budget() -> ProbeBudget {
+        ProbeBudget::new(NonZeroUsize::new(64).unwrap())
+    }
+
     #[tokio::test]
     async fn filter_live_preserves_order_and_drops_dead() {
         let repos = vec![
@@ -350,7 +395,7 @@ mod filter_tests {
             repo("c", "http://c/"),
         ];
         let probe = MapProbe::dead(["http://b/"]);
-        let live = filter_live(&probe, repos, Duration::from_secs(1), false).await;
+        let live = filter_live(&probe, repos, Duration::from_secs(1), false, &budget()).await;
         let urls: Vec<&str> = live.iter().map(|r| r.url.as_str()).collect();
         assert_eq!(urls, ["http://a/", "http://c/"]);
     }
@@ -364,9 +409,51 @@ mod filter_tests {
             repos,
             Duration::from_secs(1),
             true,
+            &budget(),
         )
         .await;
         assert_eq!(live.len(), 2);
+    }
+
+    /// P1 step 20: the global probe budget bounds total in-flight probes
+    /// across candidates, and current in-flight probes return to zero.
+    #[tokio::test]
+    async fn probe_budget_bounds_concurrent_probes_and_leaves_zero_in_flight() {
+        use crate::mock::{MetricProbe, MockGate, MockMetrics};
+
+        let metrics = MockMetrics::new();
+        let gate = MockGate::new();
+        let probe = MetricProbe::new(true)
+            .with_metrics(metrics.clone())
+            .with_gate(gate.clone());
+        const LIMIT: usize = 2;
+        const CANDIDATES: usize = 5;
+        let repos: Vec<_> = (0..CANDIDATES)
+            .map(|i| repo(&format!("r{i}"), &format!("http://{i}/")))
+            .collect();
+        let budget = ProbeBudget::new(NonZeroUsize::new(LIMIT).unwrap());
+
+        let driver = async {
+            let mut saw_limit = false;
+            for _ in 0..2_000 {
+                let current = metrics.snapshot().current_probes;
+                assert!(current <= LIMIT, "admitted {current}, exceeding {LIMIT}");
+                if current == LIMIT {
+                    saw_limit = true;
+                }
+                tokio::task::yield_now().await;
+            }
+            assert!(saw_limit, "never observed the probe budget saturate");
+            gate.release();
+        };
+        let (live, ()) = tokio::join!(
+            filter_live(&probe, repos, Duration::from_secs(1), false, &budget),
+            driver
+        );
+        assert_eq!(live.len(), CANDIDATES, "no_probe=false must probe all");
+        let snap = metrics.snapshot();
+        assert_eq!(snap.probe_total, CANDIDATES);
+        assert_eq!(snap.current_probes, 0, "no leaked in-flight probe");
     }
 }
 
