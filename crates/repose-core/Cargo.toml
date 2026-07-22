@@ -29,6 +29,12 @@ futures-util = { version = "0.3", default-features = false, features = ["std", "
 quick-xml = { version = "0.41", features = ["serialize"] }
 
 [dev-dependencies]
-tokio = { version = "1", features = ["rt", "macros", "rt-multi-thread"] }
+tokio = { version = "1", features = ["rt", "macros", "rt-multi-thread", "time"] }
 wiremock = "0.6"
 tempfile = "3"
+# Fleet-scale benchmark (crates/repose-core/benches/fleet.rs).
+criterion = { version = "0.8", default-features = false }
+
+[[bench]]
+name = "fleet"
+harness = false

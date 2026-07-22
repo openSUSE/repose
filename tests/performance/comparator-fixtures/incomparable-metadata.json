@@ -1,0 +1,94 @@
+{
+  "note": "candidate.workload_id differs from baseline.workload_id \u2014 comparing them would be meaningless.",
+  "expect": "incomparable-metadata",
+  "baseline": {
+    "command_count": 2,
+    "contract_version": 1,
+    "exit_code": 0,
+    "host_order": [
+      "h1"
+    ],
+    "kind": "mock",
+    "latency_ns": {
+      "p50": 45000,
+      "p95": 54458,
+      "p99": 54458
+    },
+    "peak_concurrency": 1,
+    "peak_rss_bytes": null,
+    "probe_count": 1,
+    "repetitions": 15,
+    "runner": {
+      "arch": "aarch64",
+      "os": "macos",
+      "toolchain": null
+    },
+    "stderr_digest": "fnv1a64:cbf29ce484222325",
+    "stdout_digest": "fnv1a64:cbf29ce484222325",
+    "throughput_ops_per_sec": 22222.222222222223,
+    "wall_time_ns": [
+      40041,
+      41500,
+      42375,
+      42833,
+      43084,
+      43375,
+      43708,
+      45000,
+      45500,
+      45584,
+      46167,
+      47375,
+      51209,
+      51875,
+      54458
+    ],
+    "warmup_repetitions": 3,
+    "workload_id": "mock-add-1h"
+  },
+  "candidate": {
+    "command_count": 2,
+    "contract_version": 1,
+    "exit_code": 0,
+    "host_order": [
+      "h1"
+    ],
+    "kind": "mock",
+    "latency_ns": {
+      "p50": 46000,
+      "p95": 53500,
+      "p99": 53500
+    },
+    "peak_concurrency": 1,
+    "peak_rss_bytes": null,
+    "probe_count": 1,
+    "repetitions": 15,
+    "runner": {
+      "arch": "aarch64",
+      "os": "macos",
+      "toolchain": null
+    },
+    "stderr_digest": "fnv1a64:cbf29ce484222325",
+    "stdout_digest": "fnv1a64:cbf29ce484222325",
+    "throughput_ops_per_sec": 21739.130434782608,
+    "wall_time_ns": [
+      38417,
+      39292,
+      41291,
+      42791,
+      43000,
+      43833,
+      44167,
+      46000,
+      46084,
+      46708,
+      48458,
+      49292,
+      50708,
+      51875,
+      53500
+    ],
+    "warmup_repetitions": 3,
+    "workload_id": "mock-add-20h"
+  }
+}

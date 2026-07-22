@@ -1,6 +1,7 @@
 # repose — Rust workspace convenience targets; CI runs the
 # same commands (see .github/workflows/ci.yml).
-.PHONY: build release test fmt fmt-fix clippy deny layer cli assets check install clean
+.PHONY: build release test fmt fmt-fix clippy deny layer cli assets check install clean \
+	perf-smoke perf-baseline perf-compare-test
 
 build:        ## debug build (locked)
 	cargo build --locked
@@ -28,3 +29,13 @@ install:      ## install `repose` into ~/.cargo/bin
 	cargo install --path crates/repose-cli --locked
 clean:
 	cargo clean
+
+# Performance (tests/performance/README.md). Not part of `check` — these
+# are release builds and, for perf-baseline, real timing/RSS measurements
+# that don't belong in the default fast feedback loop.
+perf-smoke:    ## fleet benchmark structural smoke: every ID runs once, no statistics
+	cargo bench -p repose-core --bench fleet --locked -- --test
+perf-baseline: ## full release baseline report for every mock/ssh workload
+	bash scripts/run-performance-baseline.sh
+perf-compare-test: ## comparator fixtures + one real end-to-end regression guardrail
+	bash scripts/test-compare-performance.sh

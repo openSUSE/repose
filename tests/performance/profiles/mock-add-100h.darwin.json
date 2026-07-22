@@ -1,0 +1,68 @@
+{
+  "contract_version": 1,
+  "workload_id": "mock-add-100h",
+  "platform": {
+    "os": "darwin",
+    "arch": "arm64"
+  },
+  "measured_command": "/Users/mimi/work/repose/.wt/performace_one/target/release/examples/baseline_report mock-add-100h 200000 1",
+  "measured_pid": 91822,
+  "setup_excluded": true,
+  "generated_at": "2026-07-21T20:01:34Z",
+  "classes": {
+    "cpu": {
+      "tool": "sample",
+      "raw_artifact": "/Users/mimi/work/repose/.wt/performace_one/tests/performance/profiles/raw/mock-add-100h.cpu.sample.txt",
+      "total_top_of_stack_samples": 2788,
+      "top_symbols": [
+        {
+          "symbol": "_xzm_free_tc (in libsystem_malloc.dylib)",
+          "samples": 324
+        },
+        {
+          "symbol": "_platform_memmove (in libsystem_platform.dylib)",
+          "samples": 278
+        },
+        {
+          "symbol": "_xzm_malloc_tc (in libsystem_malloc.dylib)",
+          "samples": 192
+        },
+        {
+          "symbol": "__open (in libsystem_kernel.dylib)",
+          "samples": 186
+        },
+        {
+          "symbol": "_malloc_zone_malloc (in libsystem_malloc.dylib)",
+          "samples": 168
+        },
+        {
+          "symbol": "_free (in libsystem_malloc.dylib)",
+          "samples": 150
+        },
+        {
+          "symbol": "_RNvNtCscFKwzjhlyO7_11repose_core5shell5quote (in baseline_report)",
+          "samples": 99
+        },
+        {
+          "symbol": "_platform_memcmp (in libsystem_platform.dylib)",
+          "samples": 92
+        },
+        {
+          "symbol": "_RNvCs7a7XMsdEgBq_7___rustc11___rdl_alloc (in baseline_report)",
+          "samples": 71
+        },
+        {
+          "symbol": "DYLD-STUB$$free (in baseline_report)",
+          "samples": 55
+        }
+      ]
+    },
+    "alloc": {
+      "tool": "heap",
+      "raw_artifact": "/Users/mimi/work/repose/.wt/performace_one/tests/performance/profiles/raw/mock-add-100h.alloc.heap.txt",
+      "physical_footprint": "3776K",
+      "node_count": 1259,
+      "total_bytes": 3353760
+    }
+  }
+}
