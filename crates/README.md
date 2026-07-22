@@ -18,8 +18,11 @@ under `accept-new`; CA pinning is out of scope for this rewrite milestone.
 Host-key policies are `yes` (known keys only), `accept-new` (persist first
 contact and reject changed/revoked keys), and `no`/`off` (disable validation).
 `accept-new` writes `~/.ssh/known_hosts`, or the path passed through
-`--known-hosts`, using `[host]:port` entries for non-default ports. Keep that
-file protected from untrusted writers.
+`--known-hosts`, using `[host]:port` entries for non-default ports, and is
+fail-closed: a first-contact key is trusted only after that write durably
+succeeds, so a read-only or full known_hosts file rejects the connection
+instead of trusting an unrecorded key. Keep that file protected from
+untrusted writers.
 
 Authentication tries the ssh-agent first (every agent identity is offered),
 then `IdentityFile` keys from `~/.ssh/config`. Unlike `ssh(1)`, the
