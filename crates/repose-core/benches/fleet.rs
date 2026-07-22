@@ -11,11 +11,15 @@
 
 mod support;
 
-use criterion::{Criterion, criterion_group, criterion_main};
+use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
 use repose_core::commands::{run_add, run_install, run_list_products};
 use repose_core::console::{Buffer, Console};
 use repose_core::traits::HostGroup;
-use support::{Scenario, ScenarioConfig, build_list_products_scenario, build_scenario, runtime};
+use std::time::Duration;
+use support::{
+    Scenario, ScenarioConfig, build_list_products_scenario, build_scenario, run_fully_gated_add,
+    runtime,
+};
 
 /// Reviewed baseline REPA for the add/install fleet scenarios (see
 /// `tests/vectors/template/sample.yml`: `SLES."15-SP3".update`).
@@ -170,5 +174,77 @@ fn bench_list_products(c: &mut Criterion) {
     group.finish();
 }
 
-criterion_group!(benches, bench_add, bench_install, bench_list_products);
+/// P1 decision-gate evidence (step 1): every host's connect/read_products/
+/// probe/run/close is gated behind one shared gate per phase, released only
+/// once the whole fleet has observably entered it — proving the mock
+/// harness exposes true fleet-wide concurrency at 20/100 hosts rather than
+/// the misleading `peak_operations == 1` an ungated `join_all` produces in
+/// one poll (see `tests/performance/README.md`).
+fn bench_gated_fleet_admission(c: &mut Criterion) {
+    let rt = runtime();
+    let mut group = c.benchmark_group("fleet_gated_admission");
+    group.sample_size(10);
+    for hosts in [20usize, 100] {
+        group.bench_function(format!("{hosts}h"), |b| {
+            b.iter(|| {
+                rt.block_on(async {
+                    let (code, snap) = run_fully_gated_add(hosts).await;
+                    assert_eq!(code.as_i32(), 0, "fleet_gated_admission/{hosts}h regressed");
+                    assert_eq!(
+                        snap.peak_operations, hosts,
+                        "gated harness did not expose full {hosts}-host fleet width"
+                    );
+                    assert_eq!(snap.current_operations, 0, "leaked in-flight operation");
+                    assert_eq!(snap.current_probes, 0, "leaked in-flight probe");
+                });
+            });
+        });
+    }
+    group.finish();
+}
+
+/// P1 decision-gate evidence (step 1): admit `host_count` synthetic
+/// operations of fixed cost `op_cost` through a bounded unordered stream at
+/// `cap` concurrent slots. Independent of any mock/SSH implementation —
+/// this is the plain queueing-theory curve (`~ceil(host_count / cap) *
+/// op_cost`) that informs how low a host-operation cap can go before it
+/// materially serializes a 100-host fleet. See
+/// `tests/performance/p1-limit-decision.md` for the `op_cost` calibration
+/// against measured SSH connect+auth+command latency and the resulting
+/// table of caps.
+async fn bounded_fanout_cost(host_count: usize, op_cost: Duration, cap: usize) {
+    use futures_util::StreamExt;
+    futures_util::stream::iter(0..host_count)
+        .map(|_| async move { tokio::time::sleep(op_cost).await })
+        .buffer_unordered(cap)
+        .collect::<Vec<()>>()
+        .await;
+}
+
+fn bench_concurrency_cap_sweep(c: &mut Criterion) {
+    let rt = runtime();
+    // Calibrated against the measured local-dev SSH fixture connect+auth+
+    // one-command p50 (see tests/performance/p1-limit-decision.md); a
+    // synthetic sleep keeps the sweep independent of any real transport.
+    const OP_COST: Duration = Duration::from_millis(5);
+    let mut sweep = c.benchmark_group("fleet_concurrency_cap_sweep_100h");
+    sweep.sample_size(10);
+    for cap in [1usize, 4, 8, 16, 32, 64, 100] {
+        sweep.bench_with_input(BenchmarkId::from_parameter(cap), &cap, |b, &cap| {
+            b.iter(|| {
+                rt.block_on(bounded_fanout_cost(100, OP_COST, cap));
+            });
+        });
+    }
+    sweep.finish();
+}
+
+criterion_group!(
+    benches,
+    bench_add,
+    bench_install,
+    bench_list_products,
+    bench_gated_fleet_admission,
+    bench_concurrency_cap_sweep
+);
 criterion_main!(benches);
