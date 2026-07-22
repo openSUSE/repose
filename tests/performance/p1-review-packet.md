@@ -224,5 +224,5 @@ code introduced by a later one.
 
 ## Sign-off
 
-- [ ] Reviewed and approved: P1 (`plans/p1-bound-resources-and-prevent-stalls.md`)
+- [x] Reviewed and approved: P1 (`plans/p1-bound-resources-and-prevent-stalls.md`)
       is complete and ready to merge.
