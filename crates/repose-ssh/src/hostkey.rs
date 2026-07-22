@@ -113,24 +113,31 @@ impl HostKeyVerifier {
         self
     }
 
-    pub(crate) fn verify_public_key(&mut self, key: &PublicKey) -> bool {
+    /// Pure verification decision (P1 step 34): no filesystem I/O and no
+    /// mutation of `self`. Existing/matching, changed, and revoked
+    /// outcomes are decided exactly as before. `accept-new` first contact
+    /// no longer trusts-then-persists inline; it returns
+    /// [`KeyDecision::PersistFirstContact`] so the (async) caller can
+    /// durably persist the key — off the async runtime — before deciding
+    /// whether to trust it (fail-closed TOFU completion, P1 step 35).
+    pub(crate) fn decide_public_key(&self, key: &PublicKey) -> KeyDecision {
         let encoded = match key.to_openssh() {
             Ok(encoded) => encoded,
             Err(error) => {
                 log::error!("could not encode offered SSH host key: {error}");
-                return false;
+                return KeyDecision::Reject;
             }
         };
         let Some(key) = key_material(&encoded) else {
             log::error!("could not encode offered SSH host key");
-            return false;
+            return KeyDecision::Reject;
         };
-        self.verify_key(&key)
+        self.decide(&key)
     }
 
-    fn verify_key(&mut self, key: &str) -> bool {
+    fn decide(&self, key: &str) -> KeyDecision {
         match self.policy {
-            HostKeyPolicy::No | HostKeyPolicy::Off => true,
+            HostKeyPolicy::No | HostKeyPolicy::Off => KeyDecision::Accept,
             HostKeyPolicy::Yes | HostKeyPolicy::AcceptNew => {
                 let matches: Vec<_> = self
                     .entries
@@ -142,7 +149,7 @@ impl HostKeyVerifier {
                     .any(|entry| entry.is_revoked() && entry.key == key)
                 {
                     log::error!("host key for {} is explicitly revoked", self.host);
-                    return false;
+                    return KeyDecision::Reject;
                 }
 
                 let trusted: Vec<_> = matches
@@ -150,50 +157,53 @@ impl HostKeyVerifier {
                     .filter(|entry| entry.is_trusted())
                     .collect();
                 if trusted.iter().any(|entry| entry.key == key) {
-                    return true;
+                    return KeyDecision::Accept;
                 }
 
                 match self.policy {
                     HostKeyPolicy::Yes => {
                         log::error!("no trusted host key for {}", self.host);
-                        false
+                        KeyDecision::Reject
                     }
                     HostKeyPolicy::AcceptNew if !trusted.is_empty() => {
                         log::error!("host key changed for {}", self.host);
-                        false
+                        KeyDecision::Reject
                     }
-                    HostKeyPolicy::AcceptNew => self.accept_new(key),
-                    HostKeyPolicy::No | HostKeyPolicy::Off => true,
+                    // `self.path` is always `Some` for `AcceptNew` (set in
+                    // `new`); fail-closed defensively rejects the
+                    // structurally-unreachable `None` case rather than
+                    // reviving the old trust-without-recording behavior.
+                    HostKeyPolicy::AcceptNew => match &self.path {
+                        Some(path) => KeyDecision::PersistFirstContact {
+                            path: path.clone(),
+                            key: key.to_string(),
+                        },
+                        None => KeyDecision::Reject,
+                    },
+                    HostKeyPolicy::No | HostKeyPolicy::Off => KeyDecision::Accept,
                 }
             }
         }
     }
 
-    fn accept_new(&mut self, key: &str) -> bool {
-        let Some(path) = &self.path else {
-            return true;
-        };
-        if let Err(error) = append_known_host(path, &self.host, self.port, key) {
-            // TOFU degrades to trust-without-recording: the session proceeds,
-            // but every future connection will re-accept this host unverified
-            // until the file becomes writable — make that loud, not a warn.
-            log::error!(
-                "accept-new: could not persist host key for {} to {}: {} — \
-                 the key was NOT recorded; future connections will re-accept \
-                 this host without verification",
-                self.host,
-                path.display(),
-                error
-            );
-            return true;
-        }
-
+    /// Record a key persisted by [`persist_first_contact`] into this
+    /// verifier's in-memory entries, so a later host-key check within the
+    /// same session sees it as trusted without re-reading the file. Call
+    /// only after persistence has succeeded.
+    pub(crate) fn record_first_contact(&mut self, key: String) {
         self.entries.push(KnownHostEntry {
             patterns: vec![host_pattern(&self.host, self.port)],
-            key: key.to_string(),
+            key,
             marker: None,
         });
-        true
+    }
+
+    pub(crate) fn host(&self) -> &str {
+        &self.host
+    }
+
+    pub(crate) fn port(&self) -> u16 {
+        self.port
     }
 
     // Lookup keys are the configured names only; OpenSSH `CheckHostIP`-style
@@ -204,6 +214,19 @@ impl HostKeyVerifier {
             .map(|host| host_pattern(host, self.port))
             .collect()
     }
+}
+
+/// Outcome of [`HostKeyVerifier::decide_public_key`] (P1 step 34): a pure
+/// decision with no filesystem I/O performed yet.
+pub(crate) enum KeyDecision {
+    Accept,
+    Reject,
+    /// `accept-new` first contact: the caller must durably persist `key`
+    /// to `path` (see [`persist_first_contact`]) before trusting it.
+    PersistFirstContact {
+        path: PathBuf,
+        key: String,
+    },
 }
 
 fn default_known_hosts_path() -> PathBuf {
@@ -274,7 +297,15 @@ fn malformed_known_hosts(path: &Path, line_no: usize) -> SshError {
     ))
 }
 
-fn append_known_host(path: &Path, host: &str, port: u16, key: &str) -> std::io::Result<()> {
+/// Durably append `host`'s `key` to `known_hosts` at `path` (P1 steps 34–
+/// 35). Blocking file I/O — call only via `spawn_blocking` from the async
+/// `check_server_key` handler, never directly on the async runtime.
+pub(crate) fn persist_first_contact(
+    path: &Path,
+    host: &str,
+    port: u16,
+    key: &str,
+) -> std::io::Result<()> {
     let lock = KNOWN_HOSTS_WRITE_LOCK.get_or_init(|| Mutex::new(()));
     let _guard = lock.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
     let existed = path.exists();
@@ -374,7 +405,28 @@ mod tests {
     use repose_core::config::HostKeyPolicy;
     use tempfile::tempdir;
 
-    use super::HostKeyVerifier;
+    use super::{HostKeyVerifier, KeyDecision};
+
+    /// Test-only stand-in for the production `check_server_key` handler's
+    /// decide → persist → record sequence (P1 steps 34–35), run
+    /// synchronously since these tests need no async runtime. Mirrors the
+    /// real control flow exactly: `PersistFirstContact` is trusted only
+    /// after `persist_first_contact` succeeds.
+    fn verify(verifier: &mut HostKeyVerifier, key: &str) -> bool {
+        match verifier.decide(key) {
+            KeyDecision::Accept => true,
+            KeyDecision::Reject => false,
+            KeyDecision::PersistFirstContact { path, key } => {
+                match super::persist_first_contact(&path, verifier.host(), verifier.port(), &key) {
+                    Ok(()) => {
+                        verifier.record_first_contact(key);
+                        true
+                    }
+                    Err(_) => false,
+                }
+            }
+        }
+    }
 
     const KEY_ONE: &str =
         "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILM+rvN+ot98qgEN796jTiQfZfG1KaT0PtFDJ/XFSqti";
@@ -388,8 +440,8 @@ mod tests {
         let mut verifier =
             HostKeyVerifier::new(HostKeyPolicy::Yes, Some(path), "host", 22).unwrap();
 
-        assert!(verifier.verify_key(KEY_ONE));
-        assert!(!verifier.verify_key(KEY_TWO));
+        assert!(verify(&mut verifier, KEY_ONE));
+        assert!(!verify(&mut verifier, KEY_TWO));
     }
 
     #[test]
@@ -401,12 +453,38 @@ mod tests {
             HostKeyVerifier::new(HostKeyPolicy::AcceptNew, Some(path.clone()), "host", 2222)
                 .unwrap();
 
-        assert!(verifier.verify_key(KEY_ONE));
+        assert!(verify(&mut verifier, KEY_ONE));
         assert_eq!(
             fs::read_to_string(&path).unwrap(),
             format!("old-entry {KEY_ONE}\n[host]:2222 {KEY_ONE}\n")
         );
-        assert!(!verifier.verify_key(KEY_TWO));
+        assert!(!verify(&mut verifier, KEY_TWO));
+    }
+
+    /// P1 steps 34–35: the approved, intentional behavior change — a
+    /// first-contact key that cannot be durably persisted must be
+    /// rejected (fail-closed), never silently trusted the old way.
+    #[test]
+    #[cfg(unix)]
+    fn accept_new_rejects_first_contact_when_persistence_fails() {
+        use std::os::unix::fs::PermissionsExt;
+        let temp = tempdir().unwrap();
+        let dir = temp.path().join("readonly");
+        fs::create_dir(&dir).unwrap();
+        let path = dir.join("known_hosts");
+        let mut verifier =
+            HostKeyVerifier::new(HostKeyPolicy::AcceptNew, Some(path.clone()), "host", 22).unwrap();
+        fs::set_permissions(&dir, fs::Permissions::from_mode(0o555)).unwrap();
+
+        assert!(
+            !verify(&mut verifier, KEY_ONE),
+            "persistence failure must reject, not trust, a first-contact key"
+        );
+        assert!(!path.exists(), "the key must not be recorded on failure");
+        // The in-memory verifier must not have trusted the key either.
+        assert!(!verify(&mut verifier, KEY_ONE));
+
+        fs::set_permissions(&dir, fs::Permissions::from_mode(0o755)).unwrap();
     }
 
     #[test]
@@ -417,7 +495,7 @@ mod tests {
         let mut verifier =
             HostKeyVerifier::new(HostKeyPolicy::AcceptNew, Some(path), "host", 22).unwrap();
 
-        assert!(!verifier.verify_key(KEY_ONE));
+        assert!(!verify(&mut verifier, KEY_ONE));
     }
 
     #[test]
@@ -429,7 +507,7 @@ mod tests {
         for policy in [HostKeyPolicy::No, HostKeyPolicy::Off] {
             let mut verifier =
                 HostKeyVerifier::new(policy, Some(path.clone()), "host", 22).unwrap();
-            assert!(verifier.verify_key(KEY_ONE));
+            assert!(verify(&mut verifier, KEY_ONE));
         }
     }
 
@@ -452,8 +530,8 @@ mod tests {
             HostKeyVerifier::new(HostKeyPolicy::Yes, Some(path.clone()), "ok.example", 22).unwrap();
         let mut bad =
             HostKeyVerifier::new(HostKeyPolicy::Yes, Some(path), "bad.example", 22).unwrap();
-        assert!(good.verify_key(KEY_ONE));
-        assert!(!bad.verify_key(KEY_ONE));
+        assert!(verify(&mut good, KEY_ONE));
+        assert!(!verify(&mut bad, KEY_ONE));
     }
 
     #[test]
@@ -465,7 +543,7 @@ mod tests {
         let mut verifier = HostKeyVerifier::new(HostKeyPolicy::Yes, Some(path), "resolved", 22)
             .unwrap()
             .with_alias("alias");
-        assert!(verifier.verify_key(KEY_ONE));
+        assert!(verify(&mut verifier, KEY_ONE));
     }
 
     // HMAC-SHA1 vectors computed independently (Python `hmac` stdlib) with
@@ -482,8 +560,8 @@ mod tests {
         let mut verifier =
             HostKeyVerifier::new(HostKeyPolicy::Yes, Some(path), "host", 22).unwrap();
 
-        assert!(verifier.verify_key(KEY_ONE));
-        assert!(!verifier.verify_key(KEY_TWO));
+        assert!(verify(&mut verifier, KEY_ONE));
+        assert!(!verify(&mut verifier, KEY_TWO));
     }
 
     #[test]
@@ -499,8 +577,8 @@ mod tests {
         let mut on_2222 =
             HostKeyVerifier::new(HostKeyPolicy::Yes, Some(path.clone()), "host", 2222).unwrap();
         let mut on_22 = HostKeyVerifier::new(HostKeyPolicy::Yes, Some(path), "host", 22).unwrap();
-        assert!(on_2222.verify_key(KEY_ONE));
-        assert!(!on_22.verify_key(KEY_ONE));
+        assert!(verify(&mut on_2222, KEY_ONE));
+        assert!(!verify(&mut on_22, KEY_ONE));
     }
 
     #[test]
@@ -514,9 +592,9 @@ mod tests {
 
         // A hashed pin is not first contact: the changed key must be refused
         // and nothing may be appended to known_hosts.
-        assert!(!verifier.verify_key(KEY_TWO));
+        assert!(!verify(&mut verifier, KEY_TWO));
         assert_eq!(fs::read_to_string(&path).unwrap(), contents);
-        assert!(verifier.verify_key(KEY_ONE));
+        assert!(verify(&mut verifier, KEY_ONE));
     }
 
     #[test]
@@ -531,13 +609,13 @@ mod tests {
 
         let mut hashed =
             HostKeyVerifier::new(HostKeyPolicy::Yes, Some(path.clone()), "host", 22).unwrap();
-        assert!(hashed.verify_key(KEY_ONE));
-        assert!(!hashed.verify_key(KEY_TWO));
+        assert!(verify(&mut hashed, KEY_ONE));
+        assert!(!verify(&mut hashed, KEY_TWO));
 
         let mut plain =
             HostKeyVerifier::new(HostKeyPolicy::Yes, Some(path), "other.example", 22).unwrap();
-        assert!(plain.verify_key(KEY_TWO));
-        assert!(!plain.verify_key(KEY_ONE));
+        assert!(verify(&mut plain, KEY_TWO));
+        assert!(!verify(&mut plain, KEY_ONE));
     }
 
     #[test]
@@ -566,6 +644,6 @@ mod tests {
         let mut verifier =
             HostKeyVerifier::new(HostKeyPolicy::Yes, Some(path), "host", 2222).unwrap();
 
-        assert!(!verifier.verify_key(KEY_ONE));
+        assert!(!verify(&mut verifier, KEY_ONE));
     }
 }

@@ -222,17 +222,20 @@ semantics via two global flags:
 - `--strict-host-key-checking={yes,accept-new,no,off}` (default: `accept-new`)
 - `--known-hosts PATH` (default: `~/.ssh/known_hosts`)
 
-| Mode         | Unknown host (first contact)             | Changed host key         |
-| ------------ | ---------------------------------------- | ------------------------ |
-| `yes`        | refuse                                   | refuse                   |
-| `accept-new` | accept + record in known_hosts (default) | refuse                   |
-| `no` / `off` | accept silently                          | accept silently (unsafe) |
+| Mode         | Unknown host (first contact)                          | Changed host key         |
+| ------------ | ------------------------------------------------------ | ------------------------ |
+| `yes`        | refuse                                                  | refuse                   |
+| `accept-new` | accept only once recorded in known_hosts (default)      | refuse                   |
+| `no` / `off` | accept silently                                         | accept silently (unsafe) |
 
 `accept-new` (the OpenSSH default since 7.6) records unknown hosts on first
-contact but refuses a host whose key has *changed*. Use `off` only for a QA
-pool where refhost keys legitimately rotate. Authentication tries the
-ssh-agent first, then `IdentityFile` keys from `~/.ssh/config`; see
-[`crates/README.md`](crates/README.md) for SSH config compatibility details.
+contact but refuses a host whose key has *changed*. Recording is fail-closed:
+if the key cannot be durably written to `known_hosts` (e.g. a read-only or
+full filesystem), the connection is refused rather than trusted without a
+recorded pin. Use `off` only for a QA pool where refhost keys legitimately
+rotate. Authentication tries the ssh-agent first, then `IdentityFile` keys
+from `~/.ssh/config`; see [`crates/README.md`](crates/README.md) for SSH
+config compatibility details.
 
 ## Shell completion
 

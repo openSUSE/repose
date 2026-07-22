@@ -1,10 +1,11 @@
 //! [`Host`] / [`HostGroup`] over [`crate::session::RusshSession`].
 
 use std::collections::BTreeMap;
+use std::num::NonZeroUsize;
 use std::time::Instant;
 
 use async_trait::async_trait;
-use futures_util::future::join_all;
+use futures_util::{StreamExt, stream};
 use repose_core::config::ConnectionConfig;
 use repose_core::error::SshError;
 use repose_core::host_parse::HostSpec;
@@ -120,10 +121,17 @@ impl Host for RusshHost {
                     .push((command.to_string(), stdout, stderr, exitcode, runtime));
                 Ok(())
             }
-            Err(SshError::Transport(msg)) if msg.contains("timed out") => {
+            Err(SshError::Timeout { phase, deadline }) => {
                 // Python parity: a timeout appends (command, "", "", -1) —
                 // the diagnostics go to the log, not the entry's stderr.
-                log::error!("{}: command {command:?} timed out", self.key);
+                // P1 step 27: typed variant replaces message substring
+                // matching; every bounded phase (not only command
+                // completion) reaches this branch, all with the same
+                // out-history contract.
+                log::error!(
+                    "{}: command {command:?} timed out ({phase} exceeded {deadline:?})",
+                    self.key
+                );
                 self.out.push((
                     command.to_string(),
                     String::new(),
@@ -227,6 +235,18 @@ impl Host for RusshHost {
 async fn discover_system(session: &mut RusshSession, _hostname: &str) -> Result<System, SshError> {
     match session.listdir("/etc/products.d").await {
         Ok(listing) => {
+            // Reject an implausible listing before constructing any addon
+            // paths or issuing further SFTP work (P1 step 30) — a
+            // corrupted/pathological filesystem returning thousands of
+            // spurious entries must not drive unbounded downstream work.
+            let limit = session.max_products_d_entries();
+            if listing.len() > limit {
+                return Err(SshError::DirectoryTooLarge {
+                    path: "/etc/products.d".to_string(),
+                    limit,
+                    observed: listing.len(),
+                });
+            }
             let prod_names: Vec<String> = listing
                 .into_iter()
                 .filter(|f| f.ends_with(".prod"))
@@ -307,13 +327,15 @@ async fn discover_system(session: &mut RusshSession, _hostname: &str) -> Result<
 /// Multi-host group.
 pub struct RusshHostGroup {
     hosts: BTreeMap<String, RusshHost>,
+    host_operation_limit: NonZeroUsize,
 }
 
 impl RusshHostGroup {
     #[must_use]
-    pub const fn new() -> Self {
+    pub fn new() -> Self {
         Self {
             hosts: BTreeMap::new(),
+            host_operation_limit: ConnectionConfig::default().host_operation_limit,
         }
     }
 
@@ -321,8 +343,14 @@ impl RusshHostGroup {
         self.hosts.insert(host.key.clone(), host);
     }
 
+    /// Build a group from `specs`, taking the host-operation concurrency
+    /// cap from `config` (one configured value shared by every host,
+    /// matching `RusshHost::from_spec`'s own use of `config`).
     pub fn from_targets(specs: Vec<HostSpec>, config: ConnectionConfig) -> Self {
-        let mut g = Self::new();
+        let mut g = Self {
+            hosts: BTreeMap::new(),
+            host_operation_limit: config.host_operation_limit,
+        };
         for s in specs {
             g.insert(RusshHost::from_spec(s, config.clone()));
         }
@@ -358,58 +386,105 @@ impl HostGroup for RusshHostGroup {
             .collect()
     }
 
+    fn host_operation_limit(&self) -> NonZeroUsize {
+        self.host_operation_limit
+    }
+
     // Group operations fan out per host concurrently (Python
     // `AsyncHostGroup` used one `asyncio.TaskGroup` per operation) while
-    // isolating per-host failures. `join_all` preserves input order, and
-    // the hosts map is a `BTreeMap`, so results stay in key order.
+    // isolating per-host failures, bounded by `host_operation_limit` via
+    // `buffer_unordered` (unlike `.buffered`, a slow early host cannot
+    // block admission of later ones). The hosts map is a `BTreeMap`, so
+    // `connect_and_prune`'s removal set stays consistent regardless of
+    // completion order; the other phases mutate host state in place (no
+    // per-host result vector to reorder).
     async fn connect_and_prune(&mut self) {
-        let failed: Vec<String> =
-            join_all(self.hosts.iter_mut().map(|(key, host)| async move {
-                host.connect().await.is_err().then(|| key.clone())
-            }))
-            .await
-            .into_iter()
-            .flatten()
-            .collect();
+        let cap = self.host_operation_limit.get();
+        let failed: Vec<String> = stream::iter(self.hosts.iter_mut())
+            .map(connect_one)
+            .buffer_unordered(cap)
+            .filter_map(std::future::ready)
+            .collect()
+            .await;
         for key in failed {
             self.hosts.remove(&key);
         }
     }
 
     async fn read_products(&mut self) {
-        join_all(self.hosts.values_mut().map(|host| async move {
-            let _ = host.read_products().await;
-        }))
-        .await;
+        let cap = self.host_operation_limit.get();
+        stream::iter(self.hosts.values_mut())
+            .map(read_products_one)
+            .buffer_unordered(cap)
+            .collect::<Vec<()>>()
+            .await;
     }
 
     async fn read_repos(&mut self) {
-        join_all(self.hosts.values_mut().map(|host| async move {
-            let _ = host.read_repos().await;
-        }))
-        .await;
+        let cap = self.host_operation_limit.get();
+        stream::iter(self.hosts.values_mut())
+            .map(read_repos_one)
+            .buffer_unordered(cap)
+            .collect::<Vec<()>>()
+            .await;
     }
 
     async fn parse_repos(&mut self) {
-        join_all(self.hosts.values_mut().map(|host| async move {
-            let _ = host.parse_repos().await;
-        }))
-        .await;
+        let cap = self.host_operation_limit.get();
+        stream::iter(self.hosts.values_mut())
+            .map(parse_repos_one)
+            .buffer_unordered(cap)
+            .collect::<Vec<()>>()
+            .await;
     }
 
     async fn run_all(&mut self, cmd: &str) {
-        join_all(self.hosts.values_mut().map(|host| async move {
-            let _ = host.run(cmd).await;
-        }))
-        .await;
+        let cap = self.host_operation_limit.get();
+        // `.zip(repeat(cmd))` instead of a capturing closure: `.map(run_one)`
+        // then stays a bare function item (see the note above `connect_one`
+        // in `repose-core::mock` for why a closure over `&mut Host` fails
+        // higher-ranked lifetime inference against `buffer_unordered`).
+        stream::iter(self.hosts.values_mut().zip(std::iter::repeat(cmd)))
+            .map(run_one)
+            .buffer_unordered(cap)
+            .collect::<Vec<()>>()
+            .await;
     }
 
     async fn close(&mut self) {
-        join_all(self.hosts.values_mut().map(|host| async move {
-            let _ = host.close().await;
-        }))
-        .await;
+        let cap = self.host_operation_limit.get();
+        stream::iter(self.hosts.values_mut())
+            .map(close_one)
+            .buffer_unordered(cap)
+            .collect::<Vec<()>>()
+            .await;
     }
+}
+
+// Named async fns (not closures) as `.map()` arguments above — see
+// `repose_core::mock`'s identical helpers for why.
+async fn connect_one((key, host): (&String, &mut RusshHost)) -> Option<String> {
+    host.connect().await.is_err().then(|| key.clone())
+}
+
+async fn read_products_one(host: &mut RusshHost) {
+    let _ = host.read_products().await;
+}
+
+async fn read_repos_one(host: &mut RusshHost) {
+    let _ = host.read_repos().await;
+}
+
+async fn parse_repos_one(host: &mut RusshHost) {
+    let _ = host.parse_repos().await;
+}
+
+async fn run_one((host, cmd): (&mut RusshHost, &str)) {
+    let _ = host.run(cmd).await;
+}
+
+async fn close_one(host: &mut RusshHost) {
+    let _ = host.close().await;
 }
 
 #[cfg(test)]
