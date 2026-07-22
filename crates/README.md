@@ -21,6 +21,39 @@ contact and reject changed/revoked keys), and `no`/`off` (disable validation).
 `--known-hosts`, using `[host]:port` entries for non-default ports. Keep that
 file protected from untrusted writers.
 
+Authentication tries the ssh-agent first (every agent identity is offered),
+then `IdentityFile` keys from `~/.ssh/config`. Unlike `ssh(1)`, the
+`IdentitiesOnly` directive is not honoured: agent identities are offered even
+when `IdentitiesOnly yes` is set for a host. There is no `--ssh-backend`
+flag; russh is the only transport.
+
+## JSON output schemas
+
+With `--format=json`, every command emits newline-delimited JSON (one object
+per line). Action commands (`add`, `install`, `remove`, `uninstall`, `clear`,
+`reset`) emit event envelopes:
+
+| field   | type   | description                                        |
+| ------- | ------ | -------------------------------------------------- |
+| `event` | string | `"dry"` \| `"report"` \| `"error"` \| `"info"`     |
+| `level` | string | `"info"` \| `"warning"` \| `"error"`               |
+| `host`  | string | target host (omitted for unscoped `info` events)   |
+| `cmd`   | string | the dry-run command (only for `event="dry"`)       |
+| `line`  | string | a single output line (for `report`/`error`/`info`) |
+| `ok`    | bool   | per-host success flag (for `report`/`error`)       |
+
+Query commands emit payload events:
+
+- `list-products` — one `product` event per product per host:
+  `{event:"product", host, port, kind:"base"|"addon", name, version, arch}`.
+- `list-repos` — one `repo` event per repository per host:
+  `{event:"repo", host, port, alias, name, url, state}`.
+- `known-products` — one `known_product` event per known product:
+  `{event:"known_product", name}`.
+- `list-products --yaml` — one `host_spec` event per host carrying the same
+  payload the YAML dumper produces (location, arch, product, addons, name),
+  for consumers that want the refhost.yml spec without the YAML envelope.
+
 ## Layout
 
 | Crate | Role |
