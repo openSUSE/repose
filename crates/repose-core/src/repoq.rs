@@ -9,9 +9,9 @@ use crate::types::{Product, System};
 /// One resolved repository (Python `Repos` NamedTuple).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Repos {
-    pub name: String,
-    pub url: String,
-    pub refresh: bool,
+    pub(crate) name: String,
+    pub(crate) url: String,
+    pub(crate) refresh: bool,
 }
 
 #[derive(Debug, Error, PartialEq, Eq)]
@@ -23,21 +23,21 @@ pub enum RepoqError {
 /// Unsupported installed product when solving defaults for a host.
 #[derive(Debug, Error, PartialEq, Eq)]
 #[error("Unsupported product: {0}")]
-pub struct UnsupportedProductError(pub String);
+pub struct UnsupportedProductError(String);
 
 /// Repository template resolver.
-pub struct Repoq {
+pub(crate) struct Repoq {
     template: Value,
 }
 
 impl Repoq {
     #[must_use]
-    pub const fn new(template: Value) -> Self {
+    pub(crate) const fn new(template: Value) -> Self {
         Self { template }
     }
 
     /// Resolve repositories for a REPA against host base product.
-    pub fn solve_repa(
+    pub(crate) fn solve_repa(
         &self,
         orepa: &Repa,
         base: &Product,
@@ -169,7 +169,7 @@ impl Repoq {
     }
 
     /// Resolve default repos for each installed product (exact version keys only).
-    pub fn solve_product(
+    pub(crate) fn solve_product(
         &self,
         products: &System,
     ) -> Result<std::collections::BTreeMap<String, Vec<Repos>>, UnsupportedProductError> {

@@ -28,7 +28,7 @@ pub enum Level {
 
 impl Level {
     #[must_use]
-    pub const fn as_str(self) -> &'static str {
+    const fn as_str(self) -> &'static str {
         match self {
             Self::Info => "info",
             Self::Warning => "warning",
@@ -52,7 +52,7 @@ impl Write for Buffer {
 }
 
 pub struct Console<W: Write> {
-    pub stream: W,
+    stream: W,
     pub format: OutputFormat,
     pub color: ColorMode,
     /// When `ColorMode::Auto`, honour this (tests inject false).
@@ -90,11 +90,17 @@ impl<W: Write> Console<W> {
         }
     }
 
-    pub fn dry(&mut self, host: &str, cmd: &str) -> io::Result<()> {
+    pub(crate) fn dry(&mut self, host: &str, cmd: &str) -> io::Result<()> {
         self.emit("dry", Level::Info, json!({"host": host, "cmd": cmd}))
     }
 
-    pub fn report(&mut self, host: &str, line: &str, ok: bool, level: Level) -> io::Result<()> {
+    pub(crate) fn report(
+        &mut self,
+        host: &str,
+        line: &str,
+        ok: bool,
+        level: Level,
+    ) -> io::Result<()> {
         self.emit(
             "report",
             level,
@@ -102,7 +108,7 @@ impl<W: Write> Console<W> {
         )
     }
 
-    pub fn error(&mut self, host: &str, msg: &str) -> io::Result<()> {
+    pub(crate) fn error(&mut self, host: &str, msg: &str) -> io::Result<()> {
         self.emit(
             "error",
             Level::Error,
@@ -110,7 +116,7 @@ impl<W: Write> Console<W> {
         )
     }
 
-    pub fn info(&mut self, msg: &str) -> io::Result<()> {
+    pub(crate) fn info(&mut self, msg: &str) -> io::Result<()> {
         self.emit("info", Level::Info, json!({"line": msg}))
     }
 

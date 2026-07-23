@@ -31,8 +31,9 @@ pub enum MockRunOutcome {
 }
 
 impl MockRunOutcome {
+    #[cfg(test)]
     #[must_use]
-    pub fn ok_stdout(stdout: impl Into<String>) -> Self {
+    pub(crate) fn ok_stdout(stdout: impl Into<String>) -> Self {
         Self::Complete {
             stdout: stdout.into(),
             stderr: String::new(),
@@ -42,7 +43,7 @@ impl MockRunOutcome {
     }
 
     #[must_use]
-    pub const fn exit(code: i32) -> Self {
+    const fn exit(code: i32) -> Self {
         Self::Complete {
             stdout: String::new(),
             stderr: String::new(),
@@ -52,14 +53,14 @@ impl MockRunOutcome {
     }
 }
 
-/// Cooperative rendezvous for concurrency tests: [`RunBarrier::enter`]
+/// Cooperative rendezvous for concurrency tests: `enter`
 /// completes only once `total` participants have entered.
 ///
 /// Under truly concurrent fan-out every participant reaches the barrier
 /// while the others are still inside it, so it releases immediately. Under
 /// serial per-host execution the first participant can never be joined by
 /// the second; it gives up after a bounded number of polls and sets
-/// [`RunBarrier::timed_out`], which tests assert against (no hang, no
+/// `timed_out`, which tests assert against (no hang, no
 /// wall-clock timing).
 #[derive(Debug)]
 pub struct RunBarrier {
@@ -69,8 +70,9 @@ pub struct RunBarrier {
 }
 
 impl RunBarrier {
+    #[cfg(test)]
     #[must_use]
-    pub fn new(total: usize) -> Arc<Self> {
+    pub(crate) fn new(total: usize) -> Arc<Self> {
         Arc::new(Self {
             total,
             entered: AtomicUsize::new(0),
@@ -79,7 +81,7 @@ impl RunBarrier {
     }
 
     /// Enter the barrier and cooperatively wait for the other participants.
-    pub async fn enter(&self) {
+    async fn enter(&self) {
         const MAX_SPINS: usize = 100_000;
         self.entered.fetch_add(1, Ordering::SeqCst);
         let mut spins = 0usize;
@@ -100,8 +102,9 @@ impl RunBarrier {
     }
 
     /// Whether any participant gave up waiting (i.e. execution was serial).
+    #[cfg(test)]
     #[must_use]
-    pub fn timed_out(&self) -> bool {
+    pub(crate) fn timed_out(&self) -> bool {
         self.timed_out.load(Ordering::SeqCst)
     }
 }
@@ -110,7 +113,7 @@ impl RunBarrier {
 ///
 /// Every [`Host`] method boundary maps to exactly one kind; `reboot`'s
 /// nested `run` call is counted separately under [`Self::Run`] (see
-/// [`MockMetricsSnapshot::operations_by_kind`]).
+/// `MockMetricsSnapshot::operations_by_kind`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum MockOpKind {
     Connect,
@@ -260,18 +263,18 @@ impl MockMetrics {
 /// Immutable snapshot of [`MockMetrics`] at the time it was taken.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct MockMetricsSnapshot {
-    pub total_operations: usize,
+    total_operations: usize,
     pub current_operations: usize,
     pub peak_operations: usize,
-    pub operations_by_kind: BTreeMap<MockOpKind, usize>,
+    operations_by_kind: BTreeMap<MockOpKind, usize>,
     /// `Host::run` calls that passed the connected-state check.
-    pub commands_attempted: usize,
+    commands_attempted: usize,
     /// Commands that appended an `out` entry (excludes transport failures).
     pub commands_completed: usize,
     pub probe_total: usize,
     pub current_probes: usize,
-    pub peak_probes: usize,
-    pub probe_counts: BTreeMap<String, usize>,
+    peak_probes: usize,
+    probe_counts: BTreeMap<String, usize>,
 }
 
 /// RAII guard: decrements `current_operations` on drop (including early
@@ -320,7 +323,7 @@ pub struct MockHost {
     /// FIFO outcomes for successive `run` calls. Empty → default exit 0.
     run_queue: Vec<MockRunOutcome>,
     /// Commands observed by `run` (in order).
-    pub ran: Vec<String>,
+    pub(crate) ran: Vec<String>,
     connect_fail: bool,
     /// When set, `run` enters this barrier before executing (concurrency
     /// proof in fan-out tests).
@@ -347,44 +350,50 @@ impl MockHost {
         self
     }
 
+    #[cfg(test)]
     #[must_use]
-    pub fn with_raw_repos(mut self, repos: Vec<Repository>) -> Self {
+    pub(crate) fn with_raw_repos(mut self, repos: Vec<Repository>) -> Self {
         self.raw_repos = Some(repos);
         self
     }
 
+    #[cfg(test)]
     #[must_use]
-    pub fn with_repos(mut self, repos: Repositories) -> Self {
+    pub(crate) fn with_repos(mut self, repos: Repositories) -> Self {
         self.repos = Some(repos);
         self
     }
 
     /// System that `reboot` swaps into `products`, modelling the post-reboot
     /// product re-read that transactional install/uninstall verify against.
+    #[cfg(test)]
     #[must_use]
-    pub fn with_post_reboot_products(mut self, system: System) -> Self {
+    pub(crate) fn with_post_reboot_products(mut self, system: System) -> Self {
         self.post_reboot_products = Some(system);
         self
     }
 
     /// After `reboot`, clear `products` to `None` (post-reboot re-read
     /// succeeded but yielded no product state).
+    #[cfg(test)]
     #[must_use]
-    pub const fn with_post_reboot_no_products(mut self) -> Self {
+    pub(crate) const fn with_post_reboot_no_products(mut self) -> Self {
         self.post_reboot_clear_products = true;
         self
     }
 
     /// Make `read_products` fail (models a re-read failure after reboot).
+    #[cfg(test)]
     #[must_use]
-    pub const fn with_read_products_err(mut self) -> Self {
+    pub(crate) const fn with_read_products_err(mut self) -> Self {
         self.read_products_err = true;
         self
     }
 
     /// Enter `barrier` at the start of every `run` call (see [`RunBarrier`]).
+    #[cfg(test)]
     #[must_use]
-    pub fn with_run_barrier(mut self, barrier: Arc<RunBarrier>) -> Self {
+    pub(crate) fn with_run_barrier(mut self, barrier: Arc<RunBarrier>) -> Self {
         self.run_barrier = Some(barrier);
         self
     }
@@ -407,11 +416,13 @@ impl MockHost {
     }
 
     /// Queue scripted outcomes for the next `run` calls.
-    pub fn push_run(&mut self, outcome: MockRunOutcome) {
+    #[cfg(test)]
+    pub(crate) fn push_run(&mut self, outcome: MockRunOutcome) {
         self.run_queue.push(outcome);
     }
 
-    pub const fn fail_connect(&mut self) {
+    #[cfg(test)]
+    const fn fail_connect(&mut self) {
         self.connect_fail = true;
     }
 
@@ -626,7 +637,8 @@ impl MockHostGroup {
         self.hosts.insert(host.key().to_string(), host);
     }
 
-    pub fn get_mock_mut(&mut self, key: &str) -> Option<&mut MockHost> {
+    #[cfg(test)]
+    pub(crate) fn get_mock_mut(&mut self, key: &str) -> Option<&mut MockHost> {
         self.hosts.get_mut(key)
     }
 }
@@ -762,7 +774,7 @@ async fn close_one(host: &mut MockHost) {
 /// Probe that always returns the configured answer (tests).
 #[derive(Debug, Clone)]
 pub struct ConstProbe {
-    pub live: bool,
+    pub(crate) live: bool,
 }
 
 #[async_trait]
@@ -783,8 +795,9 @@ pub struct MapProbe {
 
 impl MapProbe {
     /// Mark the given exact URLs as dead (all others live).
+    #[cfg(test)]
     #[must_use]
-    pub fn dead(urls: impl IntoIterator<Item = impl Into<String>>) -> Self {
+    pub(crate) fn dead(urls: impl IntoIterator<Item = impl Into<String>>) -> Self {
         Self {
             dead_urls: urls.into_iter().map(Into::into).collect(),
         }
@@ -832,8 +845,9 @@ impl MetricProbe {
     }
 
     /// Override the outcome for one exact URL (input-independent lookup).
+    #[cfg(test)]
     #[must_use]
-    pub fn set(mut self, url: impl Into<String>, live: bool) -> Self {
+    fn set(mut self, url: impl Into<String>, live: bool) -> Self {
         self.overrides.insert(url.into(), live);
         self
     }

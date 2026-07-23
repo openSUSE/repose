@@ -3,9 +3,9 @@
 use thiserror::Error;
 
 /// Default SSH user (Python `ParseHosts`).
-pub const DEFAULT_USER: &str = "root";
+const DEFAULT_USER: &str = "root";
 /// Default SSH port.
-pub const DEFAULT_PORT: u16 = 22;
+const DEFAULT_PORT: u16 = 22;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct HostSpec {

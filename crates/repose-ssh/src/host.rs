@@ -52,11 +52,6 @@ impl RusshHost {
             out: Vec::new(),
         }
     }
-
-    #[must_use]
-    pub fn key_str(&self) -> &str {
-        &self.key
-    }
 }
 
 #[async_trait]
@@ -332,14 +327,14 @@ pub struct RusshHostGroup {
 
 impl RusshHostGroup {
     #[must_use]
-    pub fn new() -> Self {
+    fn new() -> Self {
         Self {
             hosts: BTreeMap::new(),
             host_operation_limit: ConnectionConfig::default().host_operation_limit,
         }
     }
 
-    pub fn insert(&mut self, host: RusshHost) {
+    fn insert(&mut self, host: RusshHost) {
         self.hosts.insert(host.key.clone(), host);
     }
 

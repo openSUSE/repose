@@ -25,7 +25,7 @@ pub enum TimeoutPhase {
 
 impl TimeoutPhase {
     #[must_use]
-    pub const fn as_str(self) -> &'static str {
+    const fn as_str(self) -> &'static str {
         match self {
             Self::Connect => "connect",
             Self::Authentication => "authentication",
@@ -52,7 +52,7 @@ pub enum OutputStream {
 
 impl OutputStream {
     #[must_use]
-    pub const fn as_str(self) -> &'static str {
+    const fn as_str(self) -> &'static str {
         match self {
             Self::Stdout => "stdout",
             Self::Stderr => "stderr",

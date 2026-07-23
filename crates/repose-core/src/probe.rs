@@ -21,7 +21,7 @@ pub struct HttpProbe {
 }
 
 impl HttpProbe {
-    pub fn new() -> Result<Self, reqwest::Error> {
+    fn new() -> Result<Self, reqwest::Error> {
         let client = Client::builder()
             .redirect(reqwest::redirect::Policy::limited(10))
             .build()?;
@@ -33,12 +33,12 @@ impl HttpProbe {
     /// Probe that treats every URL as dead. Fallback when the HTTP client
     /// cannot be built; also usable in tests.
     #[must_use]
-    pub const fn disabled() -> Self {
+    const fn disabled() -> Self {
         Self { client: None }
     }
 
     /// Probe one base URL with HEAD→GET fallback per suffix.
-    pub async fn check_url(&self, url: &str, timeout: Duration) -> bool {
+    async fn check_url(&self, url: &str, timeout: Duration) -> bool {
         let Some(client) = &self.client else {
             return false;
         };

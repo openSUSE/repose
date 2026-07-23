@@ -6,7 +6,7 @@ use serde_json::{Value, json};
 ///
 /// Mirrors Python `repose.types.refhost.transformations.transform_version_partialy`.
 #[must_use]
-pub fn transform_version_partialy(version: &str) -> Value {
+pub(crate) fn transform_version_partialy(version: &str) -> Value {
     let result = (|| {
         if version.contains('-') {
             let (major_str, minor_str) = version.split_once('-')?;

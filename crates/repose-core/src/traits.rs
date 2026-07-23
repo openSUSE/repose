@@ -157,8 +157,9 @@ pub trait Probe: Send + Sync {
 /// Classify last `out` entry like Python `_report_target` (success codes only).
 ///
 /// Returns `None` if `out` is empty (caller should treat as failure / bug).
+#[cfg(test)]
 #[must_use]
-pub fn last_out_succeeded(out: &[OutEntry]) -> Option<bool> {
+pub(crate) fn last_out_succeeded(out: &[OutEntry]) -> Option<bool> {
     let entry = out.last()?;
     Some(crate::types::zypper_exit_ok(entry.3))
 }

@@ -16,14 +16,16 @@ pub use repose_core::error::SshError;
 pub use repose_core::traits::{Host, HostGroup, Probe, SshSession};
 
 /// Confirms the workspace link to `repose-core` at compile time.
+#[cfg(test)]
 #[must_use]
-pub const fn core_version() -> &'static str {
+const fn core_version() -> &'static str {
     CORE_VERSION
 }
 
 /// Chosen single backend name.
+#[cfg(test)]
 #[must_use]
-pub const fn backend_name() -> &'static str {
+const fn backend_name() -> &'static str {
     "russh"
 }
 

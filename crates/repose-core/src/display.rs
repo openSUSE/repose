@@ -268,7 +268,7 @@ fn version_json(v: &Value) -> String {
 /// order event, host, location, arch, product, addons, name, byte-matching
 /// `json.dumps` (default separators and `ensure_ascii`). The addon list order
 /// is sorted (see `sorted_addons`).
-pub fn list_products_yaml_json<W: Write>(
+pub(crate) fn list_products_yaml_json<W: Write>(
     out: &mut W,
     hostname: &str,
     system: &System,
