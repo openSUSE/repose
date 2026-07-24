@@ -134,7 +134,12 @@ pub trait HostGroup: Send {
     fn host_operation_limit(&self) -> NonZeroUsize;
 
     /// Connect all; drop hosts that fail to connect.
-    async fn connect_and_prune(&mut self);
+    ///
+    /// Returns the pruned `(key, error)` pairs sorted by key, so callers
+    /// can report the failures and count them in exit aggregation — a
+    /// connect failure must surface in the process exit status, not vanish
+    /// with the dropped host.
+    async fn connect_and_prune(&mut self) -> Vec<(String, SshError)>;
 
     async fn read_products(&mut self);
 

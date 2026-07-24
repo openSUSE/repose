@@ -2,7 +2,7 @@
 
 use crate::commands::{
     CommandOptions, ProbeBudget, SharedConsole, aggregate, load_repoq, partition_live,
-    run_reported_shared,
+    report_pruned, run_reported_shared,
 };
 use crate::console::Console;
 use crate::shell::cmd;
@@ -20,7 +20,7 @@ pub async fn run_reset<W: Write>(
     console: &mut Console<W>,
 ) -> Result<ExitCode, crate::template::TemplateError> {
     let repoq = load_repoq(&opts.config)?;
-    group.connect_and_prune().await;
+    let pruned = group.connect_and_prune().await;
     group.read_products().await;
     group.read_repos().await;
 
@@ -35,7 +35,7 @@ pub async fn run_reset<W: Write>(
     // replacing the old per-host `min(16, n)` local cap.
     let probe_budget = ProbeBudget::new(opts.probe_concurrency_limit);
     let console = SharedConsole::new(console);
-    let results = join_all(group.hosts_mut().into_iter().map(|host| {
+    let mut results = join_all(group.hosts_mut().into_iter().map(|host| {
         let semaphore = Arc::clone(&semaphore);
         let probe_budget = probe_budget.clone();
         let repoq = &repoq;
@@ -49,6 +49,7 @@ pub async fn run_reset<W: Write>(
         }
     }))
     .await;
+    report_pruned(&pruned, &mut results, &console);
     group.close().await;
     Ok(aggregate(results))
 }
@@ -61,16 +62,20 @@ async fn reset_one<W: Write>(
     console: &SharedConsole<'_, W>,
     probe_budget: &ProbeBudget,
 ) -> bool {
-    let aliases: Vec<String> = host
-        .raw_repos()
-        .map(|r| {
-            let mut a: Vec<_> = r.iter().map(|x| x.alias.clone()).collect();
-            // Python `_clear` collects into a set: sorted + unique.
-            a.sort();
-            a.dedup();
-            a
-        })
-        .unwrap_or_default();
+    // A failed `zypper -x lr` leaves `raw_repos` as `None`: skipping the rr
+    // wipe but still adding the replacement repos would leave old and new
+    // repos coexisting, violating reset's "only these repos" contract.
+    let Some(raw) = host.raw_repos() else {
+        console.error(host.key(), "could not read repositories");
+        return false;
+    };
+    let aliases: Vec<String> = {
+        let mut a: Vec<_> = raw.iter().map(|x| x.alias.clone()).collect();
+        // Python `_clear` collects into a set: sorted + unique.
+        a.sort();
+        a.dedup();
+        a
+    };
     if aliases.is_empty() {
         console.info(&format!("No repositories to clear from {}", host.key()));
     }
@@ -222,6 +227,43 @@ mod tests {
             .map(|h| h.ran.clone())
             .unwrap_or_default();
         (code, ran, buf.0)
+    }
+
+    #[tokio::test]
+    async fn reset_reports_and_counts_pruned_hosts() {
+        let mut g = MockHostGroup::new();
+        let mut bad = MockHost::new("bad");
+        bad.fail_connect();
+        g.insert(bad);
+        g.insert(
+            MockHost::new("h1")
+                .with_products(sles_system())
+                .with_raw_repos(vec![raw_repo("existing-repo1")]),
+        );
+        let mut buf = Buffer::default();
+        let mut c = Console::new(&mut buf);
+        let code = run_reset(&opts(false), &mut g, &ConstProbe { live: true }, &mut c)
+            .await
+            .unwrap();
+        assert_eq!(code, ExitCode::Partial);
+        assert!(
+            buf.0.contains("connect failed:") && buf.0.contains("bad"),
+            "pruned host must be reported, got: {:?}",
+            buf.0
+        );
+    }
+
+    #[tokio::test]
+    async fn reset_failed_repo_read_fails_the_host() {
+        let host = MockHost::new("h1")
+            .with_products(sles_system())
+            .with_read_repos_err();
+        let (code, ran, buf) = run(host, opts(false), &ConstProbe { live: true }).await;
+        assert_eq!(code, ExitCode::AllFailed);
+        assert!(buf.contains("could not read repositories"));
+        // A failed read must not silently skip the rr wipe but still add
+        // the replacement repos: no mutation runs at all.
+        assert!(ran.is_empty(), "no mutation may run, ran: {ran:?}");
     }
 
     #[tokio::test]

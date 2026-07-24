@@ -2,7 +2,8 @@
 
 use crate::commands::remove::{calculate_patterns, calculate_repolist};
 use crate::commands::{
-    CommandOptions, SharedConsole, aggregate, reboot_and_verify_shared, run_reported_shared,
+    CommandOptions, SharedConsole, aggregate, reboot_and_verify_shared, report_pruned,
+    run_reported_shared,
 };
 use crate::console::Console;
 use crate::repa::Repa;
@@ -26,7 +27,7 @@ pub async fn run_uninstall<W: Write>(
         .map(|r| Repa::from_parts(r.product.clone(), r.version.clone(), r.arch.clone(), None))
         .collect();
 
-    group.connect_and_prune().await;
+    let pruned = group.connect_and_prune().await;
     group.read_repos().await;
     group.parse_repos().await;
 
@@ -38,7 +39,7 @@ pub async fn run_uninstall<W: Write>(
     let cap = group.host_operation_limit().get();
     let semaphore = Arc::new(Semaphore::new(cap));
     let console = SharedConsole::new(console);
-    let results = join_all(group.hosts_mut().into_iter().map(|host| {
+    let mut results = join_all(group.hosts_mut().into_iter().map(|host| {
         let semaphore = Arc::clone(&semaphore);
         let orepa = &orepa;
         let console = &console;
@@ -51,6 +52,7 @@ pub async fn run_uninstall<W: Write>(
         }
     }))
     .await;
+    report_pruned(&pruned, &mut results, &console);
     group.close().await;
     aggregate(results)
 }
@@ -77,15 +79,17 @@ async fn uninstall_one<W: Write>(
 
     // Skip the sentinel aliases whose repo name is not a 4-part product string
     // (Python `_calculate_repodict` skips entries where `product.name is None`).
-    let aliases = host
-        .repos()
-        .map(|r| {
-            r.iter()
-                .filter(|(_, product)| product.is_some())
-                .map(|(alias, _)| alias.clone())
-                .collect::<Vec<_>>()
-        })
-        .unwrap_or_default();
+    // A failed repo read leaves `repos` as `None`: removing the products
+    // while dropping zero repos would leave stale repos behind.
+    let Some(repos) = host.repos() else {
+        console.error(host.key(), "could not read repositories");
+        return false;
+    };
+    let aliases = repos
+        .iter()
+        .filter(|(_, product)| product.is_some())
+        .map(|(alias, _)| alias.clone())
+        .collect::<Vec<_>>();
     // Patterns already end with `::` (repo forced None) → substring match.
     let repolist = calculate_repolist(aliases.into_iter(), &patterns);
     if repolist.is_empty() {
@@ -193,6 +197,43 @@ mod tests {
             .map(|h| h.ran.clone())
             .unwrap_or_default();
         (code, ran, buf.0)
+    }
+
+    #[tokio::test]
+    async fn uninstall_reports_and_counts_pruned_hosts() {
+        let mut g = MockHostGroup::new();
+        let mut bad = MockHost::new("bad");
+        bad.fail_connect();
+        g.insert(bad);
+        let sles = product("SLES", "15-SP4");
+        g.insert(MockHost::new("h1").with_products(system(sles, vec![], false)));
+        // "OTHER" matches no product → patterns empty → the surviving host
+        // is a successful no-op; only the pruned host fails.
+        let mut buf = Buffer::default();
+        let mut c = Console::new(&mut buf);
+        let code = run_uninstall(&opts(&["OTHER:1.0"], false, false), &mut g, &mut c).await;
+        assert_eq!(code, ExitCode::Partial);
+        assert!(
+            buf.0.contains("connect failed:") && buf.0.contains("bad"),
+            "pruned host must be reported, got: {:?}",
+            buf.0
+        );
+    }
+
+    #[tokio::test]
+    async fn uninstall_failed_repo_read_fails_the_host() {
+        let sles = product("SLES", "15-SP4");
+        let host = MockHost::new("h1")
+            .with_products(system(sles, vec![], false))
+            .with_read_repos_err();
+        let (code, ran, buf) = run(host, opts(&["SLES:15-SP4"], false, false)).await;
+        assert_eq!(code, ExitCode::AllFailed);
+        assert!(buf.contains("could not read repositories"));
+        // No product removal may run after a failed repo read.
+        assert!(
+            !ran.iter().any(|c| c.contains("rm -t product")),
+            "ran: {ran:?}"
+        );
     }
 
     #[tokio::test]

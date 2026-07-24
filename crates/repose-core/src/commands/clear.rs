@@ -1,6 +1,6 @@
 //! `repose clear` — `zypper rr` every raw alias; never `_report_target`.
 
-use crate::commands::{CommandOptions, SharedConsole, aggregate};
+use crate::commands::{CommandOptions, SharedConsole, aggregate, report_pruned};
 use crate::console::Console;
 use crate::shell::cmd;
 use crate::traits::{Host, HostGroup};
@@ -15,7 +15,7 @@ pub async fn run_clear<W: Write>(
     group: &mut dyn HostGroup,
     console: &mut Console<W>,
 ) -> ExitCode {
-    group.connect_and_prune().await;
+    let pruned = group.connect_and_prune().await;
     group.read_repos().await;
 
     // Fan out per-host work concurrently (Python spawned one worker task per
@@ -26,7 +26,7 @@ pub async fn run_clear<W: Write>(
     let cap = group.host_operation_limit().get();
     let semaphore = Arc::new(Semaphore::new(cap));
     let console = SharedConsole::new(console);
-    let results = join_all(group.hosts_mut().into_iter().map(|host| {
+    let mut results = join_all(group.hosts_mut().into_iter().map(|host| {
         let semaphore = Arc::clone(&semaphore);
         let console = &console;
         async move {
@@ -39,6 +39,7 @@ pub async fn run_clear<W: Write>(
     }))
     .await;
 
+    report_pruned(&pruned, &mut results, &console);
     group.close().await;
     aggregate(results)
 }
@@ -48,10 +49,14 @@ async fn clear_one<W: Write>(
     host: &mut dyn Host,
     console: &SharedConsole<'_, W>,
 ) -> bool {
-    let mut aliases: Vec<String> = host
-        .raw_repos()
-        .map(|r| r.iter().map(|x| x.alias.clone()).collect())
-        .unwrap_or_default();
+    // A failed `zypper -x lr` leaves `raw_repos` as `None`: that is a host
+    // failure, not "zero repositories" — reporting a successful no-op would
+    // hide it.
+    let Some(raw) = host.raw_repos() else {
+        console.error(host.key(), "could not read repositories");
+        return false;
+    };
+    let mut aliases: Vec<String> = raw.iter().map(|x| x.alias.clone()).collect();
     if aliases.is_empty() {
         console.info(&format!("No repositories to clear from {}", host.key()));
         return true;
@@ -142,6 +147,62 @@ mod tests {
         let code = run_clear(&opts, &mut g, &mut c).await;
         assert_eq!(code, ExitCode::Ok);
         assert!(buf.0.contains("zypper") && buf.0.contains("rr"));
+    }
+
+    #[tokio::test]
+    async fn clear_reports_and_counts_pruned_hosts() {
+        let mut g = MockHostGroup::new();
+        let mut bad = MockHost::new("bad");
+        bad.fail_connect();
+        g.insert(bad);
+        let mut good = MockHost::new("good");
+        good.connect().await.unwrap();
+        g.insert(good.with_raw_repos(vec![Repository {
+            alias: "a".into(),
+            name: "n".into(),
+            url: "http://x".into(),
+            state: true,
+        }]));
+        let mut buf = Buffer::default();
+        let mut c = Console::new(&mut buf);
+        let code = run_clear(&CommandOptions::default(), &mut g, &mut c).await;
+        assert_eq!(code, ExitCode::Partial);
+        assert!(
+            buf.0.contains("connect failed:") && buf.0.contains("bad"),
+            "pruned host must be reported, got: {:?}",
+            buf.0
+        );
+    }
+
+    #[tokio::test]
+    async fn clear_all_unreachable_is_all_failed() {
+        let mut g = MockHostGroup::new();
+        for key in ["bad1", "bad2"] {
+            let mut h = MockHost::new(key);
+            h.fail_connect();
+            g.insert(h);
+        }
+        let mut buf = Buffer::default();
+        let mut c = Console::new(&mut buf);
+        let code = run_clear(&CommandOptions::default(), &mut g, &mut c).await;
+        assert_eq!(code, ExitCode::AllFailed);
+        assert!(buf.0.contains("connect failed:"));
+    }
+
+    #[tokio::test]
+    async fn clear_failed_repo_read_fails_the_host() {
+        let mut g = MockHostGroup::new();
+        let mut h = MockHost::new("h1");
+        h.connect().await.unwrap();
+        g.insert(h.with_read_repos_err());
+        let mut buf = Buffer::default();
+        let mut c = Console::new(&mut buf);
+        let code = run_clear(&CommandOptions::default(), &mut g, &mut c).await;
+        assert_eq!(code, ExitCode::AllFailed);
+        assert!(buf.0.contains("could not read repositories"));
+        // No mutation may run after a failed read.
+        let ran = g.get_mock_mut("h1").unwrap().ran.clone();
+        assert!(!ran.iter().any(|c| c.contains(" rr")), "ran: {ran:?}");
     }
 
     /// P1 step 17: a configured host-operation limit below the host count

@@ -393,17 +393,20 @@ impl HostGroup for RusshHostGroup {
     // `connect_and_prune`'s removal set stays consistent regardless of
     // completion order; the other phases mutate host state in place (no
     // per-host result vector to reorder).
-    async fn connect_and_prune(&mut self) {
+    async fn connect_and_prune(&mut self) -> Vec<(String, SshError)> {
         let cap = self.host_operation_limit.get();
-        let failed: Vec<String> = stream::iter(self.hosts.iter_mut())
+        let mut failed: Vec<(String, SshError)> = stream::iter(self.hosts.iter_mut())
             .map(connect_one)
             .buffer_unordered(cap)
             .filter_map(std::future::ready)
             .collect()
             .await;
-        for key in failed {
-            self.hosts.remove(&key);
+        // Deterministic key order regardless of completion order.
+        failed.sort_by(|a, b| a.0.cmp(&b.0));
+        for (key, _) in &failed {
+            self.hosts.remove(key);
         }
+        failed
     }
 
     async fn read_products(&mut self) {
@@ -458,8 +461,8 @@ impl HostGroup for RusshHostGroup {
 
 // Named async fns (not closures) as `.map()` arguments above — see
 // `repose_core::mock`'s identical helpers for why.
-async fn connect_one((key, host): (&String, &mut RusshHost)) -> Option<String> {
-    host.connect().await.is_err().then(|| key.clone())
+async fn connect_one((key, host): (&String, &mut RusshHost)) -> Option<(String, SshError)> {
+    host.connect().await.err().map(|e| (key.clone(), e))
 }
 
 async fn read_products_one(host: &mut RusshHost) {

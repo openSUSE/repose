@@ -1,7 +1,7 @@
 //! `repose add` — resolve REPA, probe, zypper ar, cohort refresh.
 
 use crate::commands::{
-    CommandOptions, ProbeBudget, SharedConsole, aggregate, filter_live, load_repoq,
+    CommandOptions, ProbeBudget, SharedConsole, aggregate, filter_live, load_repoq, report_pruned,
     run_reported_shared,
 };
 use crate::console::Console;
@@ -20,7 +20,7 @@ pub async fn run_add<W: Write>(
     console: &mut Console<W>,
 ) -> Result<ExitCode, crate::template::TemplateError> {
     let repoq = load_repoq(&opts.config)?;
-    group.connect_and_prune().await;
+    let pruned = group.connect_and_prune().await;
     group.read_products().await;
 
     // Fan out per-host work concurrently (Python spawned one worker task per
@@ -38,7 +38,7 @@ pub async fn run_add<W: Write>(
     // replacing the old per-host `min(16, n)` local cap.
     let probe_budget = ProbeBudget::new(opts.probe_concurrency_limit);
     let console = SharedConsole::new(console);
-    let results = join_all(group.hosts_mut().into_iter().map(|host| {
+    let mut results = join_all(group.hosts_mut().into_iter().map(|host| {
         let semaphore = Arc::clone(&semaphore);
         let probe_budget = probe_budget.clone();
         let repoq = &repoq;
@@ -53,6 +53,7 @@ pub async fn run_add<W: Write>(
     }))
     .await;
 
+    report_pruned(&pruned, &mut results, &console);
     if !opts.dry {
         group.run_all(cmd::REFCMD).await;
     }
@@ -188,6 +189,34 @@ mod tests {
         assert!(
             buf.contains("h1 - Repository 'update' successfully added\n"),
             "live run must report stdout lines, got: {buf:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn add_reports_and_counts_pruned_hosts() {
+        let mut g = MockHostGroup::new();
+        let mut bad = MockHost::new("bad");
+        bad.fail_connect();
+        g.insert(bad);
+        g.insert(sles_host());
+        let opts = CommandOptions {
+            config: sample_config(),
+            repa: ["SLES:15-SP3:x86_64:update"]
+                .iter()
+                .map(|r| Repa::parse(r).unwrap())
+                .collect(),
+            no_probe: true,
+            ..Default::default()
+        };
+        let mut buf = Buffer::default();
+        let mut c = Console::new(&mut buf);
+        let probe = ConstProbe { live: true };
+        let code = run_add(&opts, &mut g, &probe, &mut c).await.unwrap();
+        assert_eq!(code, ExitCode::Partial);
+        assert!(
+            buf.0.contains("connect failed:") && buf.0.contains("bad"),
+            "pruned host must be reported, got: {:?}",
+            buf.0
         );
     }
 
