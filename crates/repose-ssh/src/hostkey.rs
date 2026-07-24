@@ -67,6 +67,11 @@ impl KnownHostEntry {
 ///
 /// `accept-new` uses trust-on-first-use: it appends a key only when no trusted
 /// entry exists for the host, and rejects a changed or explicitly revoked key.
+///
+/// Evaluation is split in two so the async handshake never does filesystem
+/// I/O on a worker thread: [`HostKeyVerifier::decide_public_key`] is pure,
+/// and [`persist_first_contact`] runs on the blocking pool (see
+/// `session.rs`'s `check_server_key`).
 pub(crate) struct HostKeyVerifier {
     policy: HostKeyPolicy,
     host: String,
@@ -74,6 +79,17 @@ pub(crate) struct HostKeyVerifier {
     aliases: Vec<String>,
     path: Option<PathBuf>,
     entries: Vec<KnownHostEntry>,
+}
+
+/// Outcome of evaluating the offered host key against `known_hosts`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum HostKeyDecision {
+    /// Trusted (or policy off): proceed.
+    Accept,
+    /// First contact under accept-new: persist the key material, then proceed.
+    Persist(String),
+    /// Unknown, changed, or revoked key: abort the connection.
+    Reject,
 }
 
 impl HostKeyVerifier {
@@ -113,24 +129,26 @@ impl HostKeyVerifier {
         self
     }
 
-    pub(crate) fn verify_public_key(&mut self, key: &PublicKey) -> bool {
+    /// Evaluate the offered key against the loaded `known_hosts` snapshot.
+    /// Pure: no I/O, safe to call on an async worker.
+    pub(crate) fn decide_public_key(&self, key: &PublicKey) -> HostKeyDecision {
         let encoded = match key.to_openssh() {
             Ok(encoded) => encoded,
             Err(error) => {
                 log::error!("could not encode offered SSH host key: {error}");
-                return false;
+                return HostKeyDecision::Reject;
             }
         };
         let Some(key) = key_material(&encoded) else {
             log::error!("could not encode offered SSH host key");
-            return false;
+            return HostKeyDecision::Reject;
         };
-        self.verify_key(&key)
+        self.decide_key(&key)
     }
 
-    fn verify_key(&mut self, key: &str) -> bool {
+    fn decide_key(&self, key: &str) -> HostKeyDecision {
         match self.policy {
-            HostKeyPolicy::No | HostKeyPolicy::Off => true,
+            HostKeyPolicy::No | HostKeyPolicy::Off => HostKeyDecision::Accept,
             HostKeyPolicy::Yes | HostKeyPolicy::AcceptNew => {
                 let matches: Vec<_> = self
                     .entries
@@ -142,7 +160,7 @@ impl HostKeyVerifier {
                     .any(|entry| entry.is_revoked() && entry.key == key)
                 {
                     log::error!("host key for {} is explicitly revoked", self.host);
-                    return false;
+                    return HostKeyDecision::Reject;
                 }
 
                 let trusted: Vec<_> = matches
@@ -150,50 +168,49 @@ impl HostKeyVerifier {
                     .filter(|entry| entry.is_trusted())
                     .collect();
                 if trusted.iter().any(|entry| entry.key == key) {
-                    return true;
+                    return HostKeyDecision::Accept;
                 }
 
                 match self.policy {
                     HostKeyPolicy::Yes => {
                         log::error!("no trusted host key for {}", self.host);
-                        false
+                        HostKeyDecision::Reject
                     }
                     HostKeyPolicy::AcceptNew if !trusted.is_empty() => {
                         log::error!("host key changed for {}", self.host);
-                        false
+                        HostKeyDecision::Reject
                     }
-                    HostKeyPolicy::AcceptNew => self.accept_new(key),
-                    HostKeyPolicy::No | HostKeyPolicy::Off => true,
+                    HostKeyPolicy::AcceptNew => match &self.path {
+                        Some(_) => HostKeyDecision::Persist(key.to_string()),
+                        None => HostKeyDecision::Accept,
+                    },
+                    HostKeyPolicy::No | HostKeyPolicy::Off => HostKeyDecision::Accept,
                 }
             }
         }
     }
 
-    fn accept_new(&mut self, key: &str) -> bool {
-        let Some(path) = &self.path else {
-            return true;
-        };
-        if let Err(error) = append_known_host(path, &self.host, self.port, key) {
-            // TOFU degrades to trust-without-recording: the session proceeds,
-            // but every future connection will re-accept this host unverified
-            // until the file becomes writable — make that loud, not a warn.
-            log::error!(
-                "accept-new: could not persist host key for {} to {}: {} — \
-                 the key was NOT recorded; future connections will re-accept \
-                 this host without verification",
-                self.host,
-                path.display(),
-                error
-            );
-            return true;
-        }
+    /// Everything [`persist_first_contact`] needs, offloaded by the caller.
+    /// `Some` exactly when a known_hosts path applies (`yes` / `accept-new`).
+    pub(crate) fn persist_context(&self) -> Option<(PathBuf, String, u16, Vec<String>)> {
+        self.path
+            .clone()
+            .map(|path| (path, self.host.clone(), self.port, self.host_names()))
+    }
 
+    /// Record a just-persisted first-contact key so later checks within this
+    /// handshake treat it as trusted.
+    pub(crate) fn note_persisted(&mut self, key: &str) {
         self.entries.push(KnownHostEntry {
             patterns: vec![host_pattern(&self.host, self.port)],
             key: key.to_string(),
             marker: None,
         });
-        true
+    }
+
+    /// The configured host name (for diagnostics).
+    pub(crate) fn host(&self) -> &str {
+        &self.host
     }
 
     // Lookup keys are the configured names only; OpenSSH `CheckHostIP`-style
@@ -274,9 +291,47 @@ fn malformed_known_hosts(path: &Path, line_no: usize) -> SshError {
     ))
 }
 
-fn append_known_host(path: &Path, host: &str, port: u16, key: &str) -> std::io::Result<()> {
+/// Append a first-contact key while holding the process-global write lock,
+/// re-reading the file **under that lock** first: two concurrent first
+/// contacts for the same known_hosts name (e.g. two targets whose ssh-config
+/// `HostName` resolves to one machine in a single fan-out run) must not both
+/// persist keys. Without the re-check, a MITM key presented to one connection
+/// would be permanently recorded next to the real one and trusted by future
+/// `yes`-policy runs.
+///
+/// Returns `Ok(true)` when the key is persisted (or an identical trusted
+/// entry was recorded concurrently), `Ok(false)` when a *different* trusted
+/// key won the race, and `Err` on filesystem failure.
+///
+/// Runs synchronously on purpose — offload via `spawn_blocking`.
+pub(crate) fn persist_first_contact(
+    path: &Path,
+    host: &str,
+    port: u16,
+    host_names: &[String],
+    key: &str,
+) -> Result<bool, SshError> {
     let lock = KNOWN_HOSTS_WRITE_LOCK.get_or_init(|| Mutex::new(()));
     let _guard = lock.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    let current = load_known_hosts(path)?;
+    let trusted: Vec<_> = current
+        .iter()
+        .filter(|entry| entry.matches(host_names) && entry.is_trusted())
+        .collect();
+    if !trusted.is_empty() {
+        // No longer first contact: accept only the already-recorded key.
+        return Ok(trusted.iter().any(|entry| entry.key == key));
+    }
+    append_known_host_locked(path, host, port, key).map_err(|error| {
+        SshError::Transport(format!(
+            "could not persist host key to {}: {error}",
+            path.display()
+        ))
+    })?;
+    Ok(true)
+}
+
+fn append_known_host_locked(path: &Path, host: &str, port: u16, key: &str) -> std::io::Result<()> {
     let existed = path.exists();
     let needs_newline = fs::read(path)
         .ok()
@@ -374,7 +429,7 @@ mod tests {
     use repose_core::config::HostKeyPolicy;
     use tempfile::tempdir;
 
-    use super::HostKeyVerifier;
+    use super::{HostKeyDecision, HostKeyVerifier, persist_first_contact};
 
     const KEY_ONE: &str =
         "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILM+rvN+ot98qgEN796jTiQfZfG1KaT0PtFDJ/XFSqti";
@@ -385,11 +440,10 @@ mod tests {
         let temp = tempdir().unwrap();
         let path = temp.path().join("known_hosts");
         fs::write(&path, format!("host {KEY_ONE}\n")).unwrap();
-        let mut verifier =
-            HostKeyVerifier::new(HostKeyPolicy::Yes, Some(path), "host", 22).unwrap();
+        let verifier = HostKeyVerifier::new(HostKeyPolicy::Yes, Some(path), "host", 22).unwrap();
 
-        assert!(verifier.verify_key(KEY_ONE));
-        assert!(!verifier.verify_key(KEY_TWO));
+        assert_eq!(verifier.decide_key(KEY_ONE), HostKeyDecision::Accept);
+        assert_eq!(verifier.decide_key(KEY_TWO), HostKeyDecision::Reject);
     }
 
     #[test]
@@ -401,12 +455,70 @@ mod tests {
             HostKeyVerifier::new(HostKeyPolicy::AcceptNew, Some(path.clone()), "host", 2222)
                 .unwrap();
 
-        assert!(verifier.verify_key(KEY_ONE));
+        let HostKeyDecision::Persist(key) = verifier.decide_key(KEY_ONE) else {
+            panic!("first contact must decide to persist");
+        };
+        let (persist_path, host, port, names) = verifier.persist_context().unwrap();
+        assert!(persist_first_contact(&persist_path, &host, port, &names, &key).unwrap());
+        verifier.note_persisted(&key);
         assert_eq!(
             fs::read_to_string(&path).unwrap(),
             format!("old-entry {KEY_ONE}\n[host]:2222 {KEY_ONE}\n")
         );
-        assert!(!verifier.verify_key(KEY_TWO));
+        assert_eq!(verifier.decide_key(KEY_TWO), HostKeyDecision::Reject);
+    }
+
+    #[test]
+    fn concurrent_first_contacts_cannot_both_persist() {
+        // Both verifiers snapshot an empty known_hosts (each sees "first
+        // contact"); the loser's persist must fail the re-check under the
+        // write lock instead of recording a second, different key.
+        let temp = tempdir().unwrap();
+        let path = temp.path().join("known_hosts");
+        let first =
+            HostKeyVerifier::new(HostKeyPolicy::AcceptNew, Some(path.clone()), "host", 22).unwrap();
+        let second =
+            HostKeyVerifier::new(HostKeyPolicy::AcceptNew, Some(path.clone()), "host", 22).unwrap();
+
+        let HostKeyDecision::Persist(key_one) = first.decide_key(KEY_ONE) else {
+            panic!("first contact must decide to persist");
+        };
+        let HostKeyDecision::Persist(key_two) = second.decide_key(KEY_TWO) else {
+            panic!("first contact must decide to persist");
+        };
+        let (path_one, host_one, port_one, names_one) = first.persist_context().unwrap();
+        let (path_two, host_two, port_two, names_two) = second.persist_context().unwrap();
+        assert!(
+            persist_first_contact(&path_one, &host_one, port_one, &names_one, &key_one).unwrap()
+        );
+        assert!(
+            !persist_first_contact(&path_two, &host_two, port_two, &names_two, &key_two).unwrap(),
+            "a different key that lost the race must be rejected"
+        );
+        assert_eq!(
+            fs::read_to_string(&path).unwrap(),
+            format!("host {KEY_ONE}\n"),
+            "only the winning key is recorded"
+        );
+    }
+
+    #[test]
+    fn concurrent_first_contact_with_the_same_key_is_idempotent() {
+        let temp = tempdir().unwrap();
+        let path = temp.path().join("known_hosts");
+        let verifier =
+            HostKeyVerifier::new(HostKeyPolicy::AcceptNew, Some(path.clone()), "host", 22).unwrap();
+        let (persist_path, host, port, names) = verifier.persist_context().unwrap();
+        assert!(persist_first_contact(&persist_path, &host, port, &names, KEY_ONE).unwrap());
+        assert!(
+            persist_first_contact(&persist_path, &host, port, &names, KEY_ONE).unwrap(),
+            "the same key recorded concurrently stays accepted"
+        );
+        assert_eq!(
+            fs::read_to_string(&path).unwrap(),
+            format!("host {KEY_ONE}\n"),
+            "no duplicate entry is appended"
+        );
     }
 
     #[test]
@@ -414,10 +526,10 @@ mod tests {
         let temp = tempdir().unwrap();
         let path = temp.path().join("known_hosts");
         fs::write(&path, format!("@revoked host {KEY_ONE}\n")).unwrap();
-        let mut verifier =
+        let verifier =
             HostKeyVerifier::new(HostKeyPolicy::AcceptNew, Some(path), "host", 22).unwrap();
 
-        assert!(!verifier.verify_key(KEY_ONE));
+        assert_eq!(verifier.decide_key(KEY_ONE), HostKeyDecision::Reject);
     }
 
     #[test]
@@ -427,9 +539,8 @@ mod tests {
         fs::write(&path, "not a valid known-hosts line\n").unwrap();
 
         for policy in [HostKeyPolicy::No, HostKeyPolicy::Off] {
-            let mut verifier =
-                HostKeyVerifier::new(policy, Some(path.clone()), "host", 22).unwrap();
-            assert!(verifier.verify_key(KEY_ONE));
+            let verifier = HostKeyVerifier::new(policy, Some(path.clone()), "host", 22).unwrap();
+            assert_eq!(verifier.decide_key(KEY_ONE), HostKeyDecision::Accept);
         }
     }
 
@@ -448,12 +559,11 @@ mod tests {
         let path = temp.path().join("known_hosts");
         fs::write(&path, format!("*.example,!bad.example {KEY_ONE}\n")).unwrap();
 
-        let mut good =
+        let good =
             HostKeyVerifier::new(HostKeyPolicy::Yes, Some(path.clone()), "ok.example", 22).unwrap();
-        let mut bad =
-            HostKeyVerifier::new(HostKeyPolicy::Yes, Some(path), "bad.example", 22).unwrap();
-        assert!(good.verify_key(KEY_ONE));
-        assert!(!bad.verify_key(KEY_ONE));
+        let bad = HostKeyVerifier::new(HostKeyPolicy::Yes, Some(path), "bad.example", 22).unwrap();
+        assert_eq!(good.decide_key(KEY_ONE), HostKeyDecision::Accept);
+        assert_eq!(bad.decide_key(KEY_ONE), HostKeyDecision::Reject);
     }
 
     #[test]
@@ -462,10 +572,10 @@ mod tests {
         let path = temp.path().join("known_hosts");
         fs::write(&path, format!("alias {KEY_ONE}\n")).unwrap();
 
-        let mut verifier = HostKeyVerifier::new(HostKeyPolicy::Yes, Some(path), "resolved", 22)
+        let verifier = HostKeyVerifier::new(HostKeyPolicy::Yes, Some(path), "resolved", 22)
             .unwrap()
             .with_alias("alias");
-        assert!(verifier.verify_key(KEY_ONE));
+        assert_eq!(verifier.decide_key(KEY_ONE), HostKeyDecision::Accept);
     }
 
     // HMAC-SHA1 vectors computed independently (Python `hmac` stdlib) with
@@ -479,11 +589,10 @@ mod tests {
         let temp = tempdir().unwrap();
         let path = temp.path().join("known_hosts");
         fs::write(&path, format!("|1|{HASHED_SALT}|{HASHED_HOST} {KEY_ONE}\n")).unwrap();
-        let mut verifier =
-            HostKeyVerifier::new(HostKeyPolicy::Yes, Some(path), "host", 22).unwrap();
+        let verifier = HostKeyVerifier::new(HostKeyPolicy::Yes, Some(path), "host", 22).unwrap();
 
-        assert!(verifier.verify_key(KEY_ONE));
-        assert!(!verifier.verify_key(KEY_TWO));
+        assert_eq!(verifier.decide_key(KEY_ONE), HostKeyDecision::Accept);
+        assert_eq!(verifier.decide_key(KEY_TWO), HostKeyDecision::Reject);
     }
 
     #[test]
@@ -496,11 +605,11 @@ mod tests {
         )
         .unwrap();
 
-        let mut on_2222 =
+        let on_2222 =
             HostKeyVerifier::new(HostKeyPolicy::Yes, Some(path.clone()), "host", 2222).unwrap();
-        let mut on_22 = HostKeyVerifier::new(HostKeyPolicy::Yes, Some(path), "host", 22).unwrap();
-        assert!(on_2222.verify_key(KEY_ONE));
-        assert!(!on_22.verify_key(KEY_ONE));
+        let on_22 = HostKeyVerifier::new(HostKeyPolicy::Yes, Some(path), "host", 22).unwrap();
+        assert_eq!(on_2222.decide_key(KEY_ONE), HostKeyDecision::Accept);
+        assert_eq!(on_22.decide_key(KEY_ONE), HostKeyDecision::Reject);
     }
 
     #[test]
@@ -509,14 +618,14 @@ mod tests {
         let path = temp.path().join("known_hosts");
         let contents = format!("|1|{HASHED_SALT}|{HASHED_HOST} {KEY_ONE}\n");
         fs::write(&path, &contents).unwrap();
-        let mut verifier =
+        let verifier =
             HostKeyVerifier::new(HostKeyPolicy::AcceptNew, Some(path.clone()), "host", 22).unwrap();
 
         // A hashed pin is not first contact: the changed key must be refused
         // and nothing may be appended to known_hosts.
-        assert!(!verifier.verify_key(KEY_TWO));
+        assert_eq!(verifier.decide_key(KEY_TWO), HostKeyDecision::Reject);
         assert_eq!(fs::read_to_string(&path).unwrap(), contents);
-        assert!(verifier.verify_key(KEY_ONE));
+        assert_eq!(verifier.decide_key(KEY_ONE), HostKeyDecision::Accept);
     }
 
     #[test]
@@ -529,15 +638,15 @@ mod tests {
         )
         .unwrap();
 
-        let mut hashed =
+        let hashed =
             HostKeyVerifier::new(HostKeyPolicy::Yes, Some(path.clone()), "host", 22).unwrap();
-        assert!(hashed.verify_key(KEY_ONE));
-        assert!(!hashed.verify_key(KEY_TWO));
+        assert_eq!(hashed.decide_key(KEY_ONE), HostKeyDecision::Accept);
+        assert_eq!(hashed.decide_key(KEY_TWO), HostKeyDecision::Reject);
 
-        let mut plain =
+        let plain =
             HostKeyVerifier::new(HostKeyPolicy::Yes, Some(path), "other.example", 22).unwrap();
-        assert!(plain.verify_key(KEY_TWO));
-        assert!(!plain.verify_key(KEY_ONE));
+        assert_eq!(plain.decide_key(KEY_TWO), HostKeyDecision::Accept);
+        assert_eq!(plain.decide_key(KEY_ONE), HostKeyDecision::Reject);
     }
 
     #[test]
@@ -563,9 +672,8 @@ mod tests {
         let temp = tempdir().unwrap();
         let path = temp.path().join("known_hosts");
         fs::write(&path, format!("host {KEY_ONE}\n")).unwrap();
-        let mut verifier =
-            HostKeyVerifier::new(HostKeyPolicy::Yes, Some(path), "host", 2222).unwrap();
+        let verifier = HostKeyVerifier::new(HostKeyPolicy::Yes, Some(path), "host", 2222).unwrap();
 
-        assert!(!verifier.verify_key(KEY_ONE));
+        assert_eq!(verifier.decide_key(KEY_ONE), HostKeyDecision::Reject);
     }
 }

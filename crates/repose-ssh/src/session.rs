@@ -100,7 +100,52 @@ impl Handler for ClientHandler {
         &mut self,
         server_public_key: &russh::keys::ssh_key::PublicKey,
     ) -> Result<bool, Self::Error> {
-        Ok(self.verifier.verify_public_key(server_public_key))
+        use crate::hostkey::HostKeyDecision;
+        match self.verifier.decide_public_key(server_public_key) {
+            HostKeyDecision::Accept => Ok(true),
+            HostKeyDecision::Reject => Ok(false),
+            HostKeyDecision::Persist(key) => {
+                let Some((path, host, port, names)) = self.verifier.persist_context() else {
+                    // Policy without a known_hosts path: nothing to record.
+                    return Ok(true);
+                };
+                // The append does filesystem I/O under a process-global
+                // lock — offload it so a slow known_hosts (NFS, a contended
+                // lock) cannot freeze every other host on the runtime.
+                let key_material = key.clone();
+                let persisted = tokio::task::spawn_blocking(move || {
+                    crate::hostkey::persist_first_contact(&path, &host, port, &names, &key)
+                })
+                .await;
+                match persisted {
+                    Ok(Ok(true)) => {
+                        self.verifier.note_persisted(&key_material);
+                        Ok(true)
+                    }
+                    Ok(Ok(false)) => {
+                        log::error!(
+                            "host key for {} changed while connecting (a concurrent first contact recorded a different key); rejecting",
+                            self.verifier.host()
+                        );
+                        Ok(false)
+                    }
+                    Ok(Err(error)) => {
+                        // Deliberate fail-open: TOFU degrades to
+                        // trust-without-recording, but loudly.
+                        log::error!(
+                            "accept-new: {error} — the key was NOT recorded; future connections will re-accept this host without verification"
+                        );
+                        Ok(true)
+                    }
+                    Err(error) => {
+                        log::error!(
+                            "accept-new: persist task failed: {error} — the key was NOT recorded"
+                        );
+                        Ok(true)
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -165,6 +210,26 @@ impl RusshSession {
         keys
     }
 
+    /// The configured per-operation bound as a [`Duration`].
+    ///
+    /// `ConnectionConfig.timeout` is a public, unvalidated `f64`: never
+    /// panic on NaN/negative/overflow (a connect runs under `join_all`, so
+    /// one panic would kill the whole host group); fall back to a small
+    /// positive bound like [`Self::sftp_timeout_secs`] does.
+    fn op_timeout(&self) -> Duration {
+        match self.config.timeout {
+            t if t.is_finite() && t > 0.0 => Duration::from_secs_f64(t),
+            _ => Duration::from_secs(1),
+        }
+    }
+
+    /// Timeout error for a stalled network operation (connect, auth,
+    /// channel setup, SFTP init) — mirrors the command-timeout wording the
+    /// `Host` adapter matches on.
+    fn timed_out(&self, what: &str) -> SshError {
+        SshError::Transport(format!("{what} timed out after {}s", self.config.timeout))
+    }
+
     async fn connect_inner(&mut self) -> Result<(), SshError> {
         // Any cached SFTP channel rode on the previous transport.
         self.sftp = None;
@@ -222,17 +287,25 @@ impl RusshSession {
             .map(|verifier| verifier.with_alias(self.hostname.clone()))?
         };
         let handler = ClientHandler { verifier };
+        // Every network step is bounded by the configured timeout: an
+        // unbounded connect/handshake lets one blackholed or stalling
+        // target hang the whole host group behind `join_all`.
         let mut session = if let Some(command) =
             proxy_command_line(&options, &self.hostname, self.port, &target_user)
         {
             let stream = ProxyStream::spawn(&command)?;
-            client::connect_stream(conf, stream, handler)
-                .await
-                .map_err(|e| SshError::Transport(e.to_string()))?
+            tokio::time::timeout(
+                self.op_timeout(),
+                client::connect_stream(conf, stream, handler),
+            )
+            .await
+            .map_err(|_| self.timed_out("connect"))?
+            .map_err(|e| SshError::Transport(e.to_string()))?
         } else {
             let addrs = (target_host.as_str(), target_port);
-            client::connect(conf, addrs, handler)
+            tokio::time::timeout(self.op_timeout(), client::connect(conf, addrs, handler))
                 .await
+                .map_err(|_| self.timed_out("connect"))?
                 .map_err(|e| SshError::Transport(e.to_string()))?
         };
 
@@ -240,7 +313,13 @@ impl RusshSession {
         // skipped when SSH_AUTH_SOCK is absent or unusable), then
         // IdentityFile / default key files, then one password prompt.
         let mut last_err = "no SSH private key found (~/.ssh/id_ed25519|id_rsa)".to_string();
-        if try_agent_auth(&mut session, &target_user, &mut last_err).await {
+        if tokio::time::timeout(
+            self.op_timeout(),
+            try_agent_auth(&mut session, &target_user, &mut last_err),
+        )
+        .await
+        .map_err(|_| self.timed_out("authentication"))?
+        {
             self.handle = Some(session);
             return Ok(());
         }
@@ -264,18 +343,21 @@ impl RusshSession {
                     continue;
                 }
             };
-            let hash = session
-                .best_supported_rsa_hash()
+            let hash = tokio::time::timeout(self.op_timeout(), session.best_supported_rsa_hash())
                 .await
+                .map_err(|_| self.timed_out("authentication"))?
                 .map_err(|e| SshError::Transport(e.to_string()))?
                 .flatten();
-            let auth = session
-                .authenticate_publickey(
+            let auth = tokio::time::timeout(
+                self.op_timeout(),
+                session.authenticate_publickey(
                     target_user.clone(),
                     PrivateKeyWithHashAlg::new(Arc::new(key_pair), hash),
-                )
-                .await
-                .map_err(|e| SshError::Transport(e.to_string()))?;
+                ),
+            )
+            .await
+            .map_err(|_| self.timed_out("authentication"))?
+            .map_err(|e| SshError::Transport(e.to_string()))?;
             if auth.success() {
                 self.handle = Some(session);
                 return Ok(());
@@ -298,11 +380,15 @@ impl RusshSession {
             .await
             .map_err(|e| SshError::Transport(format!("password prompt task failed: {e}")))?
             .map_err(|e| SshError::Transport(format!("could not read SSH password: {e}")))?;
-        let auth = session
-            .authenticate_password(target_user.clone(), &password)
-            .await;
+        let auth = tokio::time::timeout(
+            self.op_timeout(),
+            session.authenticate_password(target_user.clone(), &password),
+        )
+        .await;
         password.zeroize();
-        let auth = auth.map_err(|e| SshError::Transport(e.to_string()))?;
+        let auth = auth
+            .map_err(|_| self.timed_out("authentication"))?
+            .map_err(|e| SshError::Transport(e.to_string()))?;
         if auth.success() {
             self.handle = Some(session);
             return Ok(());
@@ -315,20 +401,23 @@ impl RusshSession {
     }
 
     async fn run_inner(&mut self, command: &str) -> Result<(String, String, i32), SshError> {
+        let timeout = self.op_timeout();
         let handle = self
             .handle
             .as_mut()
             .ok_or_else(|| SshError::NotConnected(self.hostname.clone()))?;
-        let mut channel = handle
-            .channel_open_session()
+        let mut channel = tokio::time::timeout(timeout, handle.channel_open_session())
             .await
+            .map_err(|_| self.timed_out("channel open"))?
             .map_err(|e| SshError::Transport(e.to_string()))?;
-        channel
-            .exec(true, command)
+        // Note: in russh 0.62 `exec` only enqueues the request; its timeout
+        // can fire solely on a wedged local session loop. The server-side
+        // round-trip is bounded by the collect wrap below.
+        tokio::time::timeout(timeout, channel.exec(true, command))
             .await
+            .map_err(|_| self.timed_out("exec"))?
             .map_err(|e| SshError::Transport(e.to_string()))?;
 
-        let timeout = Duration::from_secs_f64(self.config.timeout);
         let collect = async {
             let mut stdout = Vec::new();
             let mut stderr = Vec::new();
@@ -357,10 +446,18 @@ impl RusshSession {
 
         match tokio::time::timeout(timeout, collect).await {
             Ok(r) => r,
-            Err(_) => Err(SshError::Transport(format!(
-                "command timed out after {}s",
-                self.config.timeout
-            ))),
+            Err(_) => {
+                // A plain russh::Channel does NOT close on drop (only
+                // ChannelCloseOnDrop does): tell the server to kill the
+                // orphaned command instead of leaking the channel slot —
+                // sshd's MaxSessions would otherwise degrade the host.
+                // Bounded best-effort: a wedged peer must not hang us.
+                let _ = tokio::time::timeout(Duration::from_secs(2), channel.close()).await;
+                Err(SshError::Transport(format!(
+                    "command timed out after {}s",
+                    self.config.timeout
+                )))
+            }
         }
     }
 
@@ -374,20 +471,22 @@ impl RusshSession {
 
     async fn sftp_session(&mut self) -> Result<&SftpSession, SshError> {
         if self.sftp.is_none() {
+            let timeout = self.op_timeout();
             let handle = self
                 .handle
                 .as_mut()
                 .ok_or_else(|| SshError::NotConnected(self.hostname.clone()))?;
-            let channel = handle
-                .channel_open_session()
+            let channel = tokio::time::timeout(timeout, handle.channel_open_session())
                 .await
+                .map_err(|_| self.timed_out("channel open"))?
                 .map_err(|e| SshError::Transport(e.to_string()))?;
-            channel
-                .request_subsystem(true, "sftp")
+            tokio::time::timeout(timeout, channel.request_subsystem(true, "sftp"))
                 .await
+                .map_err(|_| self.timed_out("SFTP subsystem request"))?
                 .map_err(|e| SshError::Transport(e.to_string()))?;
-            let sftp = SftpSession::new(channel.into_stream())
+            let sftp = tokio::time::timeout(timeout, SftpSession::new(channel.into_stream()))
                 .await
+                .map_err(|_| self.timed_out("SFTP initialization"))?
                 .map_err(|e| SshError::Transport(format!("SFTP initialization failed: {e}")))?;
             sftp.set_timeout(self.sftp_timeout_secs());
             self.sftp = Some(sftp);
@@ -594,17 +693,18 @@ impl SshSession for RusshSession {
     }
 
     async fn fire_and_forget(&mut self, command: &str) -> Result<(), SshError> {
+        let timeout = self.op_timeout();
         let handle = self
             .handle
             .as_mut()
             .ok_or_else(|| SshError::NotConnected(self.hostname.clone()))?;
-        let channel = handle
-            .channel_open_session()
+        let channel = tokio::time::timeout(timeout, handle.channel_open_session())
             .await
+            .map_err(|_| self.timed_out("channel open"))?
             .map_err(|e| SshError::Transport(e.to_string()))?;
-        channel
-            .exec(true, command)
+        tokio::time::timeout(timeout, channel.exec(true, command))
             .await
+            .map_err(|_| self.timed_out("exec"))?
             .map_err(|e| SshError::Transport(e.to_string()))?;
         // Do not wait for exit — reboot drops the link.
         Ok(())
@@ -705,5 +805,42 @@ mod tests {
         assert_eq!(schedule, [10, 30, 40, 50, 60, 70, 80, 90, 100, 110]);
         assert_eq!(schedule.iter().sum::<u64>(), 640);
         assert!((1..=10).all(|attempt| super::reconnect_sleep_secs(attempt, 10, false) == 10));
+    }
+
+    #[tokio::test]
+    async fn connect_to_a_banner_stalled_server_times_out() {
+        use repose_core::traits::SshSession;
+        use tokio::net::TcpListener;
+
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let port = listener.local_addr().unwrap().port();
+        // Accept and hold the connection without ever sending an SSH banner:
+        // before the timeout wrapped the handshake, this hung forever and
+        // stalled the whole host group behind join_all.
+        let hold = tokio::spawn(async move {
+            let _accepted = listener.accept().await;
+            tokio::time::sleep(std::time::Duration::from_secs(60)).await;
+        });
+
+        let config = ConnectionConfig {
+            timeout: 0.2,
+            // Policy off keeps the test hermetic: no real ~/.ssh/known_hosts
+            // is consulted (the ssh-config lookup still reads ~/.ssh/config,
+            // which is empty/absent on CI machines).
+            host_key_policy: repose_core::HostKeyPolicy::Off,
+            ..ConnectionConfig::default()
+        };
+        let mut session = RusshSession::new("127.0.0.1", port, "root", config);
+        let started = std::time::Instant::now();
+        let err = session.connect().await.unwrap_err();
+        assert!(
+            err.to_string().contains("connect timed out"),
+            "unexpected error: {err}"
+        );
+        assert!(
+            started.elapsed() < std::time::Duration::from_secs(10),
+            "an unbounded connect would hang far past the configured timeout"
+        );
+        hold.abort();
     }
 }
