@@ -282,7 +282,7 @@ async fn async_main() -> ExitCode {
         eprintln!("error: --debug and --quiet are mutually exclusive");
         return ExitCode::from(2);
     }
-    init_logging(cli.debug, cli.quiet, cli.no_color);
+    init_logging(cli.debug, cli.quiet, cli.no_color, cli.color);
 
     let conn = connection_config(&cli);
 
@@ -324,10 +324,13 @@ const fn log_level(debug: bool, quiet: bool) -> Level {
 }
 
 /// Install the stderr tracing subscriber (also captures repose-ssh `log`
-/// events via the tracing-log bridge). ANSI is disabled for `--no-color`
-/// or a non-empty `NO_COLOR`, matching Python's `log_no_color`.
-fn init_logging(debug: bool, quiet: bool, no_color: bool) {
-    let ansi = !no_color && std::env::var_os("NO_COLOR").is_none_or(|v| v.is_empty());
+/// events via the tracing-log bridge). ANSI follows the same
+/// [`resolve_color`] decision as stdout — `--no-color`/`--color=never` force
+/// off, `--color=always` forces on, `auto` colors only when stderr is a TTY
+/// (honoring `NO_COLOR`/`COLOR`) — so the two documented aliases cannot
+/// diverge and piped logs stay clean.
+fn init_logging(debug: bool, quiet: bool, no_color: bool, color: Color) {
+    let ansi = resolve_color(no_color, color, std::io::stderr().is_terminal());
     let _ = tracing_subscriber::fmt()
         .with_max_level(log_level(debug, quiet))
         .with_writer(std::io::stderr)
@@ -337,10 +340,11 @@ fn init_logging(debug: bool, quiet: bool, no_color: bool) {
         .try_init();
 }
 
-/// Resolve the effective color decision for stdout `list-*` output, mirroring
+/// Resolve the effective color decision, mirroring
 /// `repose_core::console::Console::use_color`: `--no-color`/`--color=never`
 /// force off, `--color=always` forces on, and `auto` honors `NO_COLOR`, then
-/// `COLOR`, then `is_tty`.
+/// `COLOR`, then `is_tty`. Used for both the stdout `list-*` display output
+/// and the stderr log subscriber (each with its own TTY bit).
 fn resolve_color(no_color: bool, color: Color, is_tty: bool) -> bool {
     if no_color {
         return false;
