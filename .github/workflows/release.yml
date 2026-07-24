@@ -13,12 +13,21 @@ permissions:
   contents: read
 
 jobs:
-  release:
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    permissions:
-      # required for `gh release create`
-      contents: write
+  build:
+    name: build (${{ matrix.triple }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      # Build every platform even if one fails, so a single broken target
+      # surfaces on its own. The release job needs all legs to succeed, so a
+      # failure still blocks publishing a partial set of artifacts.
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            triple: x86_64-unknown-linux-gnu
+          - os: macos-latest  # Apple Silicon
+            triple: aarch64-apple-darwin
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
@@ -31,6 +40,7 @@ jobs:
       # build state can never influence published artifacts.
 
       - name: Verify tag matches workspace version
+        shell: bash
         run: |
           pkg="$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)"
           if [ "$pkg" != "$GITHUB_REF_NAME" ]; then
@@ -42,21 +52,50 @@ jobs:
         run: cargo build --release --locked -p repose-cli
 
       - name: Package release artifact
+        shell: bash
         run: |
-          triple="x86_64-unknown-linux-gnu"
+          triple="${{ matrix.triple }}"
           dist="repose-${GITHUB_REF_NAME}-${triple}"
           mkdir "$dist"
           cp target/release/repose LICENSE README.md "$dist/"
           cp -r crates/repose-cli/man crates/repose-cli/completions "$dist/"
           tar czf "${dist}.tar.gz" "$dist"
-          sha256sum "${dist}.tar.gz" >"${dist}.tar.gz.sha256"
+          # shasum -a 256 exists on both the ubuntu and macOS runners and its
+          # output is compatible with `sha256sum -c`.
+          shasum -a 256 "${dist}.tar.gz" >"${dist}.tar.gz.sha256"
           echo "DIST=$dist" >>"$GITHUB_ENV"
 
+      - name: Upload build artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        with:
+          name: ${{ matrix.triple }}
+          path: |
+            ${{ env.DIST }}.tar.gz
+            ${{ env.DIST }}.tar.gz.sha256
+          if-no-files-found: error
+
+  release:
+    # Publish only after every platform built successfully, so a release never
+    # ships a partial artifact set.
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      # required for `gh release create`
+      contents: write
+    steps:
+      - name: Download build artifacts
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131  # v7.0.0
+        with:
+          path: dist
+          merge-multiple: true
       - name: Create GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
+          # No checkout in this job, so tell gh which repo to act on.
+          GH_REPO: ${{ github.repository }}
         run: >-
           gh release create "$GITHUB_REF_NAME"
           --title "$GITHUB_REF_NAME"
           --generate-notes
-          "${DIST}.tar.gz" "${DIST}.tar.gz.sha256"
+          dist/*
