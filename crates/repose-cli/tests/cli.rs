@@ -6,6 +6,10 @@ fn repose(args: &[&str]) -> Output {
         .args(args)
         .env_remove("COLOR")
         .env_remove("NO_COLOR")
+        // Keep the log-color tests hermetic: a cert store pointed at empty
+        // locations would suppress the debug line they rely on.
+        .env_remove("SSL_CERT_FILE")
+        .env_remove("SSL_CERT_DIR")
         .output()
         .expect("repose process should start")
 }
@@ -149,6 +153,46 @@ fn color_always_flag_colorizes_known_products_label() {
         "{}",
         stdout(&output)
     );
+}
+
+#[test]
+fn color_never_disables_ansi_in_stderr_logs() {
+    // -d emits at least one DEBUG log line ("Loaded N CA root certificates"
+    // from rustls-platform-verifier — a third-party string, unix-only; the
+    // tests knowingly couple to it). --color=never must keep stderr
+    // ANSI-free, exactly like its documented alias --no-color.
+    let output = repose(&[
+        "-d",
+        "--color=never",
+        "add",
+        "-t",
+        "nonexistent.invalid",
+        "--no-probe",
+        "SLES",
+    ]);
+    let logs = stderr(&output);
+    assert!(
+        logs.contains("DEBUG"),
+        "expected a debug log record: {logs:?}"
+    );
+    assert!(
+        !logs.contains('\u{1b}'),
+        "no ANSI escapes allowed: {logs:?}"
+    );
+}
+
+#[test]
+fn color_always_enables_ansi_in_stderr_logs_even_when_piped() {
+    let output = repose(&[
+        "-d",
+        "--color=always",
+        "add",
+        "-t",
+        "nonexistent.invalid",
+        "--no-probe",
+        "SLES",
+    ]);
+    assert!(stderr(&output).contains('\u{1b}'));
 }
 
 #[test]
