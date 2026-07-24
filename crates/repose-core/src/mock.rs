@@ -23,9 +23,13 @@ pub enum MockRunOutcome {
         exitcode: i32,
         runtime_secs: u64,
     },
-    /// Hard timeout: still appends `out` with `exitcode == -1`, returns `Ok(())`.
+    /// Hard timeout: appends `out` with `exitcode == -1` and **empty**
+    /// streams (the real host logs the diagnostics instead), returns `Ok(())`.
+    /// The `stderr` field is accepted for convenience but ignored.
     Timeout { stderr: String },
-    /// Pre-append transport failure: **no** `out` entry, returns `Err`.
+    /// Mid-command transport failure: appends a synthetic `out` entry with
+    /// `exitcode == -1` and empty streams, returns `Ok(())` — matching the
+    /// real host, where the message goes to the log (the field is ignored).
     TransportErr(String),
 }
 
@@ -265,7 +269,9 @@ pub struct MockMetricsSnapshot {
     pub operations_by_kind: BTreeMap<MockOpKind, usize>,
     /// `Host::run` calls that passed the connected-state check.
     pub commands_attempted: usize,
-    /// Commands that appended an `out` entry (excludes transport failures).
+    /// Commands that appended an `out` entry after passing the
+    /// connected-state check (including the timeout / transport-failure
+    /// synthetic entries).
     pub commands_completed: usize,
     pub probe_total: usize,
     pub current_probes: usize,
@@ -315,6 +321,9 @@ pub struct MockHost {
     post_reboot_clear_products: bool,
     /// `read_products` returns `Err` (models a re-read failure).
     read_products_err: bool,
+    /// `read_repos` returns `Err` (models a failed `zypper -x lr`, leaving
+    /// `raw_repos` unset — distinct from a successful read with zero repos).
+    read_repos_err: bool,
     out: Vec<OutEntry>,
     /// FIFO outcomes for successive `run` calls. Empty → default exit 0.
     run_queue: Vec<MockRunOutcome>,
@@ -378,6 +387,15 @@ impl MockHost {
     #[must_use]
     pub const fn with_read_products_err(mut self) -> Self {
         self.read_products_err = true;
+        self
+    }
+
+    /// Make `read_repos` fail, leaving `raw_repos` unset (models a failed
+    /// `zypper -x lr`; a *successful* read with zero repos is the default
+    /// for unconfigured hosts).
+    #[must_use]
+    pub const fn with_read_repos_err(mut self) -> Self {
+        self.read_repos_err = true;
         self
     }
 
@@ -486,8 +504,10 @@ impl Host for MockHost {
     async fn run(&mut self, command: &str) -> Result<(), SshError> {
         let _guard = self.enter_op(MockOpKind::Run);
         if !self.connected {
-            // Pre-append failure: not connected, no out entry, no command
-            // counted (only attempts past the connected-state check count).
+            // Real-host parity: a failed dispatch still records a synthetic
+            // out entry (rc -1, empty streams) so the report cannot desync.
+            self.out
+                .push((command.to_string(), String::new(), String::new(), -1, 0));
             return Err(SshError::NotConnected(self.key.clone()));
         }
         self.wait_gate(MockOpKind::Run).await;
@@ -512,19 +532,25 @@ impl Host for MockHost {
                 }
                 Ok(())
             }
-            MockRunOutcome::Timeout { stderr } => {
-                // Contract: timeout still appends exitcode -1, returns Ok.
+            MockRunOutcome::Timeout { .. } => {
+                // Real-host parity: timeout appends (command, "", "", -1) —
+                // the diagnostics go to the log, not the entry's stderr.
                 self.out
-                    .push((command.to_string(), String::new(), stderr, -1, 0));
+                    .push((command.to_string(), String::new(), String::new(), -1, 0));
                 if let Some(m) = &self.metrics {
                     m.record_command_completed();
                 }
                 Ok(())
             }
-            MockRunOutcome::TransportErr(msg) => {
-                // Contract: no out entry when Err; command was attempted
-                // but did not complete, so it stays distinguishable.
-                Err(SshError::Transport(msg))
+            MockRunOutcome::TransportErr(_) => {
+                // Real-host parity: a mid-command transport failure appends
+                // a synthetic (command, "", "", -1) entry and returns Ok.
+                self.out
+                    .push((command.to_string(), String::new(), String::new(), -1, 0));
+                if let Some(m) = &self.metrics {
+                    m.record_command_completed();
+                }
+                Ok(())
             }
         }
     }
@@ -532,8 +558,9 @@ impl Host for MockHost {
     async fn read_products(&mut self) -> Result<(), SshError> {
         let _guard = self.enter_op(MockOpKind::ReadProducts);
         self.wait_gate(MockOpKind::ReadProducts).await;
+        // Real-host parity: connect lazily instead of failing outright.
         if !self.connected {
-            return Err(SshError::NotConnected(self.key.clone()));
+            self.connect().await?;
         }
         if self.read_products_err {
             return Err(SshError::Transport(format!(
@@ -548,8 +575,41 @@ impl Host for MockHost {
     async fn read_repos(&mut self) -> Result<(), SshError> {
         let _guard = self.enter_op(MockOpKind::ReadRepos);
         self.wait_gate(MockOpKind::ReadRepos).await;
+        // Real-host parity: a disconnected host is a silent no-op.
         if !self.connected {
-            return Err(SshError::NotConnected(self.key.clone()));
+            return Ok(());
+        }
+        if self.read_repos_err {
+            // Real-host parity: the failed zypper call was still recorded
+            // as an out entry, and the error is `Other`, not `Transport`.
+            self.out.push((
+                "zypper -x lr".to_string(),
+                String::new(),
+                String::new(),
+                4,
+                0,
+            ));
+            return Err(SshError::Other(format!(
+                "mock read_repos failed for {}",
+                self.key
+            )));
+        }
+        // Real-host parity: the zypper call is recorded as an out entry
+        // like any other command (appended directly, NOT via `run`, so the
+        // `ran` instrumentation and command counters stay stable). The mock
+        // has no XML to store, so the streams stay empty.
+        self.out.push((
+            "zypper -x lr".to_string(),
+            String::new(),
+            String::new(),
+            0,
+            0,
+        ));
+        // A successful read: preserve injected repos; an unconfigured host
+        // read successfully and found zero repositories — `Some(empty)`,
+        // which is NOT the same state as a failed read (`None`).
+        if self.raw_repos.is_none() {
+            self.raw_repos = Some(Vec::new());
         }
         Ok(())
     }
@@ -564,7 +624,17 @@ impl Host for MockHost {
             self.read_repos().await?;
         }
         if self.repos.is_none() {
-            self.repos = Some(Repositories::new());
+            // Derived from the raw repos like `RusshHost::parse_repos`.
+            // Deliberate delta: a `with_repos` fixture is kept as injected
+            // (the real host rebuilds unconditionally) — that is what the
+            // uninstall/remove command tests configure.
+            let arch = self
+                .products
+                .as_ref()
+                .map(|p| p.arch().to_string())
+                .unwrap_or_else(|| "unknown".into());
+            let raw = self.raw_repos.clone().unwrap_or_default();
+            self.repos = Some(crate::types::repositories_from_raw(&raw, &arch));
         }
         Ok(())
     }
@@ -575,6 +645,16 @@ impl Host for MockHost {
         // Mock: record reboot command via run semantics (counted separately
         // as its own Run operation/command), then "reconnect".
         self.run(command).await?;
+        // The real host dispatches via `fire_and_forget`, which FAILS when
+        // the exec never left the client. A scripted TransportErr/Timeout
+        // produces a synthetic rc -1 dispatch entry — model the dispatch
+        // failure instead of reporting a successful reboot.
+        if self.out.last().is_some_and(|entry| entry.3 == -1) {
+            return Err(SshError::Transport(format!(
+                "mock reboot dispatch failed for {}",
+                self.key
+            )));
+        }
         self.connected = true;
         // Model the post-reboot product change (e.g. product now removed).
         if let Some(sys) = self.post_reboot_products.take() {
@@ -785,6 +865,120 @@ mod tests {
     use crate::types::{Product, zypper_exit_ok};
 
     #[tokio::test]
+    async fn parse_repos_derives_from_raw_repos_like_the_real_host() {
+        // Production-shaped host: products + raw `zypper -x lr` rows, no
+        // prebuilt `Repositories`. The mock must derive the alias→product
+        // map exactly like `RusshHost::parse_repos`, so command tests
+        // exercise the same path the transport takes.
+        let mut h = MockHost::new("h1")
+            .with_products(System {
+                base: Product {
+                    name: "SLES".into(),
+                    version: "15-SP6".into(),
+                    arch: "x86_64".into(),
+                },
+                addons: vec![],
+                transactional: false,
+            })
+            .with_raw_repos(vec![
+                Repository {
+                    alias: "SLES:15-SP6::pool".into(),
+                    name: "SLES:15-SP6:pool:x86_64".into(),
+                    url: "http://x/".into(),
+                    state: true,
+                },
+                Repository {
+                    alias: "weird".into(),
+                    name: "not-a-product-string".into(),
+                    url: "http://y/".into(),
+                    state: true,
+                },
+            ]);
+        h.connect().await.unwrap();
+        h.parse_repos().await.unwrap();
+
+        let repos = h.repos().expect("repos built from raw");
+        assert_eq!(repos.len(), 2);
+        let product = repos
+            .get("SLES:15-SP6::pool")
+            .and_then(|p| p.as_ref())
+            .expect("4-part repo name parses to a product");
+        assert_eq!(product.name, "SLES");
+        assert_eq!(product.version, "15-SP6");
+        assert_eq!(product.arch, "x86_64");
+        assert!(
+            repos.get("weird").expect("alias present").is_none(),
+            "non-product repo name maps to the None sentinel"
+        );
+    }
+
+    #[tokio::test]
+    async fn read_repos_unconfigured_models_a_successful_empty_read() {
+        // `None` is reserved for "read failed/never ran" (e.g. zypper
+        // failure); a plain unconfigured host read successfully and found
+        // zero repositories. Real-host parity: the zypper call is recorded
+        // as an out entry, so `last_out_succeeded` answers like production.
+        let mut h = MockHost::new("h1");
+        h.connect().await.unwrap();
+        h.read_repos().await.unwrap();
+        assert_eq!(h.raw_repos(), Some(&[][..]));
+        assert_eq!(h.out().len(), 1);
+        assert_eq!(h.out()[0].0, "zypper -x lr");
+        assert_eq!(last_out_succeeded(h.out()), Some(true));
+    }
+
+    #[tokio::test]
+    async fn read_repos_err_keeps_raw_repos_unset() {
+        // Real-host parity for a failed `zypper -x lr`: the failed call is
+        // still recorded (non-zero rc) and the error is `Other`.
+        let mut h = MockHost::new("h1").with_read_repos_err();
+        h.connect().await.unwrap();
+        let err = h.read_repos().await.unwrap_err();
+        assert!(matches!(err, SshError::Other(_)));
+        assert!(
+            h.raw_repos().is_none(),
+            "failed read must not masquerade as empty"
+        );
+        assert_eq!(h.out().len(), 1);
+        assert_eq!(h.out()[0].0, "zypper -x lr");
+        assert_eq!(h.out()[0].3, 4);
+        // parse_repos propagates the failure and builds nothing.
+        assert!(h.parse_repos().await.is_err());
+        assert!(h.repos().is_none());
+    }
+
+    #[tokio::test]
+    async fn reboot_fails_on_a_scripted_dispatch_failure() {
+        // The real host's fire_and_forget fails when the exec never left
+        // the client; a scripted TransportErr must fail the reboot, not
+        // report a successful reconnect.
+        let mut h = MockHost::new("h1");
+        h.connect().await.unwrap();
+        h.push_run(MockRunOutcome::TransportErr("link down".into()));
+        let err = h.reboot("systemctl reboot").await.unwrap_err();
+        assert!(matches!(err, SshError::Transport(_)));
+        // Real-host parity: a dispatch failure is NOT a disconnect — the
+        // host only goes disconnected after a dispatched reboot.
+        assert!(h.is_connected());
+    }
+
+    #[tokio::test]
+    async fn read_products_connects_lazily_like_the_real_host() {
+        let mut h = MockHost::new("h1");
+        assert!(!h.is_connected());
+        h.read_products().await.unwrap();
+        assert!(h.is_connected());
+    }
+
+    #[tokio::test]
+    async fn read_repos_on_a_disconnected_host_is_a_no_op() {
+        let mut h = MockHost::new("h1");
+        assert!(h.read_repos().await.is_ok());
+        assert!(h.raw_repos().is_none());
+        assert!(h.out().is_empty(), "no zypper call was dispatched");
+    }
+
+    #[tokio::test]
     async fn run_appends_success_exit() {
         let mut h = MockHost::new("h1");
         h.connect().await.unwrap();
@@ -810,7 +1004,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn timeout_appends_minus_one_and_returns_ok() {
+    async fn timeout_appends_minus_one_with_empty_streams_and_returns_ok() {
         let mut h = MockHost::new("h1");
         h.connect().await.unwrap();
         h.push_run(MockRunOutcome::Timeout {
@@ -819,25 +1013,39 @@ mod tests {
         h.run("sleep 999").await.unwrap();
         assert_eq!(h.out().len(), 1);
         assert_eq!(h.out()[0].3, -1);
+        // Real-host parity: the diagnostics go to the log, NOT the entry.
+        assert_eq!(h.out()[0].1, "");
+        assert_eq!(h.out()[0].2, "");
         assert_eq!(last_out_succeeded(h.out()), Some(false));
     }
 
     #[tokio::test]
-    async fn transport_err_does_not_append() {
+    async fn transport_err_appends_synthetic_and_returns_ok() {
+        // Real-host parity: a mid-command transport failure is recorded as a
+        // synthetic (cmd, "", "", -1) entry and reported via `Ok` + rc -1,
+        // exactly like `RusshHost::run` (the message goes to the log).
         let mut h = MockHost::new("h1");
         h.connect().await.unwrap();
         h.push_run(MockRunOutcome::TransportErr("boom".into()));
-        let err = h.run("x").await.unwrap_err();
-        assert!(matches!(err, SshError::Transport(_)));
-        assert!(h.out().is_empty());
+        h.run("x").await.unwrap();
+        assert_eq!(
+            h.out(),
+            &[("x".to_string(), String::new(), String::new(), -1, 0)]
+        );
+        assert_eq!(last_out_succeeded(h.out()), Some(false));
     }
 
     #[tokio::test]
-    async fn not_connected_is_err_without_out() {
+    async fn not_connected_is_err_with_a_synthetic_out_entry() {
+        // Real-host parity: a failed dispatch still records the attempt so
+        // the report cannot desync (same shape as the `RusshHost` test).
         let mut h = MockHost::new("h1");
         let err = h.run("x").await.unwrap_err();
         assert!(matches!(err, SshError::NotConnected(_)));
-        assert!(h.out().is_empty());
+        assert_eq!(
+            h.out(),
+            &[("x".to_string(), String::new(), String::new(), -1, 0)]
+        );
     }
 
     #[test]
@@ -875,8 +1083,11 @@ mod tests {
         g.insert(a);
         g.insert(b);
         g.run_all("true").await;
-        assert!(g.get_mock_mut("a").unwrap().out().is_empty());
+        // a's transport failure is a synthetic rc -1 entry, not a cancellation.
+        assert_eq!(g.get_mock_mut("a").unwrap().out().len(), 1);
+        assert_eq!(g.get_mock_mut("a").unwrap().out()[0].3, -1);
         assert_eq!(g.get_mock_mut("b").unwrap().out().len(), 1);
+        assert_eq!(g.get_mock_mut("b").unwrap().out()[0].3, 0);
     }
 
     #[tokio::test]
@@ -937,6 +1148,10 @@ mod tests {
             snap.commands_attempted, 0,
             "counted only past the connected check"
         );
+        assert_eq!(
+            snap.commands_completed, 0,
+            "nothing past the check completes"
+        );
     }
 
     #[tokio::test]
@@ -945,14 +1160,14 @@ mod tests {
         let mut h = MockHost::new("h1").with_metrics(metrics.clone());
         h.connect().await.unwrap();
         h.push_run(MockRunOutcome::TransportErr("boom".into()));
-        assert!(h.run("cmd").await.is_err());
+        h.run("cmd").await.unwrap();
 
         let snap = metrics.snapshot();
         assert_eq!(snap.current_operations, 0);
         assert_eq!(snap.commands_attempted, 1, "attempted past connected check");
         assert_eq!(
-            snap.commands_completed, 0,
-            "no out entry on transport error"
+            snap.commands_completed, 1,
+            "transport failure appends a synthetic out entry"
         );
     }
 
@@ -1051,10 +1266,13 @@ mod tests {
 
         assert_eq!(g.keys(), vec!["a", "b", "c"], "BTreeMap keeps key order");
         assert!(g.get_mock_mut("a").unwrap().out().len() == 1);
-        assert!(
-            g.get_mock_mut("b").unwrap().out().is_empty(),
-            "b's transport failure leaves no out entry"
+        let b_out = g.get_mock_mut("b").unwrap().out().to_vec();
+        assert_eq!(
+            b_out.len(),
+            1,
+            "b's transport failure is one synthetic entry"
         );
+        assert_eq!(b_out[0].3, -1);
         assert!(
             g.get_mock_mut("c").unwrap().out().len() == 1,
             "sibling failure does not cancel c"
@@ -1063,7 +1281,10 @@ mod tests {
         let snap = metrics.snapshot();
         assert_eq!(snap.peak_operations, 3);
         assert_eq!(snap.current_operations, 0);
-        assert_eq!(snap.commands_completed, 2, "a and c completed; b did not");
+        assert_eq!(
+            snap.commands_completed, 3,
+            "a, b (synthetic), and c all appended an entry"
+        );
     }
 
     #[tokio::test]

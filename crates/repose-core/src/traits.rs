@@ -48,14 +48,20 @@ pub trait SshSession: Send {
 ///
 /// # `run` / `out` contract
 ///
-/// 1. **Always append** an [`OutEntry`] when a remote attempt completed or
-///    timed out. Timeout / missing status → `exitcode = -1`.
-/// 2. **`Ok(())` means session I/O finished and `out` was updated.** Remote
-///    non-zero exit codes are **not** `Err`.
-/// 3. **`Err` only when no `out` entry was written** (pre-append transport
-///    failure).
-/// 4. Callers that report via last `out` entry require a non-empty history
-///    after a successful `Ok` return from `run`.
+/// 1. **Always append** an [`OutEntry`] for every `run` call: completed
+///    attempts, timeouts, mid-command transport failures, and even a
+///    dispatch attempted while disconnected. Timeout / transport failure →
+///    `exitcode = -1` with **empty streams** (the diagnostics go to the
+///    log); a command that simply never reported an exit status → `-1`
+///    with the captured streams.
+/// 2. **`Ok(())` means `out` was updated.** Remote non-zero exit codes are
+///    **not** `Err`; neither are timeouts or transport failures (both are
+///    recorded as `-1` entries).
+/// 3. **`Err` only when the host was not connected** and the command was
+///    never dispatched — the synthetic `-1` entry is still appended so the
+///    report cannot desync (Python parity).
+/// 4. Callers that report via last `out` entry can rely on a non-empty
+///    history after any `run` return, `Ok` or `Err`.
 #[async_trait]
 pub trait Host: Send {
     /// Map key: hostname or `host:port` when non-default port.
@@ -81,12 +87,16 @@ pub trait Host: Send {
 
     async fn read_products(&mut self) -> Result<(), SshError>;
 
+    /// Read the host's repositories. The read itself goes through `run`
+    /// semantics: the zypper call is recorded as an `out` entry on both
+    /// success and failure (Python parity).
     async fn read_repos(&mut self) -> Result<(), SshError>;
 
     /// Ensure products + raw_repos, then build [`Repositories`].
     async fn parse_repos(&mut self) -> Result<(), SshError>;
 
-    /// fire-and-forget reboot command, wait_reconnect, re-read products.
+    /// fire-and-forget reboot command, then wait_reconnect. Does **not**
+    /// re-read products — the command layer re-reads them after reconnect.
     /// Returns whether reconnect appeared successful.
     async fn reboot(&mut self, command: &str) -> Result<bool, SshError>;
 }

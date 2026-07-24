@@ -150,7 +150,7 @@ pub(crate) fn report_target<W: Write>(host: &dyn Host, console: &mut Console<W>)
 /// Run `command` on `host` and report the result (the Python
 /// `targets[host].run(cmd)` + `_report_target` pair).
 ///
-/// A transport-level `Err` (no `out` entry appended) counts as host failure,
+/// A dispatch-level `Err` (host not connected) counts as host failure,
 /// mirroring the Python worker-exception path into `_aggregate`.
 ///
 /// The console lock is taken only after the `.await` completes, for the
@@ -455,12 +455,39 @@ mod report_tests {
 
     #[tokio::test]
     async fn run_reported_transport_err_is_failure() {
+        // A mid-command transport failure is an Ok return with a synthetic
+        // rc -1 entry (empty streams): reporting prints nothing and the
+        // host fails via the exit-code classification.
         let mut h = MockHost::new("h1");
         h.connect().await.unwrap();
         h.push_run(MockRunOutcome::TransportErr("wire cut".into()));
         let mut buf = Buffer::default();
         let mut c = Console::new(&mut buf);
         assert!(!run_reported(&mut h, "zypper -n lr", &mut c).await);
+        assert_eq!(buf.0, "", "empty streams print no lines");
+        assert_eq!(
+            h.out(),
+            &[(
+                "zypper -n lr".to_string(),
+                String::new(),
+                String::new(),
+                -1,
+                0
+            )]
+        );
+    }
+
+    #[tokio::test]
+    async fn run_reported_not_connected_is_failure() {
+        // The dispatch-level Err arm: never connected, so `run` errs (with
+        // the synthetic entry appended, per the contract) and the host fails.
+        let mut h = MockHost::new("h1");
+        let mut buf = Buffer::default();
+        let mut c = Console::new(&mut buf);
+        assert!(!run_reported(&mut h, "zypper -n lr", &mut c).await);
+        assert_eq!(buf.0, "");
+        assert_eq!(h.out().len(), 1);
+        assert_eq!(h.out()[0].3, -1);
     }
 
     #[tokio::test]

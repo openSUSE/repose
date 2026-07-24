@@ -6,19 +6,23 @@ use thiserror::Error;
 /// [`crate::traits::Host`].
 ///
 /// Remote command **exit codes** are not errors — they live in the host
-/// `out` history (see `Host::run` contract). Use this type only for
-/// pre-append transport failures or unrecoverable session problems.
+/// `out` history (see the `Host::run` contract). For command execution,
+/// session-layer failures (timeouts, transport, setup) are recorded as
+/// `out` entries with `exitcode == -1`, and only the never-dispatched case
+/// ([`SshError::NotConnected`]) is propagated.
 #[derive(Debug, Error, Clone, PartialEq, Eq)]
 pub enum SshError {
-    /// Host is not connected and no attempt produced an `out` entry.
+    /// Host is not connected, so the command was never dispatched; a
+    /// synthetic `out` entry with `exitcode == -1` is still recorded.
     #[error("not connected: {0}")]
     NotConnected(String),
 
-    /// Channel / session setup failed before any command history entry.
+    /// Channel / session setup or teardown failed.
     #[error("transport error: {0}")]
     Transport(String),
 
-    /// Generic failure without an `out` entry.
+    /// Generic failure (e.g. discovery/read failures); may follow recorded
+    /// `out` entries.
     #[error("{0}")]
     Other(String),
 }
