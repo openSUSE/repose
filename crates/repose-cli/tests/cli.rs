@@ -155,12 +155,19 @@ fn color_always_flag_colorizes_known_products_label() {
     );
 }
 
+// Linux-only: both stderr-log color tests below rely on `-d` emitting at least
+// one DEBUG record. The only such record for these no-network commands is
+// "Loaded N CA root certificates" from rustls-platform-verifier — and that
+// string is emitted solely on the Linux/BSD path that reads CA files from disk.
+// On macOS the verifier uses Apple's Security framework, and on Windows the
+// CryptoAPI, neither of which logs it; the commands then produce no DEBUG line
+// and there is nothing to (not) colorize. The tests knowingly couple to this
+// third-party string, so gate them to the platform where it exists.
+#[cfg(target_os = "linux")]
 #[test]
 fn color_never_disables_ansi_in_stderr_logs() {
-    // -d emits at least one DEBUG log line ("Loaded N CA root certificates"
-    // from rustls-platform-verifier — a third-party string, unix-only; the
-    // tests knowingly couple to it). --color=never must keep stderr
-    // ANSI-free, exactly like its documented alias --no-color.
+    // --color=never must keep stderr ANSI-free, exactly like its documented
+    // alias --no-color.
     let output = repose(&[
         "-d",
         "--color=never",
@@ -181,6 +188,7 @@ fn color_never_disables_ansi_in_stderr_logs() {
     );
 }
 
+#[cfg(target_os = "linux")]
 #[test]
 fn color_always_enables_ansi_in_stderr_logs_even_when_piped() {
     let output = repose(&[
