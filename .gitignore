@@ -15,3 +15,10 @@ Cargo.lock.bak
 /tests/performance/profiles/raw/
 # Criterion's own HTML/statistics reports.
 /target/criterion/
+
+# cargo-fuzz: the fuzz crate is detached from the root workspace; ignore its
+# build dir, crash artifacts, local corpus, and lockfile.
+/fuzz/target/
+/fuzz/artifacts/
+/fuzz/corpus/
+/fuzz/Cargo.lock

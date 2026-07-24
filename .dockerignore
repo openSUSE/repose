@@ -6,3 +6,19 @@
 !tests/vectors/refhosts/sles-16-0/products.d/
 !tests/vectors/refhosts/sles-16-0/products.d/*.prod
 !tests/vectors/refhosts/sles-16-0/zypper-x-lr.xml
+# ClusterFuzzLite fuzz build context (.clusterfuzzlite/Dockerfile). Kept
+# minimal and deliberately excludes rust-toolchain.toml so the builder
+# image's nightly toolchain is used.
+!/.clusterfuzzlite/
+!/.clusterfuzzlite/Dockerfile
+!/.clusterfuzzlite/build.sh
+!/.clusterfuzzlite/project.yaml
+!/Cargo.toml
+!/crates/
+!/crates/repose-core/
+!/crates/repose-ssh/
+!/crates/repose-cli/
+!/fuzz/
+!/fuzz/Cargo.toml
+!/fuzz/fuzz_targets/
+!/fuzz/fuzz_targets/*.rs

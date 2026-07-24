@@ -69,6 +69,10 @@ crate boundaries.
   live transport behavior for `repose-ssh` integration tests.
 - The committed vectors in `tests/vectors/` define the binary's expected
   output; update them only for an intentional, documented behavior change.
+- Parser fuzz targets live in `fuzz/` (cargo-fuzz, nightly-only, detached
+  from the workspace so they do not affect the MSRV, `Cargo.lock`, or
+  `cargo deny`). CI runs them via ClusterFuzzLite (the `fuzz` workflow);
+  locally use `cargo +nightly fuzz run <target>`.
 - A dependency change must update `Cargo.lock`, preserve the MSRV, and pass
   `cargo deny check`. Prefer the smallest compatible version change; do not
   run a broad `cargo update` as part of an unrelated change.
