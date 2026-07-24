@@ -22,6 +22,8 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
       - name: Install Rust toolchain
         # Pin a commit from the action's master branch (commits of the
         # toolchain branches are garbage-collected upstream) and select the
@@ -31,6 +33,9 @@ jobs:
           toolchain: stable
           components: rustfmt, clippy
       - name: Cache cargo
+        # Tag runs re-verify a release: keep them off restored build state;
+        # PR/master runs keep the cache.
+        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
         uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32  # v2
         with:
           workspaces: . -> target
@@ -50,6 +55,34 @@ jobs:
           echo "got: $out"
           echo "$out" | grep -E '^repose version: [0-9]+\.[0-9]+\.[0-9]+$'
 
+  rust-beta:
+    # Early warning on the upcoming compiler: never blocks, but surfaces
+    # new-lint and regression noise before beta becomes stable. No fmt leg
+    # (beta rustfmt formatting may legitimately drift).
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install Rust toolchain (beta)
+        uses: dtolnay/rust-toolchain@2c7215f132e9ebf062739d9130488b56d53c060c  # master
+        with:
+          toolchain: beta
+          components: clippy
+      - name: Cache cargo
+        # Tag runs re-verify a release: keep them off restored build state;
+        # PR/master runs keep the cache.
+        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32  # v2
+        with:
+          workspaces: . -> target
+      - name: Clippy (beta)
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
+      - name: Test (beta)
+        run: cargo test --workspace --all-targets --locked
+
   rust-deny:
     # Dependency policy for the Rust workspace. Config: deny.toml
     # next to the workspace manifest (auto-discovered by cargo-deny).
@@ -57,6 +90,8 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
       - name: cargo-deny
         uses: EmbarkStudios/cargo-deny-action@3c6349835b2b7b196a839186cb8b78e02f7b5f25  # v2
         with:
@@ -70,12 +105,17 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@2c7215f132e9ebf062739d9130488b56d53c060c  # master
         with:
           toolchain: stable
           components: llvm-tools-preview
       - name: Cache cargo
+        # Tag runs re-verify a release: keep them off restored build state;
+        # PR/master runs keep the cache.
+        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
         uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32  # v2
         with:
           workspaces: . -> target
@@ -101,11 +141,16 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@2c7215f132e9ebf062739d9130488b56d53c060c  # master
         with:
           toolchain: stable
       - name: Cache cargo
+        # Tag runs re-verify a release: keep them off restored build state;
+        # PR/master runs keep the cache.
+        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
         uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32  # v2
         with:
           workspaces: . -> target
@@ -123,11 +168,16 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@2c7215f132e9ebf062739d9130488b56d53c060c  # master
         with:
           toolchain: stable
       - name: Cache cargo
+        # Tag runs re-verify a release: keep them off restored build state;
+        # PR/master runs keep the cache.
+        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
         uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32  # v2
         with:
           workspaces: . -> target
@@ -152,6 +202,8 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
       - name: Install Rust toolchain (MSRV)
         uses: dtolnay/rust-toolchain@2c7215f132e9ebf062739d9130488b56d53c060c  # master
         with:
@@ -159,6 +211,9 @@ jobs:
           # rust-toolchain.toml.
           toolchain: "1.96"
       - name: Cache cargo
+        # Tag runs re-verify a release: keep them off restored build state;
+        # PR/master runs keep the cache.
+        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
         uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32  # v2
         with:
           workspaces: . -> target
