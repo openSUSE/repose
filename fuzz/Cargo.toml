@@ -1,0 +1,44 @@
+# cargo-fuzz harness for repose-core parsers. Deliberately detached from the
+# root workspace (empty [workspace] table below): fuzzing requires nightly +
+# cargo-fuzz and must not affect the workspace MSRV, Cargo.lock, cargo-deny
+# graph, or the stable CI jobs. Run with:
+#   cargo +nightly fuzz run <target>
+[package]
+name = "repose-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2024"
+license = "GPL-3.0-or-later"
+
+[package.metadata]
+cargo-fuzz = true
+
+[workspace]
+
+[dependencies]
+libfuzzer-sys = "0.4"
+repose-core = { path = "../crates/repose-core" }
+
+[[bin]]
+name = "repo_xml"
+path = "fuzz_targets/repo_xml.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "prod_parse"
+path = "fuzz_targets/prod_parse.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "host_spec"
+path = "fuzz_targets/host_spec.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "transform"
+path = "fuzz_targets/transform.rs"
+test = false
+doc = false

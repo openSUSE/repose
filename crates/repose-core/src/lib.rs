@@ -19,7 +19,7 @@ pub mod repoq;
 pub(crate) mod shell;
 pub mod template;
 pub mod traits;
-pub(crate) mod transform;
+pub mod transform;
 pub mod types;
 
 /// Crate version string (workspace version).

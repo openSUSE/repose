@@ -54,7 +54,7 @@ impl System {
 
 /// Parse zypper repo **name** `a:b:c:d` into a product (Python `Repositories`).
 #[must_use]
-fn product_from_repo_name(name: &str, host_arch: &str) -> Option<Product> {
+pub fn product_from_repo_name(name: &str, host_arch: &str) -> Option<Product> {
     let parts: Vec<&str> = name.split(':').collect();
     if parts.len() != 4 {
         return None;
