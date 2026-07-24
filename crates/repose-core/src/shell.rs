@@ -11,7 +11,7 @@ const fn is_safe_char(c: char) -> bool {
 
 /// Quote `s` for a POSIX shell, matching Python `shlex.quote`.
 #[must_use]
-pub fn quote(s: &str) -> String {
+fn quote(s: &str) -> String {
     if s.is_empty() {
         return "''".to_string();
     }
@@ -33,7 +33,7 @@ pub fn quote(s: &str) -> String {
 
 /// Join arguments with spaces after quoting each (Python `shlex.join`).
 #[must_use]
-pub fn join(parts: impl IntoIterator<Item = impl AsRef<str>>) -> String {
+pub(crate) fn join(parts: impl IntoIterator<Item = impl AsRef<str>>) -> String {
     parts
         .into_iter()
         .map(|p| quote(p.as_ref()))
@@ -42,32 +42,32 @@ pub fn join(parts: impl IntoIterator<Item = impl AsRef<str>>) -> String {
 }
 
 /// Remote command templates (Python `Command` class attributes).
-pub mod cmd {
+pub(crate) mod cmd {
     use super::join;
 
     /// `zypper -n ar {params} {name} {url} {name}` with shell-quoted interpolations.
     #[must_use]
-    pub fn zypper_ar(refresh: bool, name: &str, url: &str) -> String {
+    pub(crate) fn zypper_ar(refresh: bool, name: &str, url: &str) -> String {
         let params = if refresh { "-cfkn" } else { "-ckn" };
         join(["zypper", "-n", "ar", params, name, url, name])
     }
 
     #[must_use]
-    pub fn zypper_rr(aliases: &[&str]) -> String {
+    pub(crate) fn zypper_rr(aliases: &[&str]) -> String {
         let mut parts: Vec<&str> = vec!["zypper", "-n", "rr"];
         parts.extend_from_slice(aliases);
         join(parts)
     }
 
     #[must_use]
-    pub fn zypper_in_products(products: &[&str]) -> String {
+    pub(crate) fn zypper_in_products(products: &[&str]) -> String {
         let mut parts: Vec<&str> = vec!["zypper", "-n", "in", "-t", "product", "-l", "-f"];
         parts.extend_from_slice(products);
         join(parts)
     }
 
     #[must_use]
-    pub fn transactional_in_products(products: &[&str]) -> String {
+    pub(crate) fn transactional_in_products(products: &[&str]) -> String {
         let mut parts: Vec<&str> = vec![
             "transactional-update",
             "-n",
@@ -83,14 +83,14 @@ pub mod cmd {
     }
 
     #[must_use]
-    pub fn zypper_rm_products(products: &[&str]) -> String {
+    pub(crate) fn zypper_rm_products(products: &[&str]) -> String {
         let mut parts: Vec<&str> = vec!["zypper", "-n", "rm", "-t", "product"];
         parts.extend_from_slice(products);
         join(parts)
     }
 
     #[must_use]
-    pub fn transactional_rm_products(products: &[&str]) -> String {
+    pub(crate) fn transactional_rm_products(products: &[&str]) -> String {
         let mut parts: Vec<&str> = vec![
             "transactional-update",
             "-n",
@@ -105,9 +105,10 @@ pub mod cmd {
         join(parts)
     }
 
-    pub const REFCMD: &str = "zypper -n --gpg-auto-import-keys ref -f";
-    pub const REFTCMD: &str = "transactional-update -n run zypper -n --gpg-auto-import-keys ref -f";
-    pub const REBOOT: &str = "systemctl reboot";
+    pub(crate) const REFCMD: &str = "zypper -n --gpg-auto-import-keys ref -f";
+    pub(crate) const REFTCMD: &str =
+        "transactional-update -n run zypper -n --gpg-auto-import-keys ref -f";
+    pub(crate) const REBOOT: &str = "systemctl reboot";
 }
 
 #[cfg(test)]

@@ -43,7 +43,7 @@ fn field_index(tag: &[u8]) -> Option<usize> {
 /// Like ElementTree's `.text`, a field's value is the concatenation of the
 /// character data — text, resolved entity/char references, CDATA — between
 /// its start tag and its first child element (comments do not interrupt it).
-pub fn parse_prod_xml(xml: &str, _filename: &str) -> Option<Product> {
+fn parse_prod_xml(xml: &str, _filename: &str) -> Option<Product> {
     let mut reader = Reader::from_str(xml);
     let mut buf = Vec::new();
     // Per-field committed `.text` (index shape from `field_index`). `Some("")`
@@ -157,7 +157,7 @@ pub fn parse_prod_xml(xml: &str, _filename: &str) -> Option<Product> {
 }
 
 /// Parse `/etc/os-release` body into (name, version, arch).
-pub fn parse_os_release(text: &str) -> (String, String, String) {
+fn parse_os_release(text: &str) -> (String, String, String) {
     let mut values = std::collections::BTreeMap::new();
     for raw_line in text.lines() {
         let line = raw_line.trim();

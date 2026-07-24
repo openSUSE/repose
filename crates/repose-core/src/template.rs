@@ -43,7 +43,7 @@ pub enum TemplateError {
 /// itself carries `<<: *a`) merges are fully flattened. `serde_yaml`'s own
 /// [`serde_yaml::Value::apply_merge`] leaves a residual `<<` key on chained
 /// merges, so it is not sufficient here.
-pub fn load_template(path: &Path) -> Result<Value, TemplateError> {
+pub(crate) fn load_template(path: &Path) -> Result<Value, TemplateError> {
     let path_s = path.display().to_string();
     let text = fs::read_to_string(path).map_err(|source| TemplateError::Io {
         path: path_s.clone(),

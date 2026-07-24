@@ -1,0 +1,9 @@
+[[production]]
+package = "repose-cli"
+bin = "repose"
+reason = "shipped application binary"
+
+[[production]]
+package = "repose-cli"
+bin = "repose-gen"
+reason = "dev/packaging asset generator binary"

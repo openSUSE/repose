@@ -47,28 +47,6 @@ pub enum HostKeyPolicy {
     Off,
 }
 
-impl HostKeyPolicy {
-    pub fn parse(s: &str) -> Option<Self> {
-        match s {
-            "yes" => Some(Self::Yes),
-            "accept-new" => Some(Self::AcceptNew),
-            "no" => Some(Self::No),
-            "off" => Some(Self::Off),
-            _ => None,
-        }
-    }
-
-    #[must_use]
-    pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Yes => "yes",
-            Self::AcceptNew => "accept-new",
-            Self::No => "no",
-            Self::Off => "off",
-        }
-    }
-}
-
 /// Immutable connection settings shared by all hosts.
 ///
 /// **No `ssh_backend` field** — Rust has a single SSH stack (russh).

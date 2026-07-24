@@ -23,7 +23,7 @@ pub struct System {
 
 impl System {
     #[must_use]
-    pub const fn is_transactional(&self) -> bool {
+    pub(crate) const fn is_transactional(&self) -> bool {
         self.transactional
     }
 
@@ -33,18 +33,18 @@ impl System {
     }
 
     #[must_use]
-    pub const fn get_base(&self) -> &Product {
+    pub(crate) const fn get_base(&self) -> &Product {
         &self.base
     }
 
     #[must_use]
-    pub fn get_addons(&self) -> &[Product] {
+    pub(crate) fn get_addons(&self) -> &[Product] {
         &self.addons
     }
 
     /// Base + addons (Python `System.flatten`).
     #[must_use]
-    pub fn flatten(&self) -> Vec<Product> {
+    pub(crate) fn flatten(&self) -> Vec<Product> {
         let mut v = Vec::with_capacity(1 + self.addons.len());
         v.push(self.base.clone());
         v.extend(self.addons.iter().cloned());
@@ -54,7 +54,7 @@ impl System {
 
 /// Parse zypper repo **name** `a:b:c:d` into a product (Python `Repositories`).
 #[must_use]
-pub fn product_from_repo_name(name: &str, host_arch: &str) -> Option<Product> {
+fn product_from_repo_name(name: &str, host_arch: &str) -> Option<Product> {
     let parts: Vec<&str> = name.split(':').collect();
     if parts.len() != 4 {
         return None;
@@ -80,10 +80,10 @@ pub fn repositories_from_raw(raw: &[Repository], host_arch: &str) -> Repositorie
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Repository {
     pub alias: String,
-    pub name: String,
-    pub url: String,
+    pub(crate) name: String,
+    pub(crate) url: String,
     /// `enabled` from zypper XML (`"1"` → true).
-    pub state: bool,
+    pub(crate) state: bool,
 }
 
 /// Alias → optional product parse (Python `Repositories`).
@@ -96,35 +96,20 @@ pub struct Repositories {
 
 impl Repositories {
     #[must_use]
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self::default()
     }
 
-    pub fn insert(&mut self, alias: String, product: Option<Product>) {
+    pub(crate) fn insert(&mut self, alias: String, product: Option<Product>) {
         self.inner.insert(alias, product);
     }
 
-    #[must_use]
-    pub fn get(&self, alias: &str) -> Option<&Option<Product>> {
-        self.inner.get(alias)
-    }
-
-    pub fn keys(&self) -> impl Iterator<Item = &String> {
+    pub(crate) fn keys(&self) -> impl Iterator<Item = &String> {
         self.inner.keys()
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = (&String, &Option<Product>)> {
+    pub(crate) fn iter(&self) -> impl Iterator<Item = (&String, &Option<Product>)> {
         self.inner.iter()
-    }
-
-    #[must_use]
-    pub fn len(&self) -> usize {
-        self.inner.len()
-    }
-
-    #[must_use]
-    pub fn is_empty(&self) -> bool {
-        self.inner.is_empty()
     }
 }
 
@@ -151,7 +136,7 @@ impl ExitCode {
     ///
     /// Empty → Ok. All true → Ok. All false → AllFailed. Mixed → Partial.
     #[must_use]
-    pub fn aggregate(results: impl IntoIterator<Item = bool>) -> Self {
+    pub(crate) fn aggregate(results: impl IntoIterator<Item = bool>) -> Self {
         let mut total = 0usize;
         let mut failed = 0usize;
         for ok in results {
@@ -177,11 +162,11 @@ impl ExitCode {
 
 /// zypper exit codes treated as success by `_report_target`
 /// (`ZYPPER_SUCCESS_EXIT_CODES` in Python).
-pub const ZYPPER_SUCCESS_EXIT_CODES: &[i32] = &[0, 100, 101, 102, 103, 106, 107];
+const ZYPPER_SUCCESS_EXIT_CODES: &[i32] = &[0, 100, 101, 102, 103, 106, 107];
 
 /// Whether a zypper-style exit code is a successful host result.
 #[must_use]
-pub fn zypper_exit_ok(code: i32) -> bool {
+pub(crate) fn zypper_exit_ok(code: i32) -> bool {
     ZYPPER_SUCCESS_EXIT_CODES.contains(&code)
 }
 

@@ -87,7 +87,7 @@ pub(crate) struct SharedConsole<'a, W: Write> {
 }
 
 impl<'a, W: Write> SharedConsole<'a, W> {
-    pub(crate) const fn new(console: &'a mut Console<W>) -> Self {
+    const fn new(console: &'a mut Console<W>) -> Self {
         Self {
             inner: Mutex::new(console),
         }
@@ -97,24 +97,24 @@ impl<'a, W: Write> SharedConsole<'a, W> {
     ///
     /// A poisoned lock only means a sibling host future panicked mid-write;
     /// keep reporting from the remaining hosts.
-    pub(crate) fn with<R>(&self, f: impl FnOnce(&mut Console<W>) -> R) -> R {
+    fn with<R>(&self, f: impl FnOnce(&mut Console<W>) -> R) -> R {
         let mut guard = self.inner.lock().unwrap_or_else(PoisonError::into_inner);
         f(&mut guard)
     }
 
-    pub(crate) fn dry(&self, host: &str, cmd: &str) {
+    fn dry(&self, host: &str, cmd: &str) {
         self.with(|c| {
             let _ = c.dry(host, cmd);
         });
     }
 
-    pub(crate) fn error(&self, host: &str, msg: &str) {
+    fn error(&self, host: &str, msg: &str) {
         self.with(|c| {
             let _ = c.error(host, msg);
         });
     }
 
-    pub(crate) fn info(&self, msg: &str) {
+    fn info(&self, msg: &str) {
         self.with(|c| {
             let _ = c.info(msg);
         });
@@ -131,7 +131,7 @@ impl<'a, W: Write> SharedConsole<'a, W> {
 /// - any other exit: both streams at error level, failure — some diagnostics
 ///   (e.g. "repository already exists") go to stdout, so reporting stderr
 ///   alone would leave a non-zero exit unexplained.
-pub(crate) fn report_target<W: Write>(host: &dyn Host, console: &mut Console<W>) -> bool {
+fn report_target<W: Write>(host: &dyn Host, console: &mut Console<W>) -> bool {
     let Some((_, stdout, stderr, exitcode, _)) = host.out().last() else {
         return false;
     };
@@ -179,7 +179,7 @@ pub(crate) async fn run_reported_shared<W: Write>(
 /// Serial-console convenience wrapper around [`run_reported_shared`], kept
 /// for unit tests that drive a single host with a plain `&mut Console`.
 #[cfg(test)]
-pub(crate) async fn run_reported<W: Write>(
+async fn run_reported<W: Write>(
     host: &mut dyn Host,
     command: &str,
     console: &mut Console<W>,
@@ -261,7 +261,7 @@ pub(crate) async fn reboot_and_verify_shared<W: Write>(
 /// Serial-console convenience wrapper around [`reboot_and_verify_shared`],
 /// kept for unit tests that drive a single host with a plain `&mut Console`.
 #[cfg(test)]
-pub(crate) async fn reboot_and_verify<W: Write>(
+async fn reboot_and_verify<W: Write>(
     host: &mut dyn Host,
     products: &[String],
     present: bool,
@@ -279,7 +279,7 @@ pub(crate) async fn reboot_and_verify<W: Write>(
 }
 
 /// Aggregate per-host bool results (Python `_aggregate`).
-pub fn aggregate(results: impl IntoIterator<Item = bool>) -> ExitCode {
+pub(crate) fn aggregate(results: impl IntoIterator<Item = bool>) -> ExitCode {
     ExitCode::aggregate(results)
 }
 
@@ -295,7 +295,7 @@ pub(crate) struct ProbeBudget(Arc<Semaphore>);
 
 impl ProbeBudget {
     #[must_use]
-    pub(crate) fn new(limit: NonZeroUsize) -> Self {
+    fn new(limit: NonZeroUsize) -> Self {
         Self(Arc::new(Semaphore::new(limit.get())))
     }
 }
@@ -576,14 +576,14 @@ pub(crate) mod seq {
     /// One expected command-sequence scenario for a mutation command.
     #[derive(Debug, Deserialize)]
     pub(crate) struct SeqCase {
-        pub name: String,
-        pub exit: String,
+        name: String,
+        exit: String,
         /// Remote commands issued in order (live path); empty for dry/abort.
         #[serde(default)]
-        pub ran: Vec<String>,
+        pub(crate) ran: Vec<String>,
         /// Dry-run preview lines in order; empty for live/abort.
         #[serde(default)]
-        pub dry: Vec<String>,
+        dry: Vec<String>,
     }
 
     impl SeqCase {

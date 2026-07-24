@@ -16,10 +16,10 @@ pub mod product_parse;
 pub mod repa;
 pub mod repo_parse;
 pub mod repoq;
-pub mod shell;
+pub(crate) mod shell;
 pub mod template;
 pub mod traits;
-pub mod transform;
+pub(crate) mod transform;
 pub mod types;
 
 /// Crate version string (workspace version).
@@ -29,12 +29,8 @@ pub use config::{ConnectionConfig, HostKeyPolicy};
 pub use error::{OutputStream, SshError, TimeoutPhase};
 pub use host_parse::{HostParseError, HostSpec, parse_host};
 pub use repa::{Repa, RepaError};
-pub use shell::{join as shell_join, quote as shell_quote};
-pub use traits::{Host, HostGroup, Probe, SshSession, last_out_succeeded};
-pub use types::{
-    ExitCode, OutEntry, Product, Repositories, Repository, System, ZYPPER_SUCCESS_EXIT_CODES,
-    zypper_exit_ok,
-};
+pub use traits::{Host, HostGroup, Probe, SshSession};
+pub use types::{ExitCode, OutEntry, Product, Repositories, Repository, System};
 
 #[cfg(test)]
 mod tests {

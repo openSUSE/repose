@@ -5,12 +5,12 @@ use thiserror::Error;
 /// Parsed repository/product pattern from CLI REPA tokens.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Repa {
-    pub product: Option<String>,
-    pub version: Option<String>,
-    pub arch: Option<String>,
-    pub repo: Option<String>,
-    pub baseversion: Option<String>,
-    pub smallver: Option<String>,
+    pub(crate) product: Option<String>,
+    pub(crate) version: Option<String>,
+    pub(crate) arch: Option<String>,
+    pub(crate) repo: Option<String>,
+    pub(crate) baseversion: Option<String>,
+    smallver: Option<String>,
 }
 
 #[derive(Debug, Error, PartialEq, Eq)]
@@ -49,7 +49,7 @@ impl Repa {
     }
 
     #[must_use]
-    pub fn from_parts(
+    pub(crate) fn from_parts(
         product: Option<String>,
         version: Option<String>,
         arch: Option<String>,
