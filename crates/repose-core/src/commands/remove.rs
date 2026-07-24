@@ -1,6 +1,8 @@
 //! `repose remove` — pattern match aliases, zypper rr.
 
-use crate::commands::{CommandOptions, SharedConsole, aggregate, run_reported_shared};
+use crate::commands::{
+    CommandOptions, SharedConsole, aggregate, report_pruned, run_reported_shared,
+};
 use crate::console::Console;
 use crate::repa::Repa;
 use crate::shell::cmd;
@@ -62,7 +64,7 @@ pub async fn run_remove<W: Write>(
     group: &mut dyn HostGroup,
     console: &mut Console<W>,
 ) -> ExitCode {
-    group.connect_and_prune().await;
+    let pruned = group.connect_and_prune().await;
     group.read_repos().await;
     group.parse_repos().await;
 
@@ -74,7 +76,7 @@ pub async fn run_remove<W: Write>(
     let cap = group.host_operation_limit().get();
     let semaphore = Arc::new(Semaphore::new(cap));
     let console = SharedConsole::new(console);
-    let results = join_all(group.hosts_mut().into_iter().map(|host| {
+    let mut results = join_all(group.hosts_mut().into_iter().map(|host| {
         let semaphore = Arc::clone(&semaphore);
         let console = &console;
         async move {
@@ -87,6 +89,7 @@ pub async fn run_remove<W: Write>(
     }))
     .await;
 
+    report_pruned(&pruned, &mut results, &console);
     group.close().await;
     aggregate(results)
 }
@@ -107,10 +110,14 @@ async fn remove_one<W: Write>(
         console.info(&format!("For {} no repos for remove found", host.key()));
         return true;
     }
-    let aliases = host
-        .repos()
-        .map(|r| r.keys().cloned().collect::<Vec<_>>())
-        .unwrap_or_default();
+    // A failed repo read leaves `repos` as `None`: matching zero aliases
+    // against it would silently skip the removal and count the host as
+    // successful.
+    let Some(repos) = host.repos() else {
+        console.error(host.key(), "could not read repositories");
+        return false;
+    };
+    let aliases = repos.keys().cloned().collect::<Vec<_>>();
     let repolist = calculate_repolist(aliases.into_iter(), &patterns);
     if repolist.is_empty() {
         console.info(&format!("For {} no repos for remove found", host.key()));
@@ -189,6 +196,59 @@ mod tests {
         );
         assert!(list.contains("SLES:15-SP3::update"));
         assert!(!list.contains("other"));
+    }
+
+    #[tokio::test]
+    async fn remove_reports_and_counts_pruned_hosts() {
+        let mut g = MockHostGroup::new();
+        let mut bad = MockHost::new("bad");
+        bad.fail_connect();
+        g.insert(bad);
+        g.insert(MockHost::new("h1").with_products(System {
+            base: Product {
+                name: "SLES".into(),
+                version: "15-SP3".into(),
+                arch: "x86_64".into(),
+            },
+            addons: vec![],
+            transactional: false,
+        }));
+        // "OTHER" matches no product → patterns empty → the surviving host
+        // is a successful no-op; only the pruned host fails.
+        let opts = CommandOptions {
+            repa: ["OTHER:1.0"]
+                .iter()
+                .map(|r| Repa::parse(r).unwrap())
+                .collect(),
+            ..Default::default()
+        };
+        let mut buf = Buffer::default();
+        let mut c = Console::new(&mut buf);
+        let code = run_remove(&opts, &mut g, &mut c).await;
+        assert_eq!(code, ExitCode::Partial);
+        assert!(
+            buf.0.contains("connect failed:") && buf.0.contains("bad"),
+            "pruned host must be reported, got: {:?}",
+            buf.0
+        );
+    }
+
+    #[tokio::test]
+    async fn remove_failed_repo_read_fails_the_host() {
+        let host = MockHost::new("h1")
+            .with_products(System {
+                base: Product {
+                    name: "SLES".into(),
+                    version: "15-SP3".into(),
+                    arch: "x86_64".into(),
+                },
+                addons: vec![],
+                transactional: false,
+            })
+            .with_read_repos_err();
+        let (code, buf) = run(host, &["SLES:15-SP3"]).await;
+        assert_eq!(code, ExitCode::AllFailed);
+        assert!(buf.contains("could not read repositories"));
     }
 
     #[test]

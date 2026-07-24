@@ -319,6 +319,9 @@ pub struct MockHost {
     post_reboot_clear_products: bool,
     /// `read_products` returns `Err` (models a re-read failure).
     read_products_err: bool,
+    /// `read_repos` returns `Err` and leaves `raw_repos` as `None` (models
+    /// a failed `zypper -x lr`, distinct from "read ok, zero repos").
+    read_repos_err: bool,
     out: Vec<OutEntry>,
     /// FIFO outcomes for successive `run` calls. Empty → default exit 0.
     run_queue: Vec<MockRunOutcome>,
@@ -390,6 +393,16 @@ impl MockHost {
         self
     }
 
+    /// Make `read_repos` fail like a failed `zypper -x lr`: returns `Err`
+    /// and leaves `raw_repos` as `None` — which commands must not confuse
+    /// with a successful read of zero repositories.
+    #[cfg(test)]
+    #[must_use]
+    pub(crate) const fn with_read_repos_err(mut self) -> Self {
+        self.read_repos_err = true;
+        self
+    }
+
     /// Enter `barrier` at the start of every `run` call (see [`RunBarrier`]).
     #[cfg(test)]
     #[must_use]
@@ -422,7 +435,7 @@ impl MockHost {
     }
 
     #[cfg(test)]
-    const fn fail_connect(&mut self) {
+    pub(crate) const fn fail_connect(&mut self) {
         self.connect_fail = true;
     }
 
@@ -563,6 +576,18 @@ impl Host for MockHost {
         if !self.connected {
             return Err(SshError::NotConnected(self.key.clone()));
         }
+        if self.read_repos_err {
+            return Err(SshError::Other(format!(
+                "mock read_repos failed for {}",
+                self.key
+            )));
+        }
+        // Production parity: a successful `zypper -x lr` always populates
+        // raw_repos (possibly with zero entries); an injected set stays
+        // authoritative. `None` therefore means "read failed / not done".
+        if self.raw_repos.is_none() {
+            self.raw_repos = Some(Vec::new());
+        }
         Ok(())
     }
 
@@ -678,17 +703,20 @@ impl HostGroup for MockHostGroup {
     // These phases mutate host state in place (no per-host result vector to
     // reorder); order restoration is a mutation-worker concern (P1 steps
     // 13–18), not this trait's.
-    async fn connect_and_prune(&mut self) {
+    async fn connect_and_prune(&mut self) -> Vec<(String, SshError)> {
         let cap = self.host_operation_limit.get();
-        let failed: Vec<String> = stream::iter(self.hosts.iter_mut())
+        let mut failed: Vec<(String, SshError)> = stream::iter(self.hosts.iter_mut())
             .map(connect_one)
             .buffer_unordered(cap)
             .filter_map(std::future::ready)
             .collect()
             .await;
-        for key in failed {
-            self.hosts.remove(&key);
+        // Deterministic key order regardless of completion order.
+        failed.sort_by(|a, b| a.0.cmp(&b.0));
+        for (key, _) in &failed {
+            self.hosts.remove(key);
         }
+        failed
     }
 
     async fn read_products(&mut self) {
@@ -747,8 +775,8 @@ impl HostGroup for MockHostGroup {
 // closure's argument lifetime. A plain `fn` item has a concrete
 // `for<'a> fn(&'a mut MockHost) -> impl Future + 'a` signature the
 // compiler resolves without that ambiguity.
-async fn connect_one((key, host): (&String, &mut MockHost)) -> Option<String> {
-    host.connect().await.is_err().then(|| key.clone())
+async fn connect_one((key, host): (&String, &mut MockHost)) -> Option<(String, SshError)> {
+    host.connect().await.err().map(|e| (key.clone(), e))
 }
 
 async fn read_products_one(host: &mut MockHost) {
@@ -964,6 +992,62 @@ mod tests {
         g.insert(bad);
         g.connect_and_prune().await;
         assert_eq!(g.keys(), vec!["good".to_string()]);
+    }
+
+    #[tokio::test]
+    async fn connect_and_prune_returns_pruned_pairs_sorted_by_key() {
+        let mut g = MockHostGroup::new();
+        let mut bad2 = MockHost::new("bad2");
+        bad2.fail_connect();
+        let mut bad1 = MockHost::new("bad1");
+        bad1.fail_connect();
+        g.insert(MockHost::new("good"));
+        g.insert(bad2);
+        g.insert(bad1);
+        let pruned = g.connect_and_prune().await;
+        assert_eq!(g.keys(), vec!["good".to_string()]);
+        let keys: Vec<&str> = pruned.iter().map(|(k, _)| k.as_str()).collect();
+        assert_eq!(
+            keys,
+            ["bad1", "bad2"],
+            "pruned pairs must be key-sorted regardless of completion order"
+        );
+        for (_, err) in &pruned {
+            assert!(err.to_string().contains("mock connect failed"));
+        }
+    }
+
+    #[tokio::test]
+    async fn read_repos_success_populates_empty_raw_repos() {
+        let mut h = MockHost::new("h1");
+        h.connect().await.unwrap();
+        h.read_repos().await.unwrap();
+        assert_eq!(h.raw_repos(), Some(&[][..]));
+    }
+
+    #[tokio::test]
+    async fn read_repos_keeps_injected_raw_repos() {
+        let mut h = MockHost::new("h1").with_raw_repos(vec![Repository {
+            alias: "a".into(),
+            name: "n".into(),
+            url: "http://x".into(),
+            state: true,
+        }]);
+        h.connect().await.unwrap();
+        h.read_repos().await.unwrap();
+        assert_eq!(h.raw_repos().map(<[_]>::len), Some(1));
+    }
+
+    #[tokio::test]
+    async fn read_repos_err_leaves_repos_unread() {
+        let mut h = MockHost::new("h1").with_read_repos_err();
+        h.connect().await.unwrap();
+        assert!(h.read_repos().await.is_err());
+        assert_eq!(h.raw_repos(), None);
+        // parse_repos propagates the failure and never fabricates an empty
+        // repo set over a failed read.
+        assert!(h.parse_repos().await.is_err());
+        assert_eq!(h.repos(), None);
     }
 
     #[tokio::test]

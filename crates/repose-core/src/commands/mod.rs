@@ -24,6 +24,7 @@ use std::time::Duration;
 use tokio::sync::Semaphore;
 
 use crate::console::{Console, Level, OutputFormat};
+use crate::error::SshError;
 use crate::probe::HttpProbe;
 use crate::repa::Repa;
 use crate::repoq::Repoq;
@@ -281,6 +282,21 @@ async fn reboot_and_verify<W: Write>(
 /// Aggregate per-host bool results (Python `_aggregate`).
 pub(crate) fn aggregate(results: impl IntoIterator<Item = bool>) -> ExitCode {
     ExitCode::aggregate(results)
+}
+
+/// Report the hosts dropped by `connect_and_prune` and append one `false`
+/// per pruned host to the exit aggregation. A connect failure must surface
+/// in both the output and the process exit status — otherwise a run where
+/// every target is unreachable exits `Ok` with no output at all.
+pub(crate) fn report_pruned<W: Write>(
+    pruned: &[(String, SshError)],
+    results: &mut Vec<bool>,
+    console: &SharedConsole<'_, W>,
+) {
+    for (key, err) in pruned {
+        console.error(key, &format!("connect failed: {err}"));
+    }
+    results.extend(std::iter::repeat_n(false, pruned.len()));
 }
 
 /// Fleet-wide URL-liveness probe concurrency budget (P1 steps 19–23),
