@@ -23,11 +23,10 @@ updates:
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 5
-    # dtolnay/rust-toolchain pins the Rust version in the git ref (e.g.
-    # @1.96 installs Rust 1.96), not the action's own release version.
-    # Dependabot reads the ref as semver and "bumps" it to nonexistent
-    # Rust toolchains (e.g. 1.100). The MSRV must only change deliberately
-    # alongside Cargo.toml `rust-version` and rust-toolchain.toml.
+    # dtolnay/rust-toolchain is pinned to a master-branch commit SHA and the
+    # toolchain is selected via its `toolchain:` input; the action has no
+    # semver releases for Dependabot to bump to. The MSRV must only change
+    # deliberately alongside Cargo.toml `rust-version` and rust-toolchain.toml.
     ignore:
       - dependency-name: "dtolnay/rust-toolchain"
     groups:
