@@ -46,5 +46,73 @@
   {
     "input": "host:99999",
     "ok": false
+  },
+  {
+    "input": "[::1]",
+    "ok": true,
+    "key": "[::1]",
+    "hostname": "::1",
+    "port": 22,
+    "username": "root"
+  },
+  {
+    "input": "[::1]:2222",
+    "ok": true,
+    "key": "[::1]:2222",
+    "hostname": "::1",
+    "port": 2222,
+    "username": "root"
+  },
+  {
+    "input": "admin@[2001:db8::1]:2222",
+    "ok": true,
+    "key": "[2001:db8::1]:2222",
+    "hostname": "2001:db8::1",
+    "port": 2222,
+    "username": "admin"
+  },
+  {
+    "input": "::1",
+    "ok": true,
+    "key": "[::1]",
+    "hostname": "::1",
+    "port": 22,
+    "username": "root"
+  },
+  {
+    "input": "2001:DB8::1",
+    "ok": true,
+    "key": "[2001:db8::1]",
+    "hostname": "2001:db8::1",
+    "port": 22,
+    "username": "root"
+  },
+  {
+    "input": "[::1",
+    "ok": false
+  },
+  {
+    "input": "[example.com]:22",
+    "ok": false
+  },
+  {
+    "input": "fe80::1%eth0",
+    "ok": false
+  },
+  {
+    "input": "foo:bar:80",
+    "ok": false
+  },
+  {
+    "input": "[2001:0db8:0000:0000:0000:0000:0000:0001]:2222",
+    "ok": true,
+    "key": "[2001:db8::1]:2222",
+    "hostname": "2001:db8::1",
+    "port": 2222,
+    "username": "root"
+  },
+  {
+    "input": "[]",
+    "ok": false
   }
 ]

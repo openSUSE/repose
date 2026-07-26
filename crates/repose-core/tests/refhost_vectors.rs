@@ -70,6 +70,12 @@ fn golden(dir: &Path, label: &str, file: &str, rendered: &str) -> String {
 
 /// Replicates `commands::list_cmd::split_key`: `host:port`, defaulting to 22.
 fn split_key(key: &str) -> (&str, u16) {
+    if let Some(rest) = key.strip_prefix('[')
+        && let Some((inner, after)) = rest.split_once(']')
+    {
+        let port = after.strip_prefix(':').and_then(|p| p.parse().ok());
+        return (inner, port.unwrap_or(22));
+    }
     if let Some((h, p)) = key.rsplit_once(':')
         && let Ok(port) = p.parse()
     {

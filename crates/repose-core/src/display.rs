@@ -136,13 +136,24 @@ fn is_numeric_like(s: &str) -> bool {
     }
 }
 
+/// YAML c-indicators, which cannot open a plain scalar: flow collections,
+/// anchors and aliases, tags, comments, block scalars, the directive and
+/// reserved markers, and both quote characters. Deliberately excludes `-`,
+/// `?` and `:`, which YAML 1.2 permits to open a plain scalar when the next
+/// character is not a space — `sle-ha` and `15-SP3` must stay unquoted.
+const YAML_INDICATORS: &[char] = &[
+    '[', ']', '{', '}', ',', '&', '*', '#', '|', '>', '!', '%', '@', '`', '"', '\'',
+];
+
 /// One YAML string scalar, single-quoted exactly where leaving it plain would
 /// stop it being a string: the empty string, int/float-like strings (`'0'`,
 /// `'22'`, `'08'`, `'6.1'`), YAML 1.2 core booleans/null (`true`/`True`/`TRUE`,
 /// `false`/..., `null`/`Null`/`NULL`, `~` — but NOT the YAML 1.1-only
-/// `yes`/`no`/`on`/`off`, which stay plain), and strings containing `": "` or
-/// `" #"`. Everything else (`15-SP3`, `SP3`, `ALL`, `SLES`, `tumbleweed`,
-/// hostnames) stays plain.
+/// `yes`/`no`/`on`/`off`, which stay plain), strings containing `": "` or
+/// `" #"`, and anything opening with a YAML indicator character — a
+/// bracketed IPv6 host name would otherwise be read back as a flow
+/// sequence rather than a string. Everything else (`15-SP3`, `SP3`, `ALL`,
+/// `SLES`, `tumbleweed`, hostnames) stays plain.
 fn yaml_string(s: &str) -> String {
     let quote = s.is_empty()
         || is_numeric_like(s)
@@ -150,6 +161,10 @@ fn yaml_string(s: &str) -> String {
             s,
             "true" | "True" | "TRUE" | "false" | "False" | "FALSE" | "null" | "Null" | "NULL" | "~"
         )
+        || s.starts_with(YAML_INDICATORS)
+        // A plain scalar loses its surrounding whitespace on the way back in,
+        // so padding has to be quoted or it is silently dropped.
+        || s.trim() != s
         || s.contains(": ")
         || s.contains(" #");
     if quote {
@@ -602,6 +617,16 @@ mod tests {
         ] {
             assert_eq!(yaml_string(s), format!("'{s}'"), "{s:?} must be quoted");
         }
+        // A bracketed IPv6 host name must be quoted, or reading the document
+        // back yields a one-element flow sequence instead of a string.
+        assert_eq!(yaml_string("[::1]"), "'[::1]'");
+        assert_eq!(yaml_string("[2001:db8::1]:2222"), "'[2001:db8::1]:2222'");
+        // Padding survives only if quoted; a plain scalar is trimmed on read.
+        assert_eq!(yaml_string(" pad"), "' pad'");
+        assert_eq!(yaml_string("pad "), "'pad '");
+        // `-`/`?`/`:` may open a plain scalar when not followed by a space.
+        assert_eq!(yaml_string("-SP3"), "-SP3");
+        assert_eq!(yaml_string("sle-ha"), "sle-ha");
         // Plain: the YAML 1.1-only bool spellings and ordinary SUSE shapes.
         for s in [
             "yes",

@@ -112,7 +112,19 @@ pub fn run_known_products(
     Ok(ExitCode::Ok)
 }
 
+/// Recover `(hostname, port)` from a host key.
+///
+/// An IPv6 key is bracketed at every port (`[::1]`, `[::1]:2222`), which is
+/// what keeps the port recoverable — a bare `::1` would split into host `:`
+/// port 1. The brackets are stripped again here so callers see the same bare
+/// address the transport and `known_hosts` use.
 fn split_key(key: &str) -> (&str, u16) {
+    if let Some(rest) = key.strip_prefix('[')
+        && let Some((inner, after)) = rest.split_once(']')
+    {
+        let port = after.strip_prefix(':').and_then(|p| p.parse().ok());
+        return (inner, port.unwrap_or(22));
+    }
     if let Some((h, p)) = key.rsplit_once(':')
         && let Ok(port) = p.parse()
     {
@@ -123,6 +135,29 @@ fn split_key(key: &str) -> (&str, u16) {
 
 #[cfg(test)]
 mod tests {
+    /// `parse_host` builds the key and `split_key` takes it apart; the two
+    /// must agree or `list-*` reports a host that was never targeted. This
+    /// is the pairing that hid the original bug — a bare `::1` key looks
+    /// harmless until it decodes to host `:` port 1.
+    #[test]
+    fn split_key_inverts_every_key_parse_host_can_build() {
+        for target in [
+            "example.com",
+            "example.com:2222",
+            "::1",
+            "[::1]",
+            "[::1]:2222",
+            "2001:db8::1",
+            "[2001:db8::1]:65535",
+            "[::1]:0",
+        ] {
+            let spec = crate::host_parse::parse_host(target).unwrap();
+            let (host, port) = super::split_key(&spec.key);
+            assert_eq!(host, spec.hostname, "{target}: hostname round trip");
+            assert_eq!(port, spec.port, "{target}: port round trip");
+        }
+    }
+
     use super::*;
     use crate::console::Buffer;
 
