@@ -3,7 +3,7 @@
 //!
 //! Vectors under `tests/vectors/shell/` pin the exact quoting rule and the
 //! command templates below and are the merge gate for any remote command
-//! interpolation (design R2 / PR2).
+//! interpolation.
 
 /// Characters safe to leave unquoted: ASCII alphanumerics plus
 /// `_@%+=:,./-`; anything else forces single-quoting.

@@ -1,7 +1,8 @@
-//! Minimal domain types referenced by Host traits.
+//! Domain types referenced by the Host traits.
 //!
-//! Full parsers and REPA land in later PRs; these stubs keep traits
-//! compilable and mockable without pulling XML/YAML deps into PR0.5.
+//! Deliberately free of XML/YAML dependencies, so the traits stay
+//! compilable and mockable; the parsers that build these types live in
+//! `product_parse` and `repo_parse`.
 
 use std::collections::BTreeMap;
 

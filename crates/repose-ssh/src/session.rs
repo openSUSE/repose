@@ -27,8 +27,8 @@ use crate::hostkey::{HostKeyVerifier, KeyDecision, persist_first_contact};
 use crate::openssh_config::OpenSshOptions;
 
 /// Run `fut` under `deadline`, mapping an elapsed deadline to a typed
-/// [`SshError::Timeout`] identifying `phase` (P1 step 24). A phase that
-/// completes before its own deadline returns `fut`'s result unchanged.
+/// [`SshError::Timeout`] identifying `phase`. A phase that completes before
+/// its own deadline returns `fut`'s result unchanged.
 async fn with_deadline<T>(
     phase: TimeoutPhase,
     deadline: Duration,
@@ -118,12 +118,12 @@ impl Handler for ClientHandler {
         match self.verifier.decide_public_key(server_public_key) {
             KeyDecision::Accept => Ok(true),
             KeyDecision::Reject => Ok(false),
-            // `accept-new` first contact (P1 steps 34–35): persist off the
-            // async runtime via `spawn_blocking` and trust the key only
-            // after a successful durable write — a slow disk delays this
-            // one handshake, not sibling connections/timers, and a
-            // persistence failure rejects the session (fail-closed) rather
-            // than silently trusting an unrecorded key.
+            // `accept-new` first contact: persist off the async runtime via
+            // `spawn_blocking` and trust the key only after a successful
+            // durable write — a slow disk delays this one handshake, not
+            // sibling connections/timers, and a persistence failure rejects
+            // the session (fail-closed) rather than silently trusting an
+            // unrecorded key.
             KeyDecision::PersistFirstContact { path, key } => {
                 let host = self.verifier.host().to_string();
                 let port = self.verifier.port();
@@ -201,8 +201,7 @@ impl RusshSession {
         self
     }
 
-    /// The configured plausible-entry cap for `/etc/products.d` listings
-    /// (P1 step 30).
+    /// The configured plausible-entry cap for `/etc/products.d` listings.
     #[must_use]
     pub(crate) fn max_products_d_entries(&self) -> usize {
         self.config.max_products_d_entries.get()
@@ -212,9 +211,9 @@ impl RusshSession {
     /// authentication. The fast paths (`--identity`, or `IdentityFile`
     /// entries already resolved from `~/.ssh/config`) touch no filesystem
     /// state; only the fallback default-key scan performs blocking `stat`
-    /// calls, so only that branch runs on the blocking pool (P1 step 33) —
-    /// per this plan's decision, local credential discovery is off the
-    /// async thread but outside the network-authentication deadline.
+    /// calls, so only that branch runs on the blocking pool — local
+    /// credential discovery is deliberately off the async thread but
+    /// outside the network-authentication deadline.
     async fn candidate_keys(&self, configured_keys: &[PathBuf]) -> Result<Vec<PathBuf>, SshError> {
         if let Some(p) = &self.identity {
             return Ok(vec![p.clone()]);
@@ -285,7 +284,7 @@ impl RusshSession {
             .map(|verifier| verifier.with_alias(self.hostname.clone()))?
         };
         let handler = ClientHandler { verifier };
-        // DNS/TCP/proxy connect + SSH handshake: one deadline (P1 step 24).
+        // DNS/TCP/proxy connect + SSH handshake: one deadline.
         let mut session =
             with_deadline(TimeoutPhase::Connect, self.config.connect_deadline, async {
                 if let Some(command) =
@@ -306,12 +305,12 @@ impl RusshSession {
 
         // Auth order mirrors asyncssh's default: ssh-agent first (silently
         // skipped when SSH_AUTH_SOCK is absent or unusable), then
-        // IdentityFile / default key files, then one password prompt.
-        // Agent + public-key attempts share one absolute deadline (P1 step
-        // 25) so many identities or a stalled agent/server cannot multiply
-        // timeout duration indefinitely; the interactive password prompt
-        // below stays user-paced (excluded), and only the subsequent
-        // network `authenticate_password` call is separately deadline-bound.
+        // IdentityFile / default key files, then one password prompt. Agent
+        // + public-key attempts share one absolute deadline so many
+        // identities or a stalled agent/server cannot multiply timeout
+        // duration indefinitely; the interactive password prompt below
+        // stays user-paced (excluded), and only the subsequent network
+        // `authenticate_password` call is separately deadline-bound.
         let mut last_err = "no SSH private key found (~/.ssh/id_ed25519|id_rsa)".to_string();
         let candidate_keys = self.candidate_keys(&options.identity_files).await?;
         let automatic_ok = with_deadline(
@@ -392,9 +391,9 @@ impl RusshSession {
         )
         .await?;
 
-        // Command completion keeps its existing, separately configured
-        // budget (`ConnectionConfig::timeout`) — unchanged by P1 — but now
-        // returns the same typed timeout as every other phase (P1 step 27).
+        // Command completion has its own, separately configured budget
+        // (`ConnectionConfig::timeout`), but reports exhaustion with the
+        // same typed timeout as every other phase.
         let deadline = Duration::from_secs_f64(self.config.timeout);
         let stdout_limit = self.config.max_stdout_bytes.get();
         let stderr_limit = self.config.max_stderr_bytes.get();
@@ -494,8 +493,8 @@ impl RusshSession {
     }
 
     /// Read many remote files concurrently over the shared SFTP channel,
-    /// bounded to `sftp_read_concurrency_limit` in-flight reads (P1 step
-    /// 29) instead of one in-flight request per directory entry.
+    /// bounded to `sftp_read_concurrency_limit` in-flight reads instead of
+    /// one in-flight request per directory entry.
     ///
     /// Results keep the order of `paths`; a missing, unreadable, or
     /// oversized file (or a failed SFTP setup) yields `None` — the same
@@ -529,10 +528,10 @@ impl RusshSession {
     }
 }
 
-/// Append `chunk` to `buffer` unless doing so would exceed `limit` (P1
-/// step 31), checked *before* growth — mirroring `read_bounded`'s SFTP-side
-/// bound — so an oversized command output stream is never fully buffered
-/// before being rejected. Exactly-at-limit payloads succeed.
+/// Append `chunk` to `buffer` unless doing so would exceed `limit`, checked
+/// *before* growth — mirroring `read_bounded`'s SFTP-side bound — so an
+/// oversized command output stream is never fully buffered before being
+/// rejected. Exactly-at-limit payloads succeed.
 fn accumulate_or_overflow(
     buffer: &mut Vec<u8>,
     chunk: &[u8],
@@ -546,10 +545,10 @@ fn accumulate_or_overflow(
     Ok(())
 }
 
-/// Best-effort channel close after a P1 step 31 output-limit overflow,
-/// bounded by `overflow_cleanup_deadline` so a stalled close request
-/// cannot itself pin the host slot indefinitely. The channel is discarded
-/// immediately afterward regardless of whether the close completes.
+/// Best-effort channel close after an output-limit overflow, bounded by
+/// `overflow_cleanup_deadline` so a stalled close request cannot itself pin
+/// the host slot indefinitely. The channel is discarded immediately
+/// afterward regardless of whether the close completes.
 async fn close_on_overflow(channel: &russh::Channel<client::Msg>, deadline: Duration) {
     let _ = tokio::time::timeout(deadline, channel.close()).await;
 }
@@ -579,11 +578,11 @@ async fn read_one_bounded(
     (idx, result)
 }
 
-/// Read `path` incrementally, enforcing `limit` *before* growing the
-/// buffer past it (P1 step 28) — checking size only after a whole-file
-/// read would already have allocated the oversized payload, defeating the
-/// bound. The remote file handle is closed (via [`russh_sftp`]'s `File`
-/// `Drop`) on every exit path: success, a real I/O error, or overflow.
+/// Read `path` incrementally, enforcing `limit` *before* growing the buffer
+/// past it — checking size only after a whole-file read would already have
+/// allocated the oversized payload, defeating the bound. The remote file
+/// handle is closed (via [`russh_sftp`]'s `File` `Drop`) on every exit
+/// path: success, a real I/O error, or overflow.
 async fn read_bounded(sftp: &SftpSession, path: &str, limit: usize) -> Result<Vec<u8>, SshError> {
     use tokio::io::AsyncReadExt;
     let mut file = sftp
@@ -614,8 +613,7 @@ async fn read_bounded(sftp: &SftpSession, path: &str, limit: usize) -> Result<Ve
 
 /// Blocking half of `RusshSession::candidate_keys`'s default-key fallback:
 /// `HOME` lookup plus a `stat` per candidate filename. Run only via
-/// `spawn_blocking` (P1 step 33) — never called directly on the async
-/// runtime.
+/// `spawn_blocking` — never called directly on the async runtime.
 fn default_key_candidates() -> Vec<PathBuf> {
     match std::env::var_os("HOME") {
         Some(home) => default_key_candidates_in(&Path::new(&home).join(".ssh")),
@@ -640,10 +638,10 @@ fn default_key_candidates_in(ssh_dir: &Path) -> Vec<PathBuf> {
 /// Non-interactive authentication methods only (ssh-agent, then
 /// `IdentityFile`/default key files) — the automatic-order portion of
 /// `connect_inner`'s auth sequence, extracted so it can be wrapped in one
-/// absolute deadline (P1 step 25) without also bounding the interactive
-/// password prompt. Returns `Ok(true)` on success, `Ok(false)` if every
-/// automatic method was exhausted without success (caller falls through to
-/// the password prompt), `Err` only for a hard transport failure.
+/// absolute deadline without also bounding the interactive password prompt.
+/// Returns `Ok(true)` on success, `Ok(false)` if every automatic method was
+/// exhausted without success (caller falls through to the password prompt),
+/// `Err` only for a hard transport failure.
 async fn authenticate_automatic(
     session: &mut client::Handle<ClientHandler>,
     target_user: &str,
@@ -736,13 +734,13 @@ async fn try_agent_auth(
     false
 }
 
-/// Load and parse an unencrypted private key on the blocking pool (P1
-/// step 33) so file I/O and key parsing do not stall the current-thread
-/// runtime. The outer `Result` is a hard failure (the blocking task
-/// itself panicked/was cancelled) mapped to a typed `SshError` and
-/// propagated; the inner `Result` is an ordinary key-load outcome
-/// (missing, malformed, or `KeyIsEncrypted`) that the caller matches on
-/// exactly as before, skipping to the next candidate on failure.
+/// Load and parse an unencrypted private key on the blocking pool so file
+/// I/O and key parsing do not stall the current-thread runtime. The outer
+/// `Result` is a hard failure (the blocking task itself panicked/was
+/// cancelled) mapped to a typed `SshError` and propagated; the inner
+/// `Result` is an ordinary key-load outcome (missing, malformed, or
+/// `KeyIsEncrypted`) that the caller matches on exactly as before, skipping
+/// to the next candidate on failure.
 async fn load_unencrypted_key(
     key_path: PathBuf,
 ) -> Result<Result<russh::keys::PrivateKey, russh::keys::Error>, SshError> {
@@ -1003,10 +1001,10 @@ mod tests {
 
     #[tokio::test]
     async fn with_deadline_does_not_delay_an_independent_sibling_future() {
-        // P1 step 24 verify: a stalled phase must not block an unrelated
+        // This verifies that a stalled phase must not block an unrelated
         // concurrent timer/host operation. `tokio::join!` only returns once
-        // *both* branches finish, so the sibling records its own
-        // completion time rather than relying on the join's return time.
+        // *both* branches finish, so the sibling records its own completion
+        // time rather than relying on the join's return time.
         let stalled = super::with_deadline(
             TimeoutPhase::Connect,
             Duration::from_millis(300),
@@ -1034,9 +1032,9 @@ mod tests {
         ));
     }
 
-    /// P1 step 24: a server that accepts the TCP connection but never
-    /// speaks SSH must not hang `connect()` forever — a real (not mocked)
-    /// deterministic stall, using a plain `TcpListener`.
+    /// A server that accepts the TCP connection but never speaks SSH must
+    /// not hang `connect()` forever — a real (not mocked) deterministic
+    /// stall, using a plain `TcpListener`.
     #[tokio::test]
     async fn connect_deadline_fires_against_a_server_that_never_speaks_ssh() {
         let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind an ephemeral port");
@@ -1143,11 +1141,11 @@ mod tests {
         assert!((1..=10).all(|attempt| super::reconnect_sleep_secs(attempt, 10, false) == 10));
     }
 
-    // P1 step 31: `accumulate_or_overflow` is the pure boundary check behind
-    // the stdout/stderr byte caps in `run_inner`'s collect loop. It is
-    // tested directly here (no live SSH channel required); the full
-    // channel-close/exit-status/session-reuse behavior around it is
-    // covered by the live-gated tests in `ssh_integration.rs`.
+    // `accumulate_or_overflow` is the pure boundary check behind the
+    // stdout/stderr byte caps in `run_inner`'s collect loop. It is tested
+    // directly here (no live SSH channel required); the full
+    // channel-close/exit-status/session-reuse behavior around it is covered
+    // by the live-gated tests in `ssh_integration.rs`.
     #[test]
     fn accumulate_or_overflow_accepts_an_empty_chunk_into_an_empty_buffer() {
         let mut buffer = Vec::new();
@@ -1202,11 +1200,11 @@ mod tests {
         );
     }
 
-    // P1 step 33: default key-file discovery and unencrypted key loading
-    // now run via `spawn_blocking`. `default_key_candidates_in` is tested
-    // directly against a temporary directory (not the process-global
-    // `HOME`, which parallel tests must not mutate); `candidate_keys`'s
-    // two filesystem-free fast paths are tested through the real method.
+    // Default key-file discovery and unencrypted key loading now run via
+    // `spawn_blocking`. `default_key_candidates_in` is tested directly
+    // against a temporary directory (not the process-global `HOME`, which
+    // parallel tests must not mutate); `candidate_keys`'s two
+    // filesystem-free fast paths are tested through the real method.
 
     #[tokio::test]
     async fn candidate_keys_prefers_an_explicit_identity_over_everything_else() {
@@ -1247,11 +1245,11 @@ mod tests {
         assert!(super::default_key_candidates_in(dir.path()).is_empty());
     }
 
-    /// P1 step 33 verify: a deliberately slow blocking task (representing
+    /// This verifies that a deliberately slow blocking task (representing
     /// the shape of `default_key_candidates`/`load_unencrypted_key`'s
-    /// filesystem/crypto work) must not delay an independent async
-    /// sibling — the same `spawn_blocking` isolation both functions rely
-    /// on, demonstrated directly since real key I/O cannot be forced slow
+    /// filesystem/crypto work) must not delay an independent async sibling
+    /// — the same `spawn_blocking` isolation both functions rely on,
+    /// demonstrated directly since real key I/O cannot be forced slow
     /// deterministically in a unit test.
     #[tokio::test]
     async fn spawn_blocking_key_work_does_not_delay_an_independent_sibling() {
@@ -1274,9 +1272,9 @@ mod tests {
         );
     }
 
-    // P1 steps 34–35: `ClientHandler::check_server_key` awaits `accept-new`
-    // persistence via `spawn_blocking` and trusts a first-contact key only
-    // after a successful durable write.
+    // `ClientHandler::check_server_key` awaits `accept-new` persistence via
+    // `spawn_blocking` and trusts a first-contact key only after a
+    // successful durable write.
 
     #[tokio::test]
     async fn check_server_key_accepts_first_contact_only_after_a_durable_write() {
@@ -1341,11 +1339,11 @@ mod tests {
             .expect("permissions should be restorable for cleanup");
     }
 
-    /// P1 step 35 verify: a slow `accept-new` persistence write must not
+    /// This verifies that a slow `accept-new` persistence write must not
     /// delay an independent sibling connection/timer — the same
     /// `spawn_blocking` isolation guarantee already demonstrated for key
-    /// loading (P1 step 33), applied to `check_server_key`'s persistence
-    /// path specifically.
+    /// loading, applied to `check_server_key`'s persistence path
+    /// specifically.
     #[tokio::test]
     async fn check_server_key_persistence_does_not_delay_an_independent_sibling() {
         let key = PublicKey::from_openssh(TEST_KEY).expect("test key should parse");

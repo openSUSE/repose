@@ -12,7 +12,7 @@
 //! Every observed result is checked against the workload's reviewed
 //! `expect` block *before* any timing is printed — a changed command
 //! history, count, or exit code fails the run instead of silently shipping
-//! a report (P0.1 plan item 3 / P0.3 plan item 4).
+//! a report.
 
 #[path = "../benches/support/mod.rs"]
 mod support;

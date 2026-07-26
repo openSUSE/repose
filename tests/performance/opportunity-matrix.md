@@ -26,10 +26,9 @@ Linux-specific claims as pending until a Linux capture lands.
 **Scope caveat**: these are `mock`-kind (in-process, no SSH/SFTP/zypper)
 profiles — they measure `repose-core`'s *local* command-algorithm cost, not
 remote/network cost. This is consistent with, not a contradiction of, the
-audit's conclusion that remote round trips dominate production wall time
-(`plans/performance-action-plan.md`); local hotspots matter most for P5
-("profile-gated local optimizations"), which explicitly gates on evidence
-like this.
+earlier finding that remote round trips dominate production wall time; local
+hotspots matter most for P5 ("profile-gated local optimizations"), which
+explicitly gates on evidence like this.
 
 **Excluded as harness artifact**: `mock-list-products-100h`'s CPU profile's
 #2 symbol is `baseline_report::check_expectation` (185/2215 ≈ 8.4% of

@@ -24,17 +24,17 @@ pub async fn run_add<W: Write>(
     group.read_products().await;
 
     // Fan out per-host work concurrently, one future per host; `join_all`
-    // preserves key order for exit aggregation. Bounded by a semaphore (P1
-    // step 13) rather than `.buffered(cap)`: every future is created up
-    // front and races for a permit, so one slow host holding a permit
-    // never blocks a *different* freed permit from admitting a later host
-    // — the same non-head-of-line-blocking property `buffer_unordered`
-    // would give, without needing an index/sort step, since `join_all`'s
-    // output stays in input (key) order regardless of acquisition order.
+    // preserves key order for exit aggregation. Bounded by a semaphore
+    // rather than `.buffered(cap)`: every future is created up front and
+    // races for a permit, so one slow host holding a permit never blocks a
+    // *different* freed permit from admitting a later host — the same
+    // non-head-of-line-blocking property `buffer_unordered` would give,
+    // without needing an index/sort step, since `join_all`'s output stays
+    // in input (key) order regardless of acquisition order.
     let cap = group.host_operation_limit().get();
     let semaphore = Arc::new(Semaphore::new(cap));
-    // One fleet-wide probe budget (P1 step 21) shared by every host worker,
-    // replacing the old per-host `min(16, n)` local cap.
+    // One fleet-wide probe budget shared by every host worker, replacing
+    // the old per-host `min(16, n)` local cap.
     let probe_budget = ProbeBudget::new(opts.probe_concurrency_limit);
     let console = SharedConsole::new(console);
     let mut results = join_all(group.hosts_mut().into_iter().map(|host| {
@@ -299,10 +299,10 @@ mod tests {
         assert!(buf.0.contains("zypper") && buf.0.contains("ar"));
     }
 
-    /// P1 step 13: a configured host-operation limit below the host count
-    /// bounds the per-host worker semaphore, not just `Host::run` itself —
-    /// while every host still runs exactly once and command/output vectors
-    /// are unchanged.
+    /// A configured host-operation limit below the host count bounds the
+    /// per-host worker semaphore, not just `Host::run` itself — while every
+    /// host still runs exactly once and command/output vectors are
+    /// unchanged.
     #[tokio::test]
     async fn bounded_add_never_exceeds_the_configured_host_operation_limit() {
         use crate::mock::{MockGate, MockMetrics, MockOpKind};
@@ -369,10 +369,10 @@ mod tests {
         }
     }
 
-    /// P1 step 21: the probe budget is *fleet*-wide, not per-host — with 3
-    /// hosts each resolving 2 candidates (6 possible concurrent probes),
-    /// a global cap of 2 must still hold, and repository order / command
-    /// history stay unchanged for every host.
+    /// The probe budget is *fleet*-wide, not per-host — with 3 hosts each
+    /// resolving 2 candidates (6 possible concurrent probes), a global cap
+    /// of 2 must still hold, and repository order / command history stay
+    /// unchanged for every host.
     #[tokio::test]
     async fn bounded_add_probe_budget_is_fleet_wide_not_per_host() {
         use crate::mock::{MetricProbe, MockGate, MockMetrics};

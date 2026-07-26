@@ -134,7 +134,7 @@ warmup crash still fails loudly) but are excluded from `wall_time_ns`.
   the only source of real transport/host-key timing in this baseline —
   they do not model true 100-host network fan-out (a single-container
   fixture cannot); use them for transport realism, not fleet-scaling
-  claims (see the P0.1 plan's risk log).
+  claims.
 - Compare same-runner-class reports only; `os`/`arch`/`toolchain` differ
   in ways that make cross-runner latency comparisons meaningless
   (`scripts/compare-performance.sh`, P0.5, enforces this).
