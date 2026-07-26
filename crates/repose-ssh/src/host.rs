@@ -117,9 +117,9 @@ impl Host for RusshHost {
                 Ok(())
             }
             Err(SshError::Timeout { phase, deadline }) => {
-                // A timeout appends `(command, "", "", -1)` — the
-                // diagnostics go to the log, not the entry's stderr.
-                // P1 step 27: typed variant replaces message substring
+                // A timeout appends `(command, "", "", -1, runtime)` — the
+                // diagnostics go to the log, not the entry's stderr. The
+                // typed timeout variant replaces message substring
                 // matching; every bounded phase (not only command
                 // completion) reaches this branch, all with the same
                 // out-history contract.
@@ -231,9 +231,9 @@ async fn discover_system(session: &mut RusshSession, _hostname: &str) -> Result<
     match session.listdir("/etc/products.d").await {
         Ok(listing) => {
             // Reject an implausible listing before constructing any addon
-            // paths or issuing further SFTP work (P1 step 30) — a
-            // corrupted/pathological filesystem returning thousands of
-            // spurious entries must not drive unbounded downstream work.
+            // paths or issuing further SFTP work — a corrupted/pathological
+            // filesystem returning thousands of spurious entries must not
+            // drive unbounded downstream work.
             let limit = session.max_products_d_entries();
             if listing.len() > limit {
                 return Err(SshError::DirectoryTooLarge {

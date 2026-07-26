@@ -113,13 +113,12 @@ impl HostKeyVerifier {
         self
     }
 
-    /// Pure verification decision (P1 step 34): no filesystem I/O and no
-    /// mutation of `self`. Existing/matching, changed, and revoked
-    /// outcomes are decided exactly as before. `accept-new` first contact
-    /// no longer trusts-then-persists inline; it returns
-    /// [`KeyDecision::PersistFirstContact`] so the (async) caller can
-    /// durably persist the key — off the async runtime — before deciding
-    /// whether to trust it (fail-closed TOFU completion, P1 step 35).
+    /// Pure verification decision: no filesystem I/O and no mutation of
+    /// `self`. A matching, changed, or revoked key is decided outright. An
+    /// `accept-new` first contact is never trusted inline; it returns
+    /// [`KeyDecision::PersistFirstContact`] so the (async) caller can durably
+    /// persist the key — off the async runtime — and trust it only once that
+    /// write succeeds (fail-closed TOFU completion).
     pub(crate) fn decide_public_key(&self, key: &PublicKey) -> KeyDecision {
         let encoded = match key.to_openssh() {
             Ok(encoded) => encoded,
@@ -216,8 +215,8 @@ impl HostKeyVerifier {
     }
 }
 
-/// Outcome of [`HostKeyVerifier::decide_public_key`] (P1 step 34): a pure
-/// decision with no filesystem I/O performed yet.
+/// Outcome of [`HostKeyVerifier::decide_public_key`]: a pure decision with
+/// no filesystem I/O performed yet.
 pub(crate) enum KeyDecision {
     Accept,
     Reject,
@@ -297,9 +296,9 @@ fn malformed_known_hosts(path: &Path, line_no: usize) -> SshError {
     ))
 }
 
-/// Durably append `host`'s `key` to `known_hosts` at `path` (P1 steps 34–
-/// 35). Blocking file I/O — call only via `spawn_blocking` from the async
-/// `check_server_key` handler, never directly on the async runtime.
+/// Durably append `host`'s `key` to `known_hosts` at `path`. Blocking file
+/// I/O — call only via `spawn_blocking` from the async `check_server_key`
+/// handler, never directly on the async runtime.
 pub(crate) fn persist_first_contact(
     path: &Path,
     host: &str,
@@ -408,10 +407,10 @@ mod tests {
     use super::{HostKeyVerifier, KeyDecision};
 
     /// Test-only stand-in for the production `check_server_key` handler's
-    /// decide → persist → record sequence (P1 steps 34–35), run
-    /// synchronously since these tests need no async runtime. Mirrors the
-    /// real control flow exactly: `PersistFirstContact` is trusted only
-    /// after `persist_first_contact` succeeds.
+    /// decide → persist → record sequence, run synchronously since these
+    /// tests need no async runtime. Mirrors the real control flow exactly:
+    /// `PersistFirstContact` is trusted only after `persist_first_contact`
+    /// succeeds.
     fn verify(verifier: &mut HostKeyVerifier, key: &str) -> bool {
         match verifier.decide(key) {
             KeyDecision::Accept => true,
@@ -461,9 +460,8 @@ mod tests {
         assert!(!verify(&mut verifier, KEY_TWO));
     }
 
-    /// P1 steps 34–35: the approved, intentional behavior change — a
-    /// first-contact key that cannot be durably persisted must be
-    /// rejected (fail-closed), never silently trusted the old way.
+    /// Fail-closed by design: a first-contact key that cannot be durably
+    /// persisted must be rejected, never trusted without a recorded pin.
     #[test]
     #[cfg(unix)]
     fn accept_new_rejects_first_contact_when_persistence_fails() {

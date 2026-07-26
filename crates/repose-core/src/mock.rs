@@ -701,8 +701,8 @@ impl HostGroup for MockHostGroup {
     // `.buffered`, a slow early host cannot block admission of later ones —
     // and one host's error never stops or is counted against its siblings.
     // These phases mutate host state in place (no per-host result vector to
-    // reorder); order restoration is a mutation-worker concern (P1 steps
-    // 13–18), not this trait's.
+    // reorder); order restoration is a mutation-worker concern, not this
+    // trait's.
     async fn connect_and_prune(&mut self) -> Vec<(String, SshError)> {
         let cap = self.host_operation_limit.get();
         let mut failed: Vec<(String, SshError)> = stream::iter(self.hosts.iter_mut())
@@ -971,7 +971,7 @@ mod tests {
 
     #[test]
     fn host_operation_limit_defaults_and_overrides_through_the_trait_object() {
-        // Compile-time proof (P1 step 9): the accessor is callable through
+        // Compile-time proof that the accessor is callable through
         // `&mut dyn HostGroup`, not only the concrete type.
         let mut default_group = MockHostGroup::new();
         let as_trait_object: &mut dyn HostGroup = &mut default_group;
@@ -1253,9 +1253,9 @@ mod tests {
         assert_eq!(snap.commands_completed, 2, "a and c completed; b did not");
     }
 
-    /// P1 step 11: `run_all` never admits more than `host_operation_limit`
-    /// operations concurrently, even with more hosts than the limit and a
-    /// gate that stays closed for the whole observation window.
+    /// `run_all` never admits more than `host_operation_limit` operations
+    /// concurrently, even with more hosts than the limit and a gate that
+    /// stays closed for the whole observation window.
     #[tokio::test]
     async fn bounded_run_all_never_exceeds_the_configured_limit() {
         let metrics = MockMetrics::new();
@@ -1314,8 +1314,8 @@ mod tests {
         }
     }
 
-    /// P1 step 11: `connect_and_prune` at limit 1 (fully serial admission)
-    /// still prunes exactly the failed host and keeps the rest key-ordered.
+    /// `connect_and_prune` at limit 1 (fully serial admission) still prunes
+    /// exactly the failed host and keeps the rest key-ordered.
     #[tokio::test]
     async fn bounded_connect_and_prune_at_limit_one_still_prunes_correctly() {
         let mut g = MockHostGroup::new().with_host_operation_limit(NonZeroUsize::new(1).unwrap());
@@ -1334,8 +1334,8 @@ mod tests {
         );
     }
 
-    /// P1 step 11: a limit above the host count behaves exactly like the
-    /// unbounded `join_all` fan-out it replaces.
+    /// A limit above the host count behaves exactly like the unbounded
+    /// `join_all` fan-out it replaces.
     #[tokio::test]
     async fn limit_above_host_count_admits_the_whole_fleet_at_once() {
         let metrics = MockMetrics::new();

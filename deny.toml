@@ -68,7 +68,7 @@ exceptions = []
 
 [bans]
 multiple-versions = "warn"
-# Path deps must pin the workspace version, currently `version = "3.0.0"`
+# Path deps must pin the workspace version rather than use a wildcard
 # (see crate Cargo.toml comments).
 wildcards = "deny"
 highlight = "all"

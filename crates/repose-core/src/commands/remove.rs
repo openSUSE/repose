@@ -69,10 +69,10 @@ pub async fn run_remove<W: Write>(
     group.parse_repos().await;
 
     // Fan out per-host work concurrently, one future per host; `join_all`
-    // preserves key order for exit aggregation. Bounded by a semaphore (P1
-    // step 16) — see `add.rs`'s `run_add` for why this avoids both the
-    // head-of-line blocking `.buffered(cap)` would cause and the
-    // index/sort step `buffer_unordered` would need.
+    // preserves key order for exit aggregation. Bounded by a semaphore —
+    // see `add.rs`'s `run_add` for why this avoids both the head-of-line
+    // blocking `.buffered(cap)` would cause and the index/sort step
+    // `buffer_unordered` would need.
     let cap = group.host_operation_limit().get();
     let semaphore = Arc::new(Semaphore::new(cap));
     let console = SharedConsole::new(console);
@@ -297,9 +297,9 @@ mod tests {
         }
     }
 
-    /// P1 step 16: a configured host-operation limit below the host count
-    /// bounds the per-host worker semaphore, while every host still
-    /// removes exactly once.
+    /// A configured host-operation limit below the host count bounds the
+    /// per-host worker semaphore, while every host still removes exactly
+    /// once.
     #[tokio::test]
     async fn bounded_remove_never_exceeds_the_configured_host_operation_limit() {
         use crate::mock::MockGate;

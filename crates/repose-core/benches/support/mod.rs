@@ -1,5 +1,5 @@
-//! Fleet-scenario builders shared by the P0.3 Criterion benchmark
-//! (`benches/fleet.rs`) and the P0.1 baseline-report harness
+//! Fleet-scenario builders shared by the Criterion benchmark
+//! (`benches/fleet.rs`) and the baseline-report harness
 //! (`examples/baseline_report.rs`), which includes this file verbatim via
 //! `#[path]` since Cargo does not let example/bench targets share a module
 //! directly. Not part of the published `repose_core` crate.
@@ -180,27 +180,28 @@ async fn wait_until(mut pred: impl FnMut() -> bool) {
     panic!("wait_until: condition never became true (deadlock guard)");
 }
 
-/// P1 decision-gate evidence (step 1): run `add` over `host_count` fresh
-/// hosts with every `connect` / `read_products` / `run` / `close` operation
-/// and every probe gated behind one shared gate per phase, released only
-/// once every host has observably entered that phase and drained only once
-/// every host has observably left it.
+/// Decision-gate evidence for `tests/performance/p1-limit-decision.md`: run
+/// `add` over `host_count` fresh hosts with every `connect` /
+/// `read_products` / `run` / `close` operation and every probe gated behind
+/// one shared gate per phase, released only once every host has observably
+/// entered that phase and drained only once every host has observably left
+/// it.
 ///
 /// P0's `join_all`-driven fan-out completes an ungated mock operation in a
 /// single poll, so `peak_operations` reports `1` at any host count even
 /// though the fan-out code path is exercised (see
 /// `tests/performance/README.md`'s documented limitation). This proves the
 /// harness itself can expose true fleet-wide concurrency at 20/100 hosts —
-/// evidence that a later bounded-fan-out regression test
-/// (`peak_operations <= cap`) measures something real rather than an
-/// artifact of synchronous completion.
+/// evidence that a later bounded-fan-out regression test (`peak_operations
+/// <= cap`) measures something real rather than an artifact of synchronous
+/// completion.
 #[allow(dead_code)]
 pub async fn run_fully_gated_add(host_count: usize) -> (ExitCode, MockMetricsSnapshot) {
     let metrics = MockMetrics::new();
     // This harness proves the *gate/metrics machinery* can expose true
-    // fleet-wide concurrency (P1 step 1's evidence) — a concern distinct
-    // from the now-implemented `host_operation_limit` cap itself (proven
-    // separately by `mock::tests::bounded_run_all_never_exceeds_the_configured_limit`).
+    // fleet-wide concurrency — a concern distinct from the now-implemented
+    // `host_operation_limit` cap itself (proven separately by
+    // `mock::tests::bounded_run_all_never_exceeds_the_configured_limit`).
     // Override the limit so this harness keeps measuring the former.
     let mut group =
         MockHostGroup::new().with_host_operation_limit(NonZeroUsize::new(host_count).unwrap());
@@ -287,7 +288,7 @@ pub async fn run_fully_gated_add(host_count: usize) -> (ExitCode, MockMetricsSna
 
 /// One documented async runtime boundary shared by every scenario/command
 /// invocation, so benchmark/report comparisons attribute cost consistently
-/// rather than to runtime construction (see P0.3 assumptions).
+/// rather than to runtime construction.
 #[must_use]
 pub fn runtime() -> tokio::runtime::Runtime {
     tokio::runtime::Builder::new_current_thread()

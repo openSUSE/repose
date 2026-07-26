@@ -25,14 +25,14 @@ pub async fn run_reset<W: Write>(
     group.read_repos().await;
 
     // Fan out per-host work concurrently, one future per host; `join_all`
-    // preserves key order for exit aggregation. Bounded by a semaphore (P1
-    // step 15) — see `add.rs`'s `run_add` for why this avoids both the
-    // head-of-line blocking `.buffered(cap)` would cause and the
-    // index/sort step `buffer_unordered` would need.
+    // preserves key order for exit aggregation. Bounded by a semaphore —
+    // see `add.rs`'s `run_add` for why this avoids both the head-of-line
+    // blocking `.buffered(cap)` would cause and the index/sort step
+    // `buffer_unordered` would need.
     let cap = group.host_operation_limit().get();
     let semaphore = Arc::new(Semaphore::new(cap));
-    // One fleet-wide probe budget (P1 step 23) shared by every host worker,
-    // replacing the old per-host `min(16, n)` local cap.
+    // One fleet-wide probe budget shared by every host worker, replacing
+    // the old per-host `min(16, n)` local cap.
     let probe_budget = ProbeBudget::new(opts.probe_concurrency_limit);
     let console = SharedConsole::new(console);
     let mut results = join_all(group.hosts_mut().into_iter().map(|host| {
@@ -347,9 +347,9 @@ mod tests {
         assert_eq!(code, c.exit_code());
     }
 
-    /// P1 step 15: a configured host-operation limit below the host count
-    /// bounds the per-host worker semaphore, while every host still resets
-    /// exactly once.
+    /// A configured host-operation limit below the host count bounds the
+    /// per-host worker semaphore, while every host still resets exactly
+    /// once.
     #[tokio::test]
     async fn bounded_reset_never_exceeds_the_configured_host_operation_limit() {
         use crate::mock::{MockGate, MockMetrics, MockOpKind};

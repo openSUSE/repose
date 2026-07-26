@@ -1,4 +1,4 @@
-//! P0.3 fleet-scale benchmark: `run_add` / `run_install` / `run_list_products`
+//! Fleet-scale benchmark: `run_add` / `run_install` / `run_list_products`
 //! at 1/20/100 hosts, including repeated-URL and slow-host variants.
 //!
 //! Labels honestly: this measures local command-algorithm overhead against
@@ -174,12 +174,13 @@ fn bench_list_products(c: &mut Criterion) {
     group.finish();
 }
 
-/// P1 decision-gate evidence (step 1): every host's connect/read_products/
-/// probe/run/close is gated behind one shared gate per phase, released only
-/// once the whole fleet has observably entered it — proving the mock
-/// harness exposes true fleet-wide concurrency at 20/100 hosts rather than
-/// the misleading `peak_operations == 1` an ungated `join_all` produces in
-/// one poll (see `tests/performance/README.md`).
+/// Decision-gate evidence for `tests/performance/p1-limit-decision.md`:
+/// every host's connect/read_products/probe/run/close is gated behind one
+/// shared gate per phase, released only once the whole fleet has observably
+/// entered it — proving the mock harness exposes true fleet-wide
+/// concurrency at 20/100 hosts rather than the misleading `peak_operations
+/// == 1` an ungated `join_all` produces in one poll (see
+/// `tests/performance/README.md`).
 fn bench_gated_fleet_admission(c: &mut Criterion) {
     let rt = runtime();
     let mut group = c.benchmark_group("fleet_gated_admission");
@@ -203,15 +204,15 @@ fn bench_gated_fleet_admission(c: &mut Criterion) {
     group.finish();
 }
 
-/// P1 decision-gate evidence (step 1): admit `host_count` synthetic
-/// operations of fixed cost `op_cost` through a bounded unordered stream at
-/// `cap` concurrent slots. Independent of any mock/SSH implementation —
-/// this is the plain queueing-theory curve (`~ceil(host_count / cap) *
-/// op_cost`) that informs how low a host-operation cap can go before it
-/// materially serializes a 100-host fleet. See
-/// `tests/performance/p1-limit-decision.md` for the `op_cost` calibration
-/// against measured SSH connect+auth+command latency and the resulting
-/// table of caps.
+/// Decision-gate evidence for `tests/performance/p1-limit-decision.md`:
+/// admit `host_count` synthetic operations of fixed cost `op_cost` through
+/// a bounded unordered stream at `cap` concurrent slots. Independent of any
+/// mock/SSH implementation — this is the plain queueing-theory curve
+/// (`~ceil(host_count / cap) * op_cost`) that informs how low a
+/// host-operation cap can go before it materially serializes a 100-host
+/// fleet. See `tests/performance/p1-limit-decision.md` for the `op_cost`
+/// calibration against measured SSH connect+auth+command latency and the
+/// resulting table of caps.
 async fn bounded_fanout_cost(host_count: usize, op_cost: Duration, cap: usize) {
     use futures_util::StreamExt;
     futures_util::stream::iter(0..host_count)

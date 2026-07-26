@@ -225,13 +225,12 @@ async fn live_host_discovers_system_repositories_and_isolates_connection_failure
     group.close().await;
 }
 
-/// P1 step 12: `RusshHostGroup`'s bounded fan-out still processes every
-/// host exactly once, with correct per-host results and sorted keys, at
-/// the most constrained limit (1 — fully serial admission). Peak-
-/// concurrency measurement itself is covered by the identical algorithm's
-/// gated tests in `repose_core::mock` (a real SSH session has no gate to
-/// instrument); this proves end-to-end correctness against a real
-/// transport instead.
+/// `RusshHostGroup`'s bounded fan-out still processes every host exactly
+/// once, with correct per-host results and sorted keys, at the most
+/// constrained limit (1 — fully serial admission). Peak-concurrency
+/// measurement itself is covered by the identical algorithm's gated tests
+/// in `repose_core::mock` (a real SSH session has no gate to instrument);
+/// this proves end-to-end correctness against a real transport instead.
 #[tokio::test]
 async fn live_group_bounded_fan_out_at_limit_one_processes_every_host_exactly_once() {
     let Some(fixture) = fixture() else { return };
@@ -280,10 +279,8 @@ async fn live_group_bounded_fan_out_at_limit_one_processes_every_host_exactly_on
     group.close().await;
 }
 
-/// P1 step 28: an SFTP file read enforces the configured byte limit —
-/// exactly-at-limit succeeds, limit-1 (one byte over) returns a typed
-/// `SftpFileTooLarge` error, and the default (generous) limit is
-/// unaffected for the same real file.
+/// An SFTP file read enforces the configured byte limit — exactly-at-limit
+/// succeeds, and one byte over returns a typed `SftpFileTooLarge` error.
 #[tokio::test]
 async fn live_sftp_read_enforces_the_configured_byte_limit() {
     let Some(fixture) = fixture() else { return };
@@ -320,8 +317,8 @@ async fn live_sftp_read_enforces_the_configured_byte_limit() {
     );
 }
 
-/// P1 step 28: a missing remote file keeps its existing error type/shape
-/// (unaffected by the bounded-reader refactor).
+/// A missing remote file keeps its existing error type/shape (unaffected by
+/// the bounded-reader refactor).
 #[tokio::test]
 async fn live_sftp_read_of_a_missing_file_is_unchanged() {
     let Some(fixture) = fixture() else { return };
@@ -335,9 +332,9 @@ async fn live_sftp_read_of_a_missing_file_is_unchanged() {
     assert!(matches!(error, repose_core::error::SshError::Other(_)));
 }
 
-/// P1 step 30: a `/etc/products.d` listing above the configured plausible-
-/// entry cap is rejected before any addon path is constructed, while a
-/// normal (small) listing discovers products exactly as before.
+/// A `/etc/products.d` listing above the configured plausible-entry cap is
+/// rejected before any addon path is constructed, while a normal (small)
+/// listing discovers products exactly as before.
 #[tokio::test]
 async fn live_products_d_listing_above_the_cap_is_rejected() {
     let Some(fixture) = fixture() else { return };
@@ -363,8 +360,8 @@ async fn live_products_d_listing_above_the_cap_is_rejected() {
     );
 }
 
-/// P1 step 31: stdout exactly at the configured byte limit succeeds and
-/// returns the complete payload unchanged.
+/// Stdout exactly at the configured byte limit succeeds and returns the
+/// complete payload unchanged.
 #[tokio::test]
 async fn live_command_output_stdout_at_the_byte_limit_succeeds() {
     let Some(fixture) = fixture() else { return };
@@ -382,9 +379,9 @@ async fn live_command_output_stdout_at_the_byte_limit_succeeds() {
     assert_eq!(status, 0);
 }
 
-/// P1 step 31: one byte over the stdout limit returns a typed
-/// `OutputTooLarge` error, and the same session remains usable afterward
-/// (the overflow cleanup must not leave the transport unusable).
+/// One byte over the stdout limit returns a typed `OutputTooLarge` error,
+/// and the same session remains usable afterward (the overflow cleanup must
+/// not leave the transport unusable).
 #[tokio::test]
 async fn live_command_output_stdout_one_byte_over_the_limit_is_rejected_and_session_is_reusable() {
     let Some(fixture) = fixture() else { return };
@@ -412,7 +409,7 @@ async fn live_command_output_stdout_one_byte_over_the_limit_is_rejected_and_sess
     assert_eq!((stdout.as_str(), status), ("ok", 0));
 }
 
-/// P1 step 31: stderr has its own, independently enforced byte limit.
+/// Stderr has its own, independently enforced byte limit.
 #[tokio::test]
 async fn live_command_output_stderr_one_byte_over_the_limit_is_rejected() {
     let Some(fixture) = fixture() else { return };
@@ -435,9 +432,9 @@ async fn live_command_output_stderr_one_byte_over_the_limit_is_rejected() {
     );
 }
 
-/// P1 step 31: stdout and stderr caps are independent — an in-limit
-/// stderr payload does not mask, and is not mistakenly counted toward, an
-/// oversized stdout payload.
+/// Stdout and stderr caps are independent — an in-limit stderr payload does
+/// not mask, and is not mistakenly counted toward, an oversized stdout
+/// payload.
 #[tokio::test]
 async fn live_command_output_mixed_streams_enforce_independent_limits() {
     let Some(fixture) = fixture() else { return };
@@ -461,9 +458,9 @@ async fn live_command_output_mixed_streams_enforce_independent_limits() {
     );
 }
 
-/// P1 step 32: an output-limit overflow reaches `RusshHost::run` through
-/// the same generic failure contract as other transport errors: exactly
-/// one synthetic out entry (rc -1, empty streams) — never the oversized or
+/// An output-limit overflow reaches `RusshHost::run` through the same
+/// generic failure contract as other transport errors: exactly one
+/// synthetic out entry (rc -1, empty streams) — never the oversized or
 /// partial payload.
 #[tokio::test]
 async fn live_host_run_maps_an_output_overflow_to_a_single_synthetic_out_entry() {

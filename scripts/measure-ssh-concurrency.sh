@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 #
-# P1 decision-gate evidence (step 2): open several *concurrent* SSH sessions
-# against the tests/ssh/ Docker OpenSSH fixture and record per-session
-# connect+auth+product-discovery latency percentiles under load.
+# Decision-gate evidence for tests/performance/p1-limit-decision.md: open
+# several *concurrent* SSH sessions against the tests/ssh/ Docker OpenSSH
+# fixture and record per-session connect+auth+product-discovery latency
+# percentiles under load.
 #
 # The one-container fixture cannot model true 100-host network fan-out (see
 # tests/performance/README.md's documented P0 limitation) — this measures

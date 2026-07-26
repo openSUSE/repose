@@ -19,10 +19,10 @@ pub async fn run_clear<W: Write>(
     group.read_repos().await;
 
     // Fan out per-host work concurrently, one future per host; `join_all`
-    // preserves key order for exit aggregation. Bounded by a semaphore (P1
-    // step 17) — see `add.rs`'s `run_add` for why this avoids both the
-    // head-of-line blocking `.buffered(cap)` would cause and the
-    // index/sort step `buffer_unordered` would need.
+    // preserves key order for exit aggregation. Bounded by a semaphore —
+    // see `add.rs`'s `run_add` for why this avoids both the head-of-line
+    // blocking `.buffered(cap)` would cause and the index/sort step
+    // `buffer_unordered` would need.
     let cap = group.host_operation_limit().get();
     let semaphore = Arc::new(Semaphore::new(cap));
     let console = SharedConsole::new(console);
@@ -207,9 +207,9 @@ mod tests {
         assert!(!ran.iter().any(|c| c.contains(" rr")), "ran: {ran:?}");
     }
 
-    /// P1 step 17: a configured host-operation limit below the host count
-    /// bounds the per-host worker semaphore, while every host still
-    /// clears exactly once.
+    /// A configured host-operation limit below the host count bounds the
+    /// per-host worker semaphore, while every host still clears exactly
+    /// once.
     #[tokio::test]
     async fn bounded_clear_never_exceeds_the_configured_host_operation_limit() {
         use crate::mock::{MockGate, MockMetrics, MockOpKind};

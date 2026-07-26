@@ -298,13 +298,13 @@ pub(crate) fn report_pruned<W: Write>(
     results.extend(std::iter::repeat_n(false, pruned.len()));
 }
 
-/// Fleet-wide URL-liveness probe concurrency budget (P1 steps 19–23),
-/// created once per CLI command invocation and shared by every host
-/// worker's [`partition_live`]/[`filter_live`] calls. Replaces the old
-/// per-host `min(16, n)` cap, which multiplied to `16 * host_count`
-/// in-flight probes fleet-wide with no ceiling at all — permits delay
-/// probe start only; they neither deduplicate nor cache calls, so probe
-/// counts and per-host order are unchanged.
+/// Fleet-wide URL-liveness probe concurrency budget, created once per CLI
+/// command invocation and shared by every host worker's
+/// [`partition_live`]/[`filter_live`] calls. Replaces the old per-host
+/// `min(16, n)` cap, which multiplied to `16 * host_count` in-flight probes
+/// fleet-wide with no ceiling at all — permits delay probe start only; they
+/// neither deduplicate nor cache calls, so probe counts and per-host order
+/// are unchanged.
 #[derive(Clone)]
 pub(crate) struct ProbeBudget(Arc<Semaphore>);
 
@@ -332,11 +332,11 @@ pub(crate) async fn partition_live(
     if no_probe || repos.is_empty() {
         return (repos, Vec::new());
     }
-    // One *global* permit per probe (P1 step 20) instead of the old
-    // per-host `min(16, n)` local cap: the `buffered` window is sized to
-    // this host's own candidate count (never a fleet-wide bottleneck by
-    // itself), and `probe_budget` is the only real throttle, shared by
-    // every concurrently-running host worker's own call to this function.
+    // One *global* permit per probe instead of the old per-host
+    // `min(16, n)` local cap: the `buffered` window is sized to this host's
+    // own candidate count (never a fleet-wide bottleneck by itself), and
+    // `probe_budget` is the only real throttle, shared by every
+    // concurrently-running host worker's own call to this function.
     let window = repos.len();
     let alive: Vec<bool> = futures_util::stream::iter(repos.iter())
         .map(|r| async {
@@ -430,8 +430,8 @@ mod filter_tests {
         assert_eq!(live.len(), 2);
     }
 
-    /// P1 step 20: the global probe budget bounds total in-flight probes
-    /// across candidates, and current in-flight probes return to zero.
+    /// The global probe budget bounds total in-flight probes across
+    /// candidates, and current in-flight probes return to zero.
     #[tokio::test]
     async fn probe_budget_bounds_concurrent_probes_and_leaves_zero_in_flight() {
         use crate::mock::{MetricProbe, MockGate, MockMetrics};

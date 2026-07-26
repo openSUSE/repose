@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 #
-# LOCAL-DEV-ONLY P1 decision-gate evidence gatherer. Docker is unavailable
+# LOCAL-DEV-ONLY decision-gate evidence gatherer for
+# tests/performance/p1-limit-decision.md. Docker is unavailable
 # on this machine; this drives the *same* tests/ssh/Dockerfile fixture
 # through Apple's `container` CLI (macOS-native container runtime) instead,
 # then reuses scripts/measure-ssh-concurrency.sh for the actual

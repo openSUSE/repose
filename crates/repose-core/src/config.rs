@@ -53,9 +53,8 @@ pub enum HostKeyPolicy {
 ///
 /// # P1 resource limits and phase deadlines
 ///
-/// The fields below (added for `plans/p1-bound-resources-and-prevent-stalls.md`)
-/// bound fleet-wide resource usage and SSH phase stalls. Every default is
-/// reviewed evidence, not a guess — see
+/// The fields below bound fleet-wide resource usage and SSH phase stalls.
+/// Every default is reviewed evidence, not a guess — see
 /// `tests/performance/p1-limit-decision.md`. Concurrency and count limits
 /// use [`NonZeroUsize`] so a zero (permanently-deadlocked or
 /// always-truncating) limit cannot be constructed. Deadlines are separate

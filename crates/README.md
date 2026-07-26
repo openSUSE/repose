@@ -82,7 +82,7 @@ Run these commands from the repository root.
 
 ## Policy notes
 
-- **Layering:** `repose-core` must never depend on `repose-ssh` or `russh` (enforced more strictly in PR0.5).
+- **Layering:** `repose-core` must never depend on `repose-ssh` or `russh`; `scripts/check-rust-layering.sh` enforces it, and CI runs it.
 - **Single SSH backend:** `deny.toml` bans `ssh2` / `libssh2-sys` / async-ssh2-* crates.
 - **Path deps** pin the workspace version (`version = "3.1.1"`) so `cargo-deny` `wildcards = "deny"` accepts them.
 - **Binary name:** `repose` (replace strategy; no `repose-rs`).
