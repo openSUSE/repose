@@ -1,15 +1,19 @@
 //! OpenSSH-style glob matching shared by `known_hosts` patterns
 //! ([`crate::hostkey`]) and `ssh_config` `Host` patterns
 //! ([`crate::openssh_config`]). `*` matches any run of characters,
-//! `?` matches exactly one; there are no character classes.
+//! `?` matches exactly one; there are no character classes. Matching is
+//! case-insensitive, as OpenSSH's `match_hostname` is — host names are not
+//! case-sensitive, and treating them as if they were turns a `known_hosts`
+//! entry written in another case into a miss, which under `accept-new`
+//! silently re-pins the host instead of refusing it.
 
 /// Iterative two-pointer match (linear-ish, no recursion): on a mismatch after
 /// a `*`, backtrack the value by one position past the last star instead of
 /// exploring every split recursively — pathological patterns like `"****...a"`
 /// therefore cannot cause exponential blowup.
 pub(crate) fn glob_matches(pattern: &str, value: &str) -> bool {
-    let p: Vec<char> = pattern.chars().collect();
-    let v: Vec<char> = value.chars().collect();
+    let p: Vec<char> = pattern.to_lowercase().chars().collect();
+    let v: Vec<char> = value.to_lowercase().chars().collect();
     let (mut pi, mut vi) = (0usize, 0usize);
     // Position of the most recent `*` in the pattern and the value index the
     // current retry maps it to.
@@ -64,5 +68,17 @@ mod tests {
         assert!(!glob_matches(&pattern, &value));
         assert!(glob_matches(&(pattern + "*"), &(value + "z")));
         assert!(start.elapsed() < std::time::Duration::from_millis(200));
+    }
+
+    /// A `known_hosts` entry written in another case must still match, or
+    /// `accept-new` treats the host as unseen and re-pins it. OpenSSH's
+    /// `match_hostname` lowercases both sides for the same reason.
+    #[test]
+    fn matching_ignores_case_on_both_sides() {
+        assert!(glob_matches("HOST.EXAMPLE", "host.example"));
+        assert!(glob_matches("host.example", "HOST.EXAMPLE"));
+        assert!(glob_matches("[2001:DB8::1]:2222", "[2001:db8::1]:2222"));
+        assert!(glob_matches("*.EXAMPLE", "a.example"));
+        assert!(!glob_matches("other.example", "host.example"));
     }
 }
