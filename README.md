@@ -111,7 +111,12 @@ Frequently used global options (run `repose --help` for the full list):
 ### Targets and repository patterns
 
 - **HOST** is an SSH target such as `root@fubar.suse.cz`, passed with `-t`.
-  Repeat `-t` to operate on multiple hosts concurrently.
+  Repeat `-t` to operate on multiple hosts concurrently. The full form is
+  `[user@]host[:port]`. Brackets are for IPv6 literals only —
+  `[2001:db8::1]` or `[2001:db8::1]:2222`; a bare `2001:db8::1` also works at
+  the default port. The address is normalised to its canonical form, so every
+  spelling of one address shares a single `known_hosts` entry. A zone index
+  (`fe80::1%eth0`) is not supported.
 - **REPA** is a *REpository PAttern* — a positional argument naming a
   repository/add-on to act on. Pass several to act on several. Append a
   version after a colon to pin it, e.g. `SLES:12-SP2`.

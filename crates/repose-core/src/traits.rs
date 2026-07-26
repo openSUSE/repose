@@ -59,7 +59,8 @@ pub trait SshSession: Send {
 ///    after a successful `Ok` return from `run`.
 #[async_trait]
 pub trait Host: Send {
-    /// Map key: hostname or `host:port` when non-default port.
+    /// Map key: hostname, or `host:port` when non-default port. An IPv6
+    /// address is bracketed at every port (`[::1]`, `[::1]:2222`).
     fn key(&self) -> &str;
 
     fn is_connected(&self) -> bool;

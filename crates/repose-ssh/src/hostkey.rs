@@ -404,7 +404,7 @@ mod tests {
     use repose_core::config::HostKeyPolicy;
     use tempfile::tempdir;
 
-    use super::{HostKeyVerifier, KeyDecision};
+    use super::{HostKeyVerifier, KeyDecision, host_pattern};
 
     /// Test-only stand-in for the production `check_server_key` handler's
     /// decide → persist → record sequence, run synchronously since these
@@ -577,6 +577,62 @@ mod tests {
             HostKeyVerifier::new(HostKeyPolicy::Yes, Some(path.clone()), "host", 2222).unwrap();
         let mut on_22 = HostKeyVerifier::new(HostKeyPolicy::Yes, Some(path), "host", 22).unwrap();
         assert!(verify(&mut on_2222, KEY_ONE));
+        assert!(!verify(&mut on_22, KEY_ONE));
+    }
+
+    /// Trust-on-first-use has to close the loop: the entry written on first
+    /// contact must be the one a later, independent run finds. If the write
+    /// and the lookup ever disagreed on spelling, `accept-new` would treat
+    /// every connection as first contact and re-pin whatever key it was
+    /// offered — a miss here is not a refusal.
+    #[test]
+    fn ipv6_first_contact_persists_an_entry_a_later_run_matches() {
+        for (port, expected) in [(22u16, "::1"), (2222, "[::1]:2222")] {
+            let temp = tempdir().unwrap();
+            let path = temp.path().join("known_hosts");
+            fs::write(&path, "").unwrap();
+
+            let mut first =
+                HostKeyVerifier::new(HostKeyPolicy::AcceptNew, Some(path.clone()), "::1", port)
+                    .unwrap();
+            assert!(verify(&mut first, KEY_ONE), "first contact at {port}");
+            assert_eq!(
+                fs::read_to_string(&path).unwrap(),
+                format!("{expected} {KEY_ONE}\n"),
+                "written spelling at {port}"
+            );
+
+            let mut later =
+                HostKeyVerifier::new(HostKeyPolicy::Yes, Some(path.clone()), "::1", port).unwrap();
+            assert!(verify(&mut later, KEY_ONE), "reverify at {port}");
+            assert!(!verify(&mut later, KEY_TWO), "changed key at {port}");
+        }
+    }
+
+    /// OpenSSH spells an IPv6 host plainly at port 22 and `[addr]:port`
+    /// otherwise, and `host_pattern` must reproduce that exactly — an entry
+    /// written by `ssh` has to match, and one we append has to be one `ssh`
+    /// can find. Note the address arrives here BARE: `HostSpec.hostname` is
+    /// unbracketed even though `HostSpec.key` is not, and bracketing it
+    /// twice here would silently stop every IPv6 host verifying.
+    #[test]
+    fn ipv6_uses_the_openssh_known_hosts_spelling() {
+        assert_eq!(host_pattern("::1", 22), "::1");
+        assert_eq!(host_pattern("::1", 2222), "[::1]:2222");
+        assert_eq!(host_pattern("2001:db8::1", 2222), "[2001:db8::1]:2222");
+
+        let temp = tempdir().unwrap();
+        let path = temp.path().join("known_hosts");
+        fs::write(&path, format!("[::1]:2222 {KEY_ONE}\n::1 {KEY_TWO}\n")).unwrap();
+
+        // Each port picks up its own entry, and neither picks up the other's.
+        let mut on_2222 =
+            HostKeyVerifier::new(HostKeyPolicy::Yes, Some(path.clone()), "::1", 2222).unwrap();
+        assert!(verify(&mut on_2222, KEY_ONE));
+        assert!(!verify(&mut on_2222, KEY_TWO));
+
+        let mut on_22 = HostKeyVerifier::new(HostKeyPolicy::Yes, Some(path), "::1", 22).unwrap();
+        assert!(verify(&mut on_22, KEY_TWO));
         assert!(!verify(&mut on_22, KEY_ONE));
     }
 
