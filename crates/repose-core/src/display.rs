@@ -1,4 +1,4 @@
-//! list-* / known-products display (Python `CommandDisplay` / `JsonCommandDisplay`).
+//! list-* / known-products display: the text and NDJSON renderers.
 
 use std::io::{self, Write};
 
@@ -20,11 +20,11 @@ fn sorted_addons(system: &System) -> Vec<&Product> {
     addons
 }
 
-/// ANSI color helpers ported from Python `repose.utils` (`green`/`yellow`/
-/// `blue`), used by [`TextDisplay`] to color `list-*` / `known-products`
-/// labels and values. The sequences (`\x1b[1;3Nm{s}\x1b[1;m\x1b[0m`, double
-/// reset) are byte-identical to the Python 2.1.0 helpers. Returns `s`
-/// unchanged when `enabled` is false.
+/// ANSI color helpers used by [`TextDisplay`] to color `list-*` /
+/// `known-products` labels and values. The emitted sequence is
+/// `\x1b[1;3Nm{s}\x1b[1;m\x1b[0m`; the trailing double reset is part of
+/// repose's established output, not an accident. Returns `s` unchanged when
+/// `enabled` is false.
 fn green(enabled: bool, s: &str) -> String {
     wrap(enabled, "\x1b[1;32m", s)
 }
@@ -45,20 +45,19 @@ fn wrap(enabled: bool, seq: &str, s: &str) -> String {
     }
 }
 
-/// One JSON scalar, matching Python `json.dumps` with its default
-/// `ensure_ascii=True`: serde_json already escapes ASCII controls, `"` and
-/// `\` identically (verified: `json.dumps('tab\tq"b\\s\x01')` ==
-/// `serde_json::to_string`), but emits non-ASCII as raw UTF-8 where Python
-/// emits `\uXXXX` per UTF-16 code unit (lowercase hex, surrogate pairs for
-/// astral chars): U+00E4 becomes `\u00e4`, U+1F600 becomes the
-/// surrogate pair `\ud83d\ude00`.
+/// One JSON scalar, escaped so that an NDJSON line is always pure ASCII.
+/// `serde_json` already emits the standard JSON escapes for ASCII controls,
+/// `"` and `\`, but renders non-ASCII as raw UTF-8; this re-escapes it as
+/// `\uXXXX` per UTF-16 code unit (lowercase hex, surrogate pairs for astral
+/// chars): U+00E4 becomes `\u00e4`, U+1F600 becomes the surrogate pair
+/// `\ud83d\ude00`.
 fn js(s: &str) -> String {
     let quoted = serde_json::to_string(s).expect("string always serializes");
     if quoted.is_ascii() {
         return quoted;
     }
     // Escape sequences serde emits are pure ASCII, so every non-ASCII char
-    // left in `quoted` is a literal char that json.dumps would \u-escape.
+    // left in `quoted` is a literal one still needing a `\u` escape.
     let mut out = String::with_capacity(quoted.len());
     let mut units = [0u16; 2];
     for c in quoted.chars() {
@@ -73,9 +72,8 @@ fn js(s: &str) -> String {
     out
 }
 
-/// A single `list-products` JSON event line, matching Python `json.dumps` with
-/// default separators (`", "` / `": "`) and insertion key order
-/// (event, host, port, kind, name, version, arch).
+/// A single `list-products` JSON event line: `", "` / `": "` separators and
+/// fixed key order (event, host, port, kind, name, version, arch).
 fn product_json_line(host: &str, port: u16, kind: &str, p: &Product) -> String {
     format!(
         "{{\"event\": \"product\", \"host\": {}, \"port\": {}, \"kind\": {}, \"name\": {}, \"version\": {}, \"arch\": {}}}",
@@ -88,9 +86,8 @@ fn product_json_line(host: &str, port: u16, kind: &str, p: &Product) -> String {
     )
 }
 
-/// A single `list-repos` JSON event line, matching Python `json.dumps` with
-/// default separators (`", "` / `": "`) and insertion key order
-/// (event, host, port, alias, name, url, state).
+/// A single `list-repos` JSON event line: `", "` / `": "` separators and
+/// fixed key order (event, host, port, alias, name, url, state).
 fn repo_json_line(host: &str, port: u16, r: &Repository) -> String {
     format!(
         "{{\"event\": \"repo\", \"host\": {}, \"port\": {}, \"alias\": {}, \"name\": {}, \"url\": {}, \"state\": {}}}",
@@ -103,15 +100,14 @@ fn repo_json_line(host: &str, port: u16, r: &Repository) -> String {
     )
 }
 
-/// A single `known-products` JSON event line, matching Python `json.dumps`
-/// (insertion key order: event, name).
+/// A single `known-products` JSON event line (key order: event, name).
 fn known_product_json_line(name: &str) -> String {
     format!("{{\"event\": \"known_product\", \"name\": {}}}", js(name))
 }
 
-/// True when the string parses as a YAML 1.2 core int or float, so ruamel
-/// would emit it quoted to keep it a string: `0`, `22`, `08`, `+1`, `-1`,
-/// `6.1`, `.5`, `1.`, `1e3`. Plain SUSE shapes (`15-SP3`, `SP3`, `ALL`,
+/// True when the string parses as a YAML 1.2 core int or float, so it has to
+/// be emitted quoted to stay a string: `0`, `22`, `08`, `+1`, `-1`, `6.1`,
+/// `.5`, `1.`, `1e3`. Plain SUSE shapes (`15-SP3`, `SP3`, `ALL`,
 /// `tumbleweed`, `3.19.1`) do not match.
 fn is_numeric_like(s: &str) -> bool {
     let t = s.strip_prefix(['+', '-']).unwrap_or(s);
@@ -140,14 +136,13 @@ fn is_numeric_like(s: &str) -> bool {
     }
 }
 
-/// One YAML string scalar, single-quoted exactly where ruamel's safe dumper
-/// quotes (verified against ruamel.yaml `YAML(typ='safe')`, see the review
-/// evidence): the empty string, int/float-like strings (`'0'`, `'22'`,
-/// `'08'`, `'6.1'`), YAML 1.2 core booleans/null (`true`/`True`/`TRUE`,
+/// One YAML string scalar, single-quoted exactly where leaving it plain would
+/// stop it being a string: the empty string, int/float-like strings (`'0'`,
+/// `'22'`, `'08'`, `'6.1'`), YAML 1.2 core booleans/null (`true`/`True`/`TRUE`,
 /// `false`/..., `null`/`Null`/`NULL`, `~` — but NOT the YAML 1.1-only
-/// `yes`/`no`/`on`/`off`, which ruamel leaves plain), and strings containing
-/// `": "` or `" #"`. Everything else (`15-SP3`, `SP3`, `ALL`, `SLES`,
-/// `tumbleweed`, hostnames) stays plain.
+/// `yes`/`no`/`on`/`off`, which stay plain), and strings containing `": "` or
+/// `" #"`. Everything else (`15-SP3`, `SP3`, `ALL`, `SLES`, `tumbleweed`,
+/// hostnames) stays plain.
 fn yaml_string(s: &str) -> String {
     let quote = s.is_empty()
         || is_numeric_like(s)
@@ -165,8 +160,8 @@ fn yaml_string(s: &str) -> String {
 }
 
 /// Render one YAML scalar (plain style) from a `transform_version_partialy`
-/// leaf: numbers unquoted, strings via [`yaml_string`] — matching ruamel's
-/// safe dumper for the SUSE version shapes seen in real `.prod` files.
+/// leaf: numbers unquoted, strings via [`yaml_string`], which covers the SUSE
+/// version shapes seen in real `.prod` files.
 fn yaml_scalar(v: &Value) -> String {
     match v {
         Value::String(s) => yaml_string(s),
@@ -177,8 +172,8 @@ fn yaml_scalar(v: &Value) -> String {
 }
 
 /// Emit the `version:` block (or inline scalar) for a normalized version at the
-/// given `indent`, mirroring ruamel's `mapping=4, sequence=4, offset=2` layout
-/// (keys +2, block-sequence dashes at the parent indent).
+/// given `indent`, in the layout the refhost spec uses: keys +2, with
+/// block-sequence dashes at the parent indent.
 fn push_version(s: &mut String, v: &Value, indent: &str) {
     if v.is_object() {
         s.push_str(indent);
@@ -196,10 +191,10 @@ fn push_version(s: &mut String, v: &Value, indent: &str) {
     }
 }
 
-/// YAML refhost-spec output for `list-products --yaml` (Python
-/// `list_products_yaml` → `System.to_refhost_dict_partially_normalized`).
+/// YAML refhost-spec output for `list-products --yaml` — the host spec the
+/// `refhosts.yml` generator consumes.
 ///
-/// Hand-rolled to byte-match ruamel's safe dumper: `---`/`...` document
+/// Hand-rolled to emit exactly that shape: `---`/`...` document
 /// markers, alphabetically sorted top-level keys (addons, arch, location,
 /// name, product), version leaves run through `transform_version_partialy`.
 /// The addon list order is sorted (see `sorted_addons`).
@@ -234,10 +229,9 @@ pub fn list_products_yaml<W: Write>(
     out.write_all(s.as_bytes())
 }
 
-/// A `transform_version_partialy` leaf as Python `json.dumps` renders it:
-/// normalized versions become `{"major": ..., "minor": ...}` (insertion order
-/// major-then-minor, `", "`/`": "` separators), unnormalized ones stay a bare
-/// scalar (string via the `ensure_ascii` [`js`], numbers verbatim).
+/// A `transform_version_partialy` leaf as NDJSON: normalized versions become
+/// `{"major": ..., "minor": ...}` (that key order, `", "`/`": "` separators),
+/// unnormalized ones stay a bare scalar (string via [`js`], numbers verbatim).
 fn version_json(v: &Value) -> String {
     fn scalar(v: &Value) -> String {
         match v {
@@ -260,14 +254,12 @@ fn version_json(v: &Value) -> String {
     }
 }
 
-/// NDJSON refhost-spec output for `list-products --yaml --format json`
-/// (Python `JsonCommandDisplay.list_products_yaml`, display.py:121-127): one
+/// NDJSON refhost-spec output for `list-products --yaml --format json`: one
 /// `host_spec` document per host, carrying the same payload as the YAML
-/// dumper — `{"event": "host_spec", "host": <hostname>,
-/// **to_refhost_dict_partially_normalized(), "name": <hostname>}` — i.e. key
-/// order event, host, location, arch, product, addons, name, byte-matching
-/// `json.dumps` (default separators and `ensure_ascii`). The addon list order
-/// is sorted (see `sorted_addons`).
+/// dumper. Key order is event, host, location, arch, product, addons, name —
+/// the hostname deliberately appears twice, as both `host` and `name` — with
+/// the usual `", "` / `": "` separators and [`js`] escaping. The addon list
+/// order is sorted (see `sorted_addons`).
 pub(crate) fn list_products_yaml_json<W: Write>(
     out: &mut W,
     hostname: &str,
@@ -307,14 +299,13 @@ pub trait CommandDisplay {
 
 pub struct TextDisplay<W: Write> {
     pub output: W,
-    /// Emit ANSI color (Python `CommandDisplay` via `utils` color helpers).
+    /// Emit ANSI color.
     pub color: bool,
 }
 
 impl<W: Write> CommandDisplay for TextDisplay<W> {
     fn list_products(&mut self, hostname: &str, port: u16, system: &System) -> io::Result<()> {
-        // Mirrors Python `CommandDisplay.list_products` + `System.pretty`:
-        // `Host` green, hostname/port yellow; the `pretty()` lines stay plain.
+        // `Host` green, hostname/port yellow; the product lines stay plain.
         let base = &system.base;
         writeln!(
             self.output,
@@ -332,7 +323,8 @@ impl<W: Write> CommandDisplay for TextDisplay<W> {
         if !addons.is_empty() {
             writeln!(self.output, "  Installed Extensions and Modules:")?;
             for a in &addons {
-                // Python: f"      Addon: {x.name:<53} - version: {x.version}"
+                // Addon names are left-padded to 53 columns so the versions
+                // line up; longer names push their version right.
                 writeln!(
                     self.output,
                     "      Addon: {:<53} - version: {}",
@@ -345,8 +337,8 @@ impl<W: Write> CommandDisplay for TextDisplay<W> {
     }
 
     fn list_repos(&mut self, hostname: &str, port: u16, repos: &[Repository]) -> io::Result<()> {
-        // Python `list_update_repos`: `Repositories` green, host/port blue;
-        // per repo the `REPO name`/`REPO URL` labels green, values plain.
+        // `Repositories` green, host/port blue; per repo the `REPO name` /
+        // `REPO URL` labels green, values plain.
         writeln!(
             self.output,
             "{} on {}:{}",
@@ -368,7 +360,7 @@ impl<W: Write> CommandDisplay for TextDisplay<W> {
     }
 
     fn list_known_products(&mut self, products: &[String]) -> io::Result<()> {
-        // Python `list_known_products`: label green, names line plain.
+        // Label green, names line plain.
         writeln!(
             self.output,
             "{}",
@@ -386,8 +378,8 @@ pub struct JsonDisplay<W: Write> {
 
 impl<W: Write> CommandDisplay for JsonDisplay<W> {
     fn list_products(&mut self, hostname: &str, port: u16, system: &System) -> io::Result<()> {
-        // Newline-delimited JSON; key order and `", "`/`": "` separators match
-        // Python `json.dumps` (see `product_json_line`).
+        // Newline-delimited JSON; key order and `", "`/`": "` separators are
+        // fixed by `product_json_line`.
         writeln!(
             self.output,
             "{}",
@@ -459,7 +451,7 @@ mod tests {
     }
 
     #[test]
-    fn list_products_json_matches_python_json_dumps() {
+    fn list_products_json_line_shape_is_pinned() {
         let mut buf = Buffer::default();
         let mut d = JsonDisplay { output: &mut buf };
         d.list_products("ulysse.qam.suse.cz", 22, &sample_system())
@@ -472,7 +464,7 @@ mod tests {
     }
 
     #[test]
-    fn repo_json_line_matches_python_json_dumps() {
+    fn repo_json_line_shape_is_pinned() {
         let r = crate::types::Repository {
             alias: "SLES:15-SP6::pool".into(),
             name: "SLES:15-SP6::pool".into(),
@@ -488,7 +480,7 @@ mod tests {
     }
 
     #[test]
-    fn known_product_json_line_matches_python_json_dumps() {
+    fn known_product_json_line_shape_is_pinned() {
         assert_eq!(
             known_product_json_line("SLES"),
             "{\"event\": \"known_product\", \"name\": \"SLES\"}"
@@ -496,7 +488,7 @@ mod tests {
     }
 
     #[test]
-    fn list_products_text_matches_python_pretty() {
+    fn list_products_text_pads_addon_names_to_column_53() {
         let mut buf = Buffer::default();
         let mut d = TextDisplay {
             output: &mut buf,
@@ -504,8 +496,8 @@ mod tests {
         };
         d.list_products("ulysse.qam.suse.cz", 22, &sample_system())
             .unwrap();
-        // Python `f"      Addon: {x.name:<53} - version: {x.version}"`: name is
-        // left-padded to column width 53 (15-char name -> 38 trailing spaces).
+        // Addon name left-padded to column width 53 (15-char name -> 38
+        // trailing spaces).
         let pad = " ".repeat(53 - "SL-Micro-Extras".len());
         let expected = format!(
             "Host: ulysse.qam.suse.cz:22\n  \
@@ -517,9 +509,9 @@ mod tests {
     }
 
     #[test]
-    fn color_helpers_match_python_utils_sequences() {
-        // Byte-parity with Python 2.1.0 `utils.green/yellow/blue`
-        // (`\033[1;3Nm{x}\033[1;m\033[0m`); plain passthrough when disabled.
+    fn color_helpers_emit_the_pinned_sequences() {
+        // `\033[1;3Nm{x}\033[1;m\033[0m`, double reset included; plain
+        // passthrough when disabled.
         assert_eq!(green(true, "Host"), "\x1b[1;32mHost\x1b[1;m\x1b[0m");
         assert_eq!(yellow(true, "h1"), "\x1b[1;33mh1\x1b[1;m\x1b[0m");
         assert_eq!(blue(true, "h1"), "\x1b[1;34mh1\x1b[1;m\x1b[0m");
@@ -529,7 +521,7 @@ mod tests {
     }
 
     #[test]
-    fn list_products_text_colorized_header_matches_python() {
+    fn list_products_text_colorizes_only_the_header() {
         let mut buf = Buffer::default();
         let mut d = TextDisplay {
             output: &mut buf,
@@ -537,7 +529,7 @@ mod tests {
         };
         d.list_products("ulysse.qam.suse.cz", 22, &sample_system())
             .unwrap();
-        // Header: green `Host`, yellow hostname/port; pretty() lines plain.
+        // Header: green `Host`, yellow hostname/port; product lines plain.
         assert!(buf.0.starts_with(&format!(
             "{}: {}:{}\n",
             green(true, "Host"),
@@ -548,7 +540,7 @@ mod tests {
     }
 
     #[test]
-    fn list_repos_text_colorized_matches_python() {
+    fn list_repos_text_colorizes_labels_not_values() {
         let mut buf = Buffer::default();
         let mut d = TextDisplay {
             output: &mut buf,
@@ -573,7 +565,7 @@ mod tests {
     }
 
     #[test]
-    fn known_products_text_colorized_label_matches_python() {
+    fn known_products_text_colorizes_the_label() {
         let mut buf = Buffer::default();
         let mut d = TextDisplay {
             output: &mut buf,
@@ -589,23 +581,21 @@ mod tests {
     }
 
     #[test]
-    fn js_matches_python_json_dumps_ensure_ascii() {
-        // Ground truth from python3 json.dumps (ensure_ascii=True default):
-        //   json.dumps("Qualität")  -> "Qualit\u00e4t"   (lowercase hex)
-        //   json.dumps("café 😀")   -> "caf\u00e9 \ud83d\ude00"  (surrogates)
+    fn js_escapes_non_ascii_as_utf16_escapes() {
+        // Non-ASCII is escaped per UTF-16 code unit in lowercase hex,
+        // astral chars as a surrogate pair, so a line stays pure ASCII.
         assert_eq!(js("Qualität"), r#""Qualit\u00e4t""#);
         assert_eq!(js("café 😀"), r#""caf\u00e9 \ud83d\ude00""#);
-        // ASCII controls / quote / backslash: serde_json already matches
-        // json.dumps('tab\tq"b\\s\x01') byte-for-byte.
+        // ASCII controls, the quote and the backslash keep serde_json's
+        // standard JSON escaping; this function leaves them untouched.
         assert_eq!(js("tab\tq\"b\\s\u{1}"), r#""tab\tq\"b\\s\u0001""#);
         assert_eq!(js("plain"), "\"plain\"");
     }
 
     #[test]
-    fn yaml_string_quotes_exactly_ruamel_classes() {
-        // Both lists verified against ruamel.yaml YAML(typ='safe') dumping
-        // {'k': s} (see review evidence): quoted = empty string, int-like,
-        // float-like, YAML 1.2 core bool/null spellings, ': ' / ' #'.
+    fn yaml_string_quotes_exactly_the_ambiguous_classes() {
+        // Quoted: the empty string, int-like, float-like, the YAML 1.2 core
+        // bool/null spellings, and anything containing ': ' or ' #'.
         for s in [
             "", "0", "2", "22", "08", "+1", "-1", "6.1", ".5", "1.", "1e3", "true", "True", "TRUE",
             "false", "False", "FALSE", "null", "Null", "NULL", "~", "a: b", "a #c",
@@ -639,7 +629,7 @@ mod tests {
     #[test]
     fn yaml_empty_version_is_quoted_empty_scalar() {
         // transform_version_partialy("") passes the empty string through
-        // unchanged; ruamel renders it `version: ''` — NOT `version: ` with a
+        // unchanged; it must render as `version: ''` — NOT `version: ` with a
         // trailing space.
         let mut s = String::new();
         push_version(&mut s, &Value::String(String::new()), "  ");
@@ -647,11 +637,9 @@ mod tests {
     }
 
     #[test]
-    fn list_products_yaml_json_matches_python_json_dumps() {
-        // Ground truth derived by running the display.py:121-127 payload
-        // ({"event": "host_spec", "host": h, **to_refhost_dict_partially_
-        // normalized(), "name": h}) through python3 json.dumps for the
-        // sample_system fixture.
+    fn list_products_yaml_json_shape_is_pinned() {
+        // Key order and separators for the `host_spec` document, with the
+        // hostname repeated as both `host` and `name`.
         let mut buf = Buffer::default();
         list_products_yaml_json(&mut buf, "ulysse.qam.suse.cz", &sample_system()).unwrap();
         assert_eq!(
@@ -666,8 +654,8 @@ mod tests {
 
     #[test]
     fn list_products_yaml_json_unnormalized_version_and_no_addons() {
-        // python3: json.dumps of the same payload for a tumbleweed host with
-        // no addons — version stays a bare string, addons is [].
+        // Same document for a tumbleweed host with no addons — the version
+        // stays a bare string and `addons` is `[]`.
         let sys = System {
             base: Product {
                 name: "openSUSE Tumbleweed".into(),
@@ -688,7 +676,7 @@ mod tests {
     }
 
     #[test]
-    fn list_products_yaml_matches_ruamel() {
+    fn list_products_yaml_shape_is_pinned() {
         let mut buf = Buffer::default();
         list_products_yaml(&mut buf, "ulysse.qam.suse.cz", &sample_system()).unwrap();
         let expected = concat!(

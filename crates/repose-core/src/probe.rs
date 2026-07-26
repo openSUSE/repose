@@ -1,4 +1,4 @@
-//! Repository URL liveness probe (Python `check_repo_url_async` baseline).
+//! Repository URL liveness probe.
 
 use std::time::Duration;
 
@@ -11,7 +11,8 @@ const SUFFIXES: &[&str] = &["repodata/repomd.xml", "suse/repodata/repomd.xml"];
 
 /// Default async probe using rustls's platform verifier, so internal enterprise
 /// mirrors signed by a private CA (e.g. the internal SUSE CA / "SUSE Trust
-/// Root") validate just as they do under Python's system-CA probe.
+/// Root") validate against the OS-configured CA trust store, not just a
+/// bundled public root list.
 #[derive(Debug, Clone)]
 pub struct HttpProbe {
     /// `None` when client construction failed (e.g. the native root store
@@ -55,10 +56,10 @@ impl HttpProbe {
                     }
                 }
                 Err(_) => {
-                    // HEAD transport error/timeout: Python probes HEAD and GET in
-                    // one try/except, so the exception skips GET for this suffix.
-                    // Match that — a mirror that fails HEAD at the transport layer
-                    // will fail GET too, so the extra request is pure waste.
+                    // HEAD transport error/timeout (not a non-success status):
+                    // do not fall back to GET for this suffix — a mirror that
+                    // fails HEAD at the transport layer will fail GET too, so
+                    // the extra request is pure waste.
                 }
             }
         }
@@ -203,8 +204,8 @@ mod tests {
     #[tokio::test]
     async fn http_probe_head_transport_error_skips_get() {
         // HEAD hangs far past the client timeout → transport error; GET would
-        // succeed. Python (and the fixed Rust) must NOT fall back to GET after a
-        // HEAD transport error, so the host stays dead.
+        // succeed. Implementation must NOT fall back to GET after a HEAD
+        // transport error, so the host stays dead.
         let server = MockServer::start().await;
         Mock::given(method("HEAD"))
             .respond_with(ResponseTemplate::new(200).set_delay(Duration::from_secs(30)))

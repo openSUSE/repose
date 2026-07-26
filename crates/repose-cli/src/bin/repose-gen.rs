@@ -1,7 +1,6 @@
 //! Dev/packaging tool: regenerate the committed man pages and shell
 //! completions from the `repose` CLI definition. CI runs this and diffs the
-//! output so the assets never drift (mirrors the Python `repose-mangen` +
-//! man-drift workflow). Built only with `--features gen`.
+//! output so the assets never drift. Built only with `--features gen`.
 
 #![forbid(unsafe_code)]
 

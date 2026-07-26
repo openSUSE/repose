@@ -22,9 +22,8 @@ pub async fn run_list_products<W: Write>(
             let (hostname, port) = split_key(host.key());
             if let Some(sys) = host.products() {
                 if opts.yaml {
-                    // Python `--yaml` honors `--format`: YAML documents for
-                    // text, per-host `host_spec` NDJSON for json
-                    // (`JsonCommandDisplay.list_products_yaml`).
+                    // `--yaml` still honors `--format`: YAML documents for
+                    // text, per-host `host_spec` NDJSON for json.
                     match opts.format {
                         crate::console::OutputFormat::Json => {
                             let _ =
@@ -168,12 +167,10 @@ mod tests {
 
     #[tokio::test]
     async fn list_products_yaml_with_json_format_emits_host_spec_ndjson() {
-        // Python `repose list-products --yaml --format json` emits one
-        // `host_spec` JSON document per host (display.py:121-127), NOT raw
-        // YAML. The expected line below is the byte-exact python3 ground
-        // truth: json.dumps({"event": "host_spec", "host": "h1",
-        // **system.to_refhost_dict_partially_normalized(), "name": "h1"})
-        // for base SLES 15-SP3 x86_64 + addon sle-module-basesystem 15-SP3.
+        // `repose list-products --yaml --format json` emits one `host_spec`
+        // JSON document per host, NOT raw YAML. The expected line below is
+        // the pinned byte-exact document for base SLES 15-SP3 x86_64 with
+        // addon sle-module-basesystem 15-SP3.
         use crate::mock::{MockHost, MockHostGroup};
         use crate::types::{Product, System};
         let mut g = MockHostGroup::new();

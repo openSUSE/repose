@@ -20,7 +20,7 @@ pub async fn run_uninstall<W: Write>(
     group: &mut dyn HostGroup,
     console: &mut Console<W>,
 ) -> ExitCode {
-    // Force repo=None on REPAs (Python dataclasses.replace).
+    // Force repo=None on REPAs.
     let orepa: Vec<Repa> = opts
         .repa
         .iter()
@@ -31,11 +31,11 @@ pub async fn run_uninstall<W: Write>(
     group.read_repos().await;
     group.parse_repos().await;
 
-    // Fan out per-host work concurrently (Python spawned one worker task per
-    // target); `join_all` preserves key order for exit aggregation. Bounded
-    // by a semaphore (P1 step 18) — see `add.rs`'s `run_add` for why this
-    // avoids both the head-of-line blocking `.buffered(cap)` would cause
-    // and the index/sort step `buffer_unordered` would need.
+    // Fan out per-host work concurrently, one future per host; `join_all`
+    // preserves key order for exit aggregation. Bounded by a semaphore (P1
+    // step 18) — see `add.rs`'s `run_add` for why this avoids both the
+    // head-of-line blocking `.buffered(cap)` would cause and the
+    // index/sort step `buffer_unordered` would need.
     let cap = group.host_operation_limit().get();
     let semaphore = Arc::new(Semaphore::new(cap));
     let console = SharedConsole::new(console);
@@ -63,9 +63,8 @@ async fn uninstall_one<W: Write>(
     orepa: &[Repa],
     console: &SharedConsole<'_, W>,
 ) -> bool {
-    // Python dereferences `products.flatten()` / `.is_transactional()`
-    // unguarded — a host whose product read failed raises in the worker
-    // and counts as failed.
+    // A host whose product read failed (products() returns None) counts
+    // as a failure here rather than a silent no-op.
     let Some(system) = host.products() else {
         return false;
     };
@@ -77,8 +76,8 @@ async fn uninstall_one<W: Write>(
         return true;
     }
 
-    // Skip the sentinel aliases whose repo name is not a 4-part product string
-    // (Python `_calculate_repodict` skips entries where `product.name is None`).
+    // Skip the sentinel aliases whose repo name is not a 4-part product
+    // string (`product` is `None` for those entries).
     // A failed repo read leaves `repos` as `None`: removing the products
     // while dropping zero repos would leave stale repos behind.
     let Some(repos) = host.repos() else {
@@ -96,9 +95,9 @@ async fn uninstall_one<W: Write>(
         console.info(&format!("For {} no repos for remove found", host.key()));
     }
 
-    // Duplicates are intentional: Python `[x.split(":")[0] for x in patterns]`
-    // passes duplicate product names straight to `shlex.join` (two patterns
-    // sharing a product name → `rm -t product SLES SLES`). Do not dedup.
+    // Duplicates are intentional: two patterns sharing a product name must
+    // both appear in the argv (e.g. `rm -t product SLES SLES`). Do not
+    // dedup.
     let product_names: Vec<String> = patterns
         .iter()
         .map(|p| p.split(':').next().unwrap_or(p).to_string())
@@ -130,8 +129,8 @@ async fn uninstall_one<W: Write>(
             ok = false;
         }
     }
-    // Short-circuit: a failed product-removal report skips the reboot+verify
-    // (Python `elif transactional`).
+    // Short-circuit: a failed product-removal report skips the
+    // reboot+verify.
     if !run_reported_shared(host, &pdcmd, console).await
         || (transactional
             && !reboot_and_verify_shared(host, &product_names, false, opts.no_reboot, console)
@@ -330,15 +329,15 @@ mod tests {
             .with_post_reboot_products(system(product("other", "1"), vec![], true));
         let (code, ran, buf) = run(host, opts(&["qa:6.0"], false, false)).await;
         assert_eq!(ran, c.ran);
-        // Python `_check_products` reports the successful verify.
+        // A successful verify reports the confirmation line below.
         assert!(buf.contains("h1: verified product(s) qa after reboot"));
         assert_eq!(code, c.exit_code());
     }
 
     #[tokio::test]
     async fn no_products_fails_host() {
-        // Python dereferences `products.flatten()` → worker raises → host
-        // failed; unreadable product state must NOT count as success.
+        // A host whose product read failed must count as failed, not
+        // success.
         let host = MockHost::new("h1").with_repos(Repositories::new());
         let (code, _, _) = run(host, opts(&["SLES:15-SP4"], false, false)).await;
         assert_eq!(code, ExitCode::AllFailed);
@@ -346,8 +345,8 @@ mod tests {
 
     #[tokio::test]
     async fn transactional_reread_failure_after_reboot_fails() {
-        // Python `_reboot_and_verify` catches the re-read exception and
-        // fails the host; ignoring the error must not report success.
+        // A re-read failure after reboot must fail the host; ignoring the
+        // error must not report success.
         let qa = product("qa", "6.0");
         let host = MockHost::new("h1")
             .with_products(system(qa.clone(), vec![], true))

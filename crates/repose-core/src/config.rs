@@ -1,4 +1,4 @@
-//! Transport configuration (Python `ConnectionConfig` without `ssh_backend`).
+//! Transport configuration.
 
 use std::num::NonZeroUsize;
 use std::path::PathBuf;
@@ -66,7 +66,7 @@ pub enum HostKeyPolicy {
 pub struct ConnectionConfig {
     pub host_key_policy: HostKeyPolicy,
     pub known_hosts: Option<PathBuf>,
-    /// Per-command SSH timeout in seconds (Python default 120).
+    /// Per-command SSH timeout in seconds (default: `120`).
     pub timeout: f64,
 
     /// Maximum host operations (SSH group phases, per-host mutation

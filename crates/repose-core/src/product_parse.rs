@@ -5,9 +5,9 @@ use quick_xml::events::{BytesRef, Event};
 
 use crate::types::{Product, System};
 
-/// Resolve a `&name;` / `&#N;` general-entity reference to its text, the way
-/// Python's ElementTree inlines it. Returns `None` for an undefined entity
-/// (where Python raises `ParseError`); callers treat that as malformed input.
+/// Resolve a `&name;` / `&#N;` general-entity reference to its text.
+/// Returns `None` for an undefined entity; callers treat that as malformed
+/// input.
 pub(crate) fn resolve_general_ref(e: &BytesRef<'_>) -> Option<String> {
     if let Ok(Some(ch)) = e.resolve_char_ref() {
         return Some(ch.to_string());
@@ -31,23 +31,23 @@ fn field_index(tag: &[u8]) -> Option<usize> {
 
 /// Parse one `.prod` XML document into a product, or `None` if malformed.
 ///
-/// Mirrors Python `__parse_product`, which selects fields with
-/// `root.find("./name")` (and `./arch`, `./version`, `./baseversion`,
-/// `./patchlevel`) — i.e. the **first direct child** of the root `<product>`
-/// element. Real `.prod` files carry a second, nested `<codestream><name>`
-/// (the friendly/summary name); it must NOT clobber the canonical one, so we
-/// only consider elements whose parent is the root (depth 1) and commit the
-/// **first element** per field (an empty first `<name></name>` shadows a later
-/// text-bearing one, exactly like `find`'s first-match + `.text is None`).
+/// Each field is taken from the **first direct child** of the root
+/// `<product>` element bearing its tag — `<name>`, `<arch>`, `<version>`,
+/// `<baseversion>`, `<patchlevel>`. Real `.prod` files carry a second, nested
+/// `<codestream><name>` (the friendly/summary name); it must NOT clobber the
+/// canonical one, so we only consider elements whose parent is the root
+/// (depth 1) and commit the **first element** per field (an empty first
+/// `<name></name>` shadows a later text-bearing one: the first match wins
+/// even when its text is empty).
 ///
-/// Like ElementTree's `.text`, a field's value is the concatenation of the
-/// character data — text, resolved entity/char references, CDATA — between
-/// its start tag and its first child element (comments do not interrupt it).
+/// A field's value is the concatenation of the character data — text,
+/// resolved entity/char references, CDATA — between its start tag and its
+/// first child element (comments do not interrupt it).
 pub fn parse_prod_xml(xml: &str, _filename: &str) -> Option<Product> {
     let mut reader = Reader::from_str(xml);
     let mut buf = Vec::new();
     // Per-field committed `.text` (index shape from `field_index`). `Some("")`
-    // models Python's "element seen, `.text` is None/empty" — falsy downstream.
+    // marks "element seen but its text is empty or absent" — falsy downstream.
     let mut texts: [Option<String>; 5] = Default::default();
     // Whether each field's element has been seen at depth 1: the FIRST element
     // wins the field even if it carries no text.
@@ -57,8 +57,8 @@ pub fn parse_prod_xml(xml: &str, _filename: &str) -> Option<Product> {
     // Field whose depth-1 element is currently open and collecting `.text`.
     let mut active: Option<usize> = None;
     let mut acc = String::new();
-    // `.text` ends at the first child element (its content and everything
-    // after it belongs to child text/tails in ElementTree).
+    // Text collection ends at the first child element: its content, and
+    // everything following it, belongs to that child rather than this field.
     let mut text_done = false;
 
     loop {
@@ -78,9 +78,9 @@ pub fn parse_prod_xml(xml: &str, _filename: &str) -> Option<Product> {
                 depth += 1;
             }
             Ok(Event::Empty(e)) => {
-                // Self-closing element: immediately closed, carries no text —
-                // Python's `.text` is None. Crucially it does NOT stay
-                // "current": tail text after it belongs to no field.
+                // Self-closing element: immediately closed, carries no text.
+                // Crucially it does NOT stay "current": tail text after it
+                // belongs to no field.
                 if active.is_some() {
                     text_done = true;
                 } else if depth == 1
@@ -105,7 +105,7 @@ pub fn parse_prod_xml(xml: &str, _filename: &str) -> Option<Product> {
             }
             Ok(Event::GeneralRef(e)) => {
                 if active.is_some() && !text_done {
-                    // Undefined entity → Python ParseError → malformed here.
+                    // An undefined entity makes the document malformed.
                     acc.push_str(&resolve_general_ref(&e)?);
                 }
             }
@@ -114,8 +114,8 @@ pub fn parse_prod_xml(xml: &str, _filename: &str) -> Option<Product> {
                 if depth == 1
                     && let Some(idx) = active.take()
                 {
-                    // Whitespace trim is a documented delta (Python keeps
-                    // `.text` verbatim); real `.prod` files are unpadded.
+                    // Field values are whitespace-trimmed — a documented
+                    // delta; real `.prod` files are unpadded.
                     texts[idx] = Some(acc.trim().to_string());
                 }
             }
@@ -129,11 +129,11 @@ pub fn parse_prod_xml(xml: &str, _filename: &str) -> Option<Product> {
     let [name, arch, baseversion, patchlevel, version] = texts;
     let name = name.filter(|s| !s.is_empty())?;
     let arch = arch.filter(|s| !s.is_empty())?;
-    // Intentional delta: with `<baseversion>` present but `<patchlevel>` entirely
-    // absent, Python's fragile `find("./patchlevel").text` raises and discards the
-    // baseversion (falling back to `<version>`, else None). Rust keeps the
-    // baseversion as the version. Real `.prod` files always pair the two, so this
-    // only differs on malformed input (excluded from the golden vectors).
+    // Intentional delta: when `<baseversion>` is present but `<patchlevel>`
+    // is entirely absent, repose keeps the baseversion as the version
+    // (rather than discarding it and falling back to `<version>`, else
+    // None). Real `.prod` files always pair the two, so this only differs
+    // on malformed input (excluded from the golden vectors).
     let mut ver = if let Some(bv) = baseversion.filter(|s| !s.is_empty()) {
         let mut v = bv;
         if let Some(sp) = patchlevel
@@ -201,7 +201,7 @@ pub struct ProdFile {
     pub xml: Option<String>,
 }
 
-/// Failure modes of [`parse_system`], mirroring Python `UnknownSystemError`.
+/// Failure modes of [`parse_system`].
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ParseSystemError {
     /// `/etc/products.d/baseproduct` symlink did not resolve.
@@ -228,20 +228,22 @@ impl std::fmt::Display for ParseSystemError {
 
 impl std::error::Error for ParseSystemError {}
 
-/// Python `name.rpartition("-")[-1] == "migration"`.
+/// True when the name, or the segment after its last `-`, is exactly
+/// `migration`.
 fn is_migration_name(name: &str) -> bool {
     name.rsplit_once('-').map_or(name, |(_, tail)| tail) == "migration"
 }
 
-/// Pure port of Python `parse_system` (target/parsers/product.py). No SSH.
+/// Resolves the installed system — base product, addons, and transactional
+/// flag — from pre-fetched file contents. No SSH.
 ///
 /// `products_d` is `Some` when `listdir("/etc/products.d")` succeeded (the
 /// SUSE path — even an empty listing) and `None` when it failed (os-release /
 /// rhel6 fallback). On the SUSE path the base is chosen by the `baseproduct`
 /// symlink (`baseproduct_link`, path-stripped), read via `base_xml`; addons
 /// are the other `.prod` files, deduped, with `*-migration` products skipped
-/// by parsed **name**. `transactional` is honored only on the SUSE path —
-/// Python never computes it in a fallback, so it is forced `false` there.
+/// by parsed **name**. `transactional` is honored only on the SUSE path; the
+/// fallback path has no way to detect it, so it is forced `false` there.
 pub fn parse_system(
     products_d: Option<&[ProdFile]>,
     baseproduct_link: Option<&str>,
@@ -386,7 +388,8 @@ mod tests {
     }
 
     /// Tail text after a self-closing depth-1 element must not be attributed
-    /// to it (Python: `<arch/>` → `.text is None` → malformed).
+    /// to it: a self-closing `<arch/>` has no text, making the document
+    /// malformed.
     #[test]
     fn self_closing_field_with_tail_text_is_malformed() {
         let xml = "<product><arch/>x86_64<name>S</name><version>1</version></product>";
@@ -395,8 +398,8 @@ mod tests {
         assert_eq!(parse_prod_xml(xml, "t.prod"), None);
     }
 
-    /// The FIRST element wins per field, even when empty: a later text-bearing
-    /// duplicate must not fill the field (Python `find` + `.text is None`).
+    /// The FIRST element wins per field, even when empty: a later
+    /// text-bearing duplicate must not fill the field.
     #[test]
     fn first_element_wins_even_when_empty() {
         let xml =
@@ -408,7 +411,7 @@ mod tests {
     }
 
     /// Entity references, comments, and CDATA fragment the character data;
-    /// the pieces must be accumulated and resolved like ElementTree's `.text`.
+    /// the pieces must be accumulated and resolved into a single value.
     #[test]
     fn fragmented_text_entities_comments_cdata() {
         let entity = "<product><name>A&amp;B</name><version>1</version><arch>a</arch></product>";

@@ -15,8 +15,7 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  # Rust workspace — the sole implementation since the Python
-  # cutover . Python and its jobs were removed.
+  # Rust workspace — the sole implementation.
   rust:
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -48,7 +47,7 @@ jobs:
       - name: Test
         run: cargo test --workspace --all-targets --locked
       - name: Binary version line
-        # Shape matches the historical Python line: `repose version: X.Y.Z`
+        # `repose version: X.Y.Z` is the pinned shape of the --version line
         # (value is the crate version). Do not hard-code a version.
         run: |
           out="$(cargo run -q --locked -p repose-cli --bin repose -- --version)"

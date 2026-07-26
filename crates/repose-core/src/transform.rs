@@ -1,10 +1,14 @@
-//! Version transforms for refhost YAML (`transform_version_partialy` spelling preserved).
+//! Version transforms for refhost YAML (the `transform_version_partialy`
+//! misspelling is the established name; see `typos.toml`).
 
 use serde_json::{Value, json};
 
 /// Normalise a version string into major/minor or pass through unchanged.
 ///
-/// Mirrors Python `repose.types.refhost.transformations.transform_version_partialy`.
+/// A `-` separator yields an integer major and a string minor (e.g.
+/// `"15-SP3"` → `{major: 15, minor: "SP3"}`); a `.` separator yields two
+/// integers; `"ALL"` becomes `{major: "ALL"}`; a bare integer becomes
+/// `{major: N}`. Any parse failure falls back to the original string.
 #[must_use]
 pub fn transform_version_partialy(version: &str) -> Value {
     let result = (|| {

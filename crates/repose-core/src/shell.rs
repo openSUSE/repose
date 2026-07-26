@@ -1,15 +1,18 @@
-//! POSIX shell quoting matching Python `shlex.quote` / `shlex.join`.
+//! POSIX shell quoting: every argument interpolated into a remote command
+//! must reach a refhost's `/bin/sh` as the literal bytes intended.
 //!
-//! Vectors under `tests/vectors/shell/` capture CPython `shlex` behavior and
-//! are the merge gate for any remote command interpolation (design R2 / PR2).
+//! Vectors under `tests/vectors/shell/` pin the exact quoting rule and the
+//! command templates below and are the merge gate for any remote command
+//! interpolation (design R2 / PR2).
 
-/// Python 3 `shlex.quote` uses `_find_unsafe = re.compile(r'[^\w@%+=:,./-]', re.ASCII)`.
+/// Characters safe to leave unquoted: ASCII alphanumerics plus
+/// `_@%+=:,./-`; anything else forces single-quoting.
 const fn is_safe_char(c: char) -> bool {
     c.is_ascii_alphanumeric()
         || matches!(c, '_' | '@' | '%' | '+' | '=' | ':' | ',' | '.' | '/' | '-')
 }
 
-/// Quote `s` for a POSIX shell, matching Python `shlex.quote`.
+/// Quote `s` for a POSIX shell. Pinned by `tests/vectors/shell/quote.json`.
 #[must_use]
 fn quote(s: &str) -> String {
     if s.is_empty() {
@@ -31,7 +34,8 @@ fn quote(s: &str) -> String {
     out
 }
 
-/// Join arguments with spaces after quoting each (Python `shlex.join`).
+/// Join arguments with spaces after quoting each. Pinned by
+/// `tests/vectors/shell/join.json`.
 #[must_use]
 pub(crate) fn join(parts: impl IntoIterator<Item = impl AsRef<str>>) -> String {
     parts
@@ -41,7 +45,8 @@ pub(crate) fn join(parts: impl IntoIterator<Item = impl AsRef<str>>) -> String {
         .join(" ")
 }
 
-/// Remote command templates (Python `Command` class attributes).
+/// Remote command templates: the literal commands run on a refhost's
+/// `/bin/sh`, pinned by `tests/vectors/shell/command_templates.json`.
 pub(crate) mod cmd {
     use super::join;
 

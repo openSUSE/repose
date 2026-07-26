@@ -5,7 +5,7 @@
 
 use std::collections::BTreeMap;
 
-/// Installed or template product identity (Python `Product`).
+/// Installed or template product identity.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Product {
     pub name: String,
@@ -13,7 +13,7 @@ pub struct Product {
     pub arch: String,
 }
 
-/// Host system model (Python `System`): base + addons + transactional flag.
+/// Host system model: base + addons + transactional flag.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct System {
     pub base: Product,
@@ -42,7 +42,7 @@ impl System {
         &self.addons
     }
 
-    /// Base + addons (Python `System.flatten`).
+    /// Base + addons.
     #[must_use]
     pub(crate) fn flatten(&self) -> Vec<Product> {
         let mut v = Vec::with_capacity(1 + self.addons.len());
@@ -52,7 +52,7 @@ impl System {
     }
 }
 
-/// Parse zypper repo **name** `a:b:c:d` into a product (Python `Repositories`).
+/// Parse zypper repo **name** `a:b:c:d` into a product.
 #[must_use]
 pub fn product_from_repo_name(name: &str, host_arch: &str) -> Option<Product> {
     let parts: Vec<&str> = name.split(':').collect();
@@ -76,7 +76,7 @@ pub fn repositories_from_raw(raw: &[Repository], host_arch: &str) -> Repositorie
     repos
 }
 
-/// One zypper repository row (Python `Repository`).
+/// One zypper repository row.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Repository {
     pub alias: String,
@@ -86,7 +86,7 @@ pub struct Repository {
     pub(crate) state: bool,
 }
 
-/// Alias → optional product parse (Python `Repositories`).
+/// Alias → optional product parse.
 ///
 /// Values are `None` when the repo name is not a four-part product string.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -113,13 +113,13 @@ impl Repositories {
     }
 }
 
-/// One remote command history entry (Python `Target.out` row).
+/// One remote command history entry.
 ///
 /// Fields: `(command, stdout, stderr, exitcode, runtime_secs)`.
 /// Timeout / missing status → `exitcode == -1`.
 pub type OutEntry = (String, String, String, i32, u64);
 
-/// Process-level aggregate exit codes (Python `ExitCode`).
+/// Process-level aggregate exit codes; the contract callers branch on.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u8)]
 pub enum ExitCode {
@@ -160,8 +160,7 @@ impl ExitCode {
     }
 }
 
-/// zypper exit codes treated as success by `_report_target`
-/// (`ZYPPER_SUCCESS_EXIT_CODES` in Python).
+/// zypper exit codes `report_target` treats as a successful host result.
 const ZYPPER_SUCCESS_EXIT_CODES: &[i32] = &[0, 100, 101, 102, 103, 106, 107];
 
 /// Whether a zypper-style exit code is a successful host result.

@@ -116,7 +116,8 @@ Probes are a single outbound HTTP HEAD/GET per candidate URL — no PTY, no
 SFTP channel, no persistent per-host state — so they can safely sustain
 higher concurrency than full host operations for the same resource budget.
 Today's per-*host* cap of 16 (`crates/repose-core/src/commands/mod.rs:294`,
-inherited from the Python `asyncio.Semaphore(min(16, n))`) means a 100-host
+inherited from the pre-3.0 implementation rather than derived from a
+measurement) means a 100-host
 fleet with several repository candidates per host can already reach
 multiples of 16 in flight simultaneously with no fleet-wide ceiling at all.
 64 is 4x today's per-host value yet remains an explicit, single, fleet-wide

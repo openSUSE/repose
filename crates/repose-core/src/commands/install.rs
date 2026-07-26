@@ -15,13 +15,12 @@ use std::io::Write;
 use std::sync::Arc;
 use tokio::sync::Semaphore;
 
-/// Product → repos accumulator preserving REPA/dict insertion order.
+/// Product → repos accumulator preserving REPA insertion order.
 ///
-/// Python `install._merge_repos` mutates an insertion-ordered `dict`, and both
-/// the product-install argv (`shlex.join(repositories.keys())`) and the
-/// per-repo `ar` order (`chain.from_iterable(repositories.values())`) follow
-/// that order. A sorted `BTreeMap` would diverge — design delta #4 permits a
-/// stable sort only for *set*-sourced multi-alias commands, not this dict.
+/// Both the product-install argv (the product names) and the per-repo `ar`
+/// order (their repo lists, flattened) follow this order. A sorted
+/// `BTreeMap` would diverge — design delta #4 permits a stable sort only for
+/// *set*-sourced multi-alias commands, not this one.
 type ProductRepos = Vec<(String, Vec<Repos>)>;
 
 fn merge_repos(acc: &mut ProductRepos, resolved: BTreeMap<String, Vec<Repos>>) {
@@ -53,11 +52,11 @@ pub async fn run_install<W: Write>(
     group.read_products().await;
     group.read_repos().await;
 
-    // Fan out per-host work concurrently (Python spawned one worker task per
-    // target); `join_all` preserves key order for exit aggregation. Bounded
-    // by a semaphore (P1 step 14) — see `add.rs`'s `run_add` for why this
-    // avoids both the head-of-line blocking `.buffered(cap)` would cause
-    // and the index/sort step `buffer_unordered` would need.
+    // Fan out per-host work concurrently, one future per host; `join_all`
+    // preserves key order for exit aggregation. Bounded by a semaphore (P1
+    // step 14) — see `add.rs`'s `run_add` for why this avoids both the
+    // head-of-line blocking `.buffered(cap)` would cause and the
+    // index/sort step `buffer_unordered` would need.
     let cap = group.host_operation_limit().get();
     let semaphore = Arc::new(Semaphore::new(cap));
     // One fleet-wide probe budget (P1 step 22) shared by every host worker,
@@ -131,7 +130,10 @@ async fn install_one<W: Write>(
             if !run_reported_shared(host, &addcmd, console).await {
                 ok = false;
             }
-            // Per-repo ref without report_target (Python parity trap).
+            // The per-repo refresh is deliberately fire-and-forget: its
+            // result is neither reported nor folded into `ok`. Do NOT route
+            // it through `run_reported_shared` — that would let a refresh
+            // failure fail the host.
             let _ = host.run(cmd::REFCMD).await;
         }
     }
@@ -141,7 +143,7 @@ async fn install_one<W: Write>(
         return false;
     }
 
-    // Product-install argv follows insertion order (Python dict order); see ProductRepos.
+    // Product-install argv follows insertion order; see `ProductRepos`.
     let product_names: Vec<String> = repositories.iter().map(|(p, _)| p.clone()).collect();
     let name_refs: Vec<&str> = product_names.iter().map(String::as_str).collect();
     let inscmd = if transactional {
@@ -164,8 +166,7 @@ async fn install_one<W: Write>(
     if transactional {
         let _ = host.run(cmd::REFTCMD).await;
     }
-    // Short-circuit: a failed install report skips the reboot+verify
-    // (Python `elif transactional`).
+    // Short-circuit: a failed install report skips the reboot+verify.
     if !run_reported_shared(host, &inscmd, console).await
         || (transactional
             && !reboot_and_verify_shared(host, &product_names, true, opts.no_reboot, console).await)
@@ -329,7 +330,7 @@ mod tests {
         )
         .await;
         assert_eq!(ran, c.ran);
-        // Python `_check_products` reports the successful verify.
+        // A successful verify reports the confirmation line below.
         assert!(buf.contains("h1: verified product(s) SLES after reboot"));
         assert_eq!(code, c.exit_code());
     }
@@ -353,8 +354,8 @@ mod tests {
 
     #[tokio::test]
     async fn transactional_verify_fails_when_products_unreadable_after_reboot() {
-        // Re-read succeeded but yielded no product state: Python's
-        // `installed = set()` fails every present-check — must NOT pass.
+        // Re-read succeeded but yielded no product state: an empty/
+        // unreadable product set fails every present-check — must NOT pass.
         let host = MockHost::new("h1")
             .with_products(system("SLES", true))
             .with_post_reboot_no_products();

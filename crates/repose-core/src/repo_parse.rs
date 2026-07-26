@@ -1,4 +1,4 @@
-//! Parse `zypper -x lr` XML (Python `parse_repositories`).
+//! Parse `zypper -x lr` XML.
 
 use quick_xml::events::Event;
 use quick_xml::{Reader, XmlVersion};
@@ -17,16 +17,16 @@ pub fn parse_repositories(xml: &str) -> Vec<Repository> {
     let mut name = String::new();
     let mut enabled = String::new();
     let mut url = String::new();
-    // Collecting text of the first `<url>` child (Python `find("./url").text`).
+    // Collecting text of the first `<url>` child.
     let mut in_url = false;
-    // Python `find` returns the first match: later `<url>` siblings are ignored.
+    // Only the first `<url>` child is used; later siblings are ignored.
     let mut url_seen = false;
 
     loop {
         match reader.read_event_into(&mut buf) {
             Ok(Event::Start(e)) => {
-                // Python `.text` covers only the run up to the first child
-                // element, so any element opening inside `<url>` ends it.
+                // Text content ends at the first child element, so any
+                // element opening inside `<url>` ends its collection.
                 if in_url {
                     in_url = false;
                 }
@@ -40,11 +40,11 @@ pub fn parse_repositories(xml: &str) -> Vec<Repository> {
                     url_seen = false;
                     for a in e.attributes().flatten() {
                         // Resolve entity/char references in attribute values
-                        // (`name="A &amp; B"` → `A & B`), as Python's
-                        // ElementTree does (including standard attribute-value
-                        // whitespace normalization). An undefined entity makes
-                        // Python raise ParseError; keep the documented lenient
-                        // delta and skip just that attribute.
+                        // (`name="A &amp; B"` → `A & B`), including standard
+                        // attribute-value whitespace normalization. An
+                        // undefined entity here is a documented delta: skip
+                        // just that attribute rather than treating the whole
+                        // document as malformed.
                         let Ok(val) = a.normalized_value(XmlVersion::Implicit1_0) else {
                             continue;
                         };
@@ -76,8 +76,8 @@ pub fn parse_repositories(xml: &str) -> Vec<Repository> {
             Ok(Event::GeneralRef(e)) if in_url => {
                 match resolve_general_ref(&e) {
                     Some(s) => url.push_str(&s),
-                    // Undefined entity: Python raises ParseError for the whole
-                    // document; mirror the malformed-XML delta and stop here.
+                    // An undefined entity makes the document malformed;
+                    // stop parsing here.
                     None => break,
                 }
             }
@@ -85,18 +85,20 @@ pub fn parse_repositories(xml: &str) -> Vec<Repository> {
                 let tag = String::from_utf8_lossy(e.name().as_ref()).into_owned();
                 if tag == "url" {
                     in_url = false;
-                    // Python keeps `.text` verbatim; trimming padding is a
-                    // documented delta (see below). Idempotent on re-entry.
+                    // Trimming padding is a documented delta (see below).
+                    // Idempotent on re-entry.
                     url = url.trim().to_string();
                 } else if tag == "repo" && in_repo {
                     in_repo = false;
-                    // Python skips a repo only when a required field is *absent*.
-                    // Combined with the whitespace trim (above), this non-empty
-                    // check is a documented delta on pathological input: it (a)
-                    // drops present-but-empty/whitespace-only fields Python
-                    // keeps (e.g. `enabled=""`, `<url> </url>`), and (b) strips
-                    // surrounding whitespace Python preserves in a padded
-                    // `<url>`. Real `zypper -x lr` emits neither.
+                    // A repo is skipped when any required field is empty, not
+                    // only when it is absent. Combined with the whitespace
+                    // trim (above), this is a deliberate choice on
+                    // pathological input: it (a) drops present-but-empty or
+                    // whitespace-only fields that a mere-presence check would
+                    // keep (e.g. `enabled=""`, `<url> </url>`), and (b) emits
+                    // a padded `<url>  http://x/  </url>` as `http://x/`,
+                    // because the trim rewrites the stored URL itself. Real
+                    // `zypper -x lr` emits neither.
                     if !alias.is_empty()
                         && !name.is_empty()
                         && !enabled.is_empty()
@@ -143,8 +145,8 @@ mod tests {
         assert!(repos[0].state);
     }
 
-    /// XML entities in attribute values and url text must be resolved and the
-    /// fragmented text accumulated, matching Python's ElementTree.
+    /// XML entities in attribute values and url text must be resolved and
+    /// the fragmented text accumulated.
     #[test]
     fn entities_in_attributes_and_url_are_unescaped() {
         let xml = r#"<stream><repo-list><repo alias="r1" name="A &amp; B" enabled="1"><url>http://example.invalid/?a=1&amp;b=2</url></repo></repo-list></stream>"#;
@@ -163,8 +165,8 @@ mod tests {
         assert_eq!(repos[0].url, "http://example.invalid/cdata/end");
     }
 
-    /// Python `repo.find("./url")` takes the first `<url>` child; a second one
-    /// must be ignored, not overwrite or concatenate.
+    /// Only the first `<url>` child is kept; a second one must be ignored,
+    /// not overwrite or concatenate.
     #[test]
     fn first_url_child_wins() {
         let xml = r#"<stream><repo-list><repo alias="a" name="n" enabled="1"><url>http://example.invalid/first/</url><url>http://example.invalid/second/</url></repo></repo-list></stream>"#;
@@ -183,7 +185,8 @@ mod tests {
         for case in serde_json::from_str::<Vec<serde_json::Value>>(&raw).unwrap() {
             let name = case["name"].as_str().unwrap();
             let xml = case["xml"].as_str().unwrap();
-            // Malformed XML: Python raises ParseError; Rust tolerates → empty (delta).
+            // Malformed XML: repose tolerates it and yields an empty result
+            // (documented delta) instead of failing.
             if case.get("raises").and_then(serde_json::Value::as_bool) == Some(true) {
                 assert!(
                     parse_repositories(xml).is_empty(),
