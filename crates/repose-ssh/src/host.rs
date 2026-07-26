@@ -16,7 +16,7 @@ use repose_core::types::{OutEntry, Repositories, Repository, System, repositorie
 
 use crate::session::RusshSession;
 
-/// Live target host (Python `AsyncTarget`).
+/// Live target host.
 pub struct RusshHost {
     key: String,
     #[allow(dead_code)]
@@ -101,9 +101,9 @@ impl Host for RusshHost {
 
     async fn run(&mut self, command: &str) -> Result<(), SshError> {
         if !self.connected {
-            // Python parity (async_target.py run): a failed dispatch still
-            // records a synthetic out entry (rc -1, empty streams) so the
-            // report shows this command as FAILED instead of desyncing.
+            // A failed dispatch still records a synthetic out entry (rc -1,
+            // empty streams) so the report shows this command as FAILED
+            // instead of desyncing.
             self.out
                 .push((command.to_string(), String::new(), String::new(), -1, 0));
             return Err(SshError::NotConnected(self.key.clone()));
@@ -117,8 +117,8 @@ impl Host for RusshHost {
                 Ok(())
             }
             Err(SshError::Timeout { phase, deadline }) => {
-                // Python parity: a timeout appends (command, "", "", -1) —
-                // the diagnostics go to the log, not the entry's stderr.
+                // A timeout appends `(command, "", "", -1)` — the
+                // diagnostics go to the log, not the entry's stderr.
                 // P1 step 27: typed variant replaces message substring
                 // matching; every bounded phase (not only command
                 // completion) reaches this branch, all with the same
@@ -137,8 +137,8 @@ impl Host for RusshHost {
                 Ok(())
             }
             Err(e) => {
-                // Python parity: generic failures also append empty streams
-                // with rc -1 and log the reason.
+                // Generic failures also append empty streams with rc -1 and
+                // log the reason.
                 log::error!("{}: failed to run command {command:?}: {e}", self.key);
                 self.out.push((
                     command.to_string(),
@@ -162,10 +162,10 @@ impl Host for RusshHost {
 
     async fn read_repos(&mut self) -> Result<(), SshError> {
         if !self.connected {
-            return Ok(()); // Python: debug return without raise
+            return Ok(()); // Not connected: silent no-op, not an error.
         }
-        // Python parity: read_repos goes through run(), so the zypper call
-        // is recorded as an out entry like any other command.
+        // read_repos goes through run(), so the zypper call is recorded as
+        // an out entry like any other command.
         self.run("zypper -x lr").await?;
         let (stdout, stderr, exitcode) = match self.out.last() {
             Some((_, stdout, stderr, exitcode, _)) => (stdout.clone(), stderr.clone(), *exitcode),
@@ -213,8 +213,8 @@ impl Host for RusshHost {
             if !before.is_empty() && !after.is_empty() && before == after {
                 log::warn!("boot_id unchanged after reboot on {}", self.key);
             }
-            // Python parity: reboot does NOT re-read products itself; the
-            // command layer (`reboot_and_verify`) re-reads them afterwards.
+            // reboot does NOT re-read products itself; the command layer
+            // (`reboot_and_verify`) re-reads them afterwards.
         }
         Ok(ok)
     }
@@ -225,8 +225,8 @@ impl Host for RusshHost {
 /// All SSH lives here; all parsing/branching is in `repose_core::parse_system`,
 /// which is the behavioral reference for the products.d / os-release / rhel6
 /// discovery. `listdir` succeeding (even empty) is the SUSE path; an
-/// unresolved `baseproduct` symlink is an error (matching Python), not a
-/// silent os-release fallback.
+/// unresolved `baseproduct` symlink is an error, not a silent os-release
+/// fallback.
 async fn discover_system(session: &mut RusshSession, _hostname: &str) -> Result<System, SshError> {
     match session.listdir("/etc/products.d").await {
         Ok(listing) => {
@@ -273,9 +273,9 @@ async fn discover_system(session: &mut RusshSession, _hostname: &str) -> Result<
                 .collect();
 
             // The addon `.prod` reads and the transactional-conf probes
-            // (the latter only on the SUSE path — Python parity) are
-            // independent SFTP lookups: issue them all concurrently over
-            // the shared channel instead of awaiting each in turn.
+            // (the latter only on the SUSE path) are independent SFTP
+            // lookups: issue them all concurrently over the shared channel
+            // instead of awaiting each in turn.
             // `read_files` preserves input order, so addon order is
             // unchanged (results are re-sorted downstream anyway).
             let mut paths: Vec<String> = addon_names
@@ -385,9 +385,8 @@ impl HostGroup for RusshHostGroup {
         self.host_operation_limit
     }
 
-    // Group operations fan out per host concurrently (Python
-    // `AsyncHostGroup` used one `asyncio.TaskGroup` per operation) while
-    // isolating per-host failures, bounded by `host_operation_limit` via
+    // Group operations fan out per host concurrently while isolating
+    // per-host failures, bounded by `host_operation_limit` via
     // `buffer_unordered` (unlike `.buffered`, a slow early host cannot
     // block admission of later ones). The hosts map is a `BTreeMap`, so
     // `connect_and_prune`'s removal set stays consistent regardless of
@@ -511,7 +510,7 @@ mod tests {
         let mut host = disconnected_host();
         let err = host.run("uptime").await.unwrap_err();
         assert!(matches!(err, SshError::NotConnected(_)));
-        // Python parity: the failed dispatch is visible in the report as
+        // A failed dispatch is visible in the report as
         // (command, "", "", -1).
         assert_eq!(
             host.out(),

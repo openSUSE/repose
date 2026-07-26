@@ -68,11 +68,11 @@ pub async fn run_remove<W: Write>(
     group.read_repos().await;
     group.parse_repos().await;
 
-    // Fan out per-host work concurrently (Python spawned one worker task per
-    // target); `join_all` preserves key order for exit aggregation. Bounded
-    // by a semaphore (P1 step 16) — see `add.rs`'s `run_add` for why this
-    // avoids both the head-of-line blocking `.buffered(cap)` would cause
-    // and the index/sort step `buffer_unordered` would need.
+    // Fan out per-host work concurrently, one future per host; `join_all`
+    // preserves key order for exit aggregation. Bounded by a semaphore (P1
+    // step 16) — see `add.rs`'s `run_add` for why this avoids both the
+    // head-of-line blocking `.buffered(cap)` would cause and the
+    // index/sort step `buffer_unordered` would need.
     let cap = group.host_operation_limit().get();
     let semaphore = Arc::new(Semaphore::new(cap));
     let console = SharedConsole::new(console);
@@ -99,8 +99,8 @@ async fn remove_one<W: Write>(
     host: &mut dyn Host,
     console: &SharedConsole<'_, W>,
 ) -> bool {
-    // Python dereferences `products.flatten()` unguarded — a host whose
-    // product read failed raises in the worker and counts as failed.
+    // A host whose product read failed (products() returns None) counts
+    // as a failure here rather than a silent no-op.
     let Some(system) = host.products() else {
         return false;
     };
@@ -154,8 +154,8 @@ mod tests {
 
     #[tokio::test]
     async fn no_products_fails_host() {
-        // Python dereferences `products.flatten()` → worker raises → host
-        // failed; unreadable product state must NOT count as success.
+        // A host whose product read failed must count as failed, not
+        // success.
         let (code, _) = run(MockHost::new("h1"), &["SLES:15-SP3"]).await;
         assert_eq!(code, ExitCode::AllFailed);
     }

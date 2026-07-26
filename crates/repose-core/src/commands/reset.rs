@@ -24,11 +24,11 @@ pub async fn run_reset<W: Write>(
     group.read_products().await;
     group.read_repos().await;
 
-    // Fan out per-host work concurrently (Python spawned one worker task per
-    // target); `join_all` preserves key order for exit aggregation. Bounded
-    // by a semaphore (P1 step 15) — see `add.rs`'s `run_add` for why this
-    // avoids both the head-of-line blocking `.buffered(cap)` would cause
-    // and the index/sort step `buffer_unordered` would need.
+    // Fan out per-host work concurrently, one future per host; `join_all`
+    // preserves key order for exit aggregation. Bounded by a semaphore (P1
+    // step 15) — see `add.rs`'s `run_add` for why this avoids both the
+    // head-of-line blocking `.buffered(cap)` would cause and the
+    // index/sort step `buffer_unordered` would need.
     let cap = group.host_operation_limit().get();
     let semaphore = Arc::new(Semaphore::new(cap));
     // One fleet-wide probe budget (P1 step 23) shared by every host worker,
@@ -71,7 +71,7 @@ async fn reset_one<W: Write>(
     };
     let aliases: Vec<String> = {
         let mut a: Vec<_> = raw.iter().map(|x| x.alias.clone()).collect();
-        // Python `_clear` collects into a set: sorted + unique.
+        // Sort and dedup so each alias appears once, in a stable order.
         a.sort();
         a.dedup();
         a
@@ -104,7 +104,8 @@ async fn reset_one<W: Write>(
     )
     .await;
     let mut dropped: Vec<&str> = dead.iter().map(|r| r.name.as_str()).collect();
-    // Python reports `", ".join(sorted(dropped))`.
+    // Sort so the dropped-repo names appear in a stable order in the error
+    // message below.
     dropped.sort_unstable();
 
     let mut cmds: Vec<String> = live
@@ -112,11 +113,12 @@ async fn reset_one<W: Write>(
         .map(|r| cmd::zypper_ar(r.refresh, &r.name, &r.url))
         .collect();
     cmds.sort();
-    // Python `_add` collects into a set; dedup identical ar strings so a repo
-    // key listed twice in `default_repos` is not added (and run) twice.
+    // Dedup identical `ar` strings so a repo key listed twice in
+    // `default_repos` is not added (and run) twice.
     cmds.dedup();
 
-    // Guards BEFORE dry-run (wording mirrors Python `reset._run`).
+    // Guards run before the dry-run preview, so a dropped probe or empty
+    // replacement set aborts with no dry lines emitted.
     if cmds.is_empty() {
         console.error(
             host.key(),
@@ -296,7 +298,8 @@ mod tests {
         let (code, ran, buf) = run(host, opts(false), &ConstProbe { live: true }).await;
         assert_eq!(ran, c.ran);
         assert!(!ran.iter().any(|cmd| cmd.starts_with("zypper -n rr")));
-        // Python logs the INFO no-op for the skipped rr step.
+        // Emits an info line for the skipped rr step instead of staying
+        // silent.
         assert!(buf.contains("No repositories to clear from h1"));
         assert_eq!(code, c.exit_code());
     }

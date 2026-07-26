@@ -1,4 +1,4 @@
-//! Load `products.yml` templates (Python `repose.template.load_template`).
+//! Load `products.yml` templates.
 
 use std::fs;
 use std::path::Path;
@@ -36,9 +36,9 @@ pub enum TemplateError {
 
 /// Load products YAML; empty/null → `{}`; non-mapping → [`TemplateError`].
 ///
-/// YAML merge keys (`<<:`) are expanded before conversion, matching the
-/// semantics of Python's YAML loader that repose's reference implementation
-/// relies on. Merges are resolved recursively in post-order so that nested
+/// YAML merge keys (`<<:`) are expanded before conversion, per the standard
+/// merge-key semantics the shipped `products.yml` templates are authored
+/// against. Merges are resolved recursively in post-order so that nested
 /// (`Product → version → <<: *anchor`) *and* chained (`<<: *b` where `*b`
 /// itself carries `<<: *a`) merges are fully flattened. `serde_yaml`'s own
 /// [`serde_yaml::Value::apply_merge`] leaves a residual `<<` key on chained
@@ -85,8 +85,8 @@ pub(crate) fn load_template(path: &Path) -> Result<Value, TemplateError> {
 /// preserved.
 ///
 /// Errors with the offending YAML type name when a `<<` value is not a mapping
-/// or a sequence of mappings — ruamel/PyYAML raise `ConstructorError` there,
-/// so silently dropping the value would hide a broken template.
+/// or a sequence of mappings; silently dropping the value would hide a broken
+/// template.
 fn expand_merges(node: &mut serde_yaml::Value) -> Result<(), String> {
     match node {
         serde_yaml::Value::Mapping(map) => {
@@ -192,9 +192,9 @@ mod tests {
         assert!(matches!(err, TemplateError::NotAMapping { .. }));
     }
 
-    /// Nested + chained YAML merge keys (`<<:`) must be fully flattened, the way
-    /// Python's YAML loader does. Regression for merge-inheriting products
-    /// (e.g. `PackageHub:15-SP6`) being wrongly treated as unsupported.
+    /// Nested + chained YAML merge keys (`<<:`) must be fully flattened, per
+    /// standard YAML merge-key semantics. Regression for merge-inheriting
+    /// products (e.g. `PackageHub:15-SP6`) being wrongly treated as unsupported.
     #[test]
     fn expands_nested_and_chained_merge_keys() {
         let dir = tempfile::tempdir().unwrap();
@@ -256,8 +256,8 @@ PackageHub:
         assert_eq!(count_merge_keys(&t), 0);
     }
 
-    /// A `<<:` whose value is a scalar must be a load error (ruamel raises
-    /// `ConstructorError`), not a silently dropped key.
+    /// A `<<:` whose value is a scalar must be a load error, not a silently
+    /// dropped key.
     #[test]
     fn scalar_merge_value_errors() {
         let dir = tempfile::tempdir().unwrap();

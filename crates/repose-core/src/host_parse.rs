@@ -1,8 +1,8 @@
-//! Parse `-t` host strings: `[user@]host[:port]` (Python `repose.host`).
+//! Parse `-t` host strings: `[user@]host[:port]`.
 
 use thiserror::Error;
 
-/// Default SSH user (Python `ParseHosts`).
+/// Default SSH user.
 const DEFAULT_USER: &str = "root";
 /// Default SSH port.
 const DEFAULT_PORT: u16 = 22;
@@ -26,28 +26,29 @@ pub enum HostParseError {
 
 /// Parse `[user@]host[:port]` without creating a Target.
 pub fn parse_host(arg: &str) -> Result<HostSpec, HostParseError> {
-    // Mirror urllib.parse.urlparse("//" + arg) behaviour for host/user/port.
+    // `[user@]host[:port]` is split like a URL authority component.
     let s = arg.trim();
     if s.is_empty() {
         return Err(HostParseError::EmptyHost);
     }
 
     let (user_part, host_part) = if let Some((user, hostport)) = s.split_once('@') {
-        // urlparse("//alice@example.com") → username alice (first @).
+        // The FIRST `@` separates the user: `alice@example.com` → `alice`.
         (Some(user), hostport)
     } else {
         (None, s)
     };
 
-    // IPv6 in brackets not supported in Python path (urlparse //host) — skip.
+    // Bracketed IPv6 hosts are not supported — skip.
     // host:port — if last colon and port is numeric.
     //
-    // urlparse's `.hostname` attribute lowercases (netloc.lower() in
-    // `_hostinfo`); `.username` and `.port` are untouched. Mirror that, incl.
-    // in the PortNotInt message, which Python builds from `x.hostname`.
+    // The hostname is lowercased; the username and port are left untouched.
+    // The PortNotInt error message also carries the lowercased hostname.
     let (hostname, port) = if let Some((h, p)) = host_part.rsplit_once(':') {
-        // Distinguish hostname:port from bare IPv6 (no brackets) — Python
-        // ValueError on non-int port.
+        // The LAST colon splits host from port, and a non-numeric segment
+        // after it errors as a bad port. Unbracketed IPv6 has no way to opt
+        // out of that split, so it either errors here or — when its final
+        // group happens to be numeric — is misread as host plus port.
         let h_lower = h.to_lowercase();
         if p.is_empty() {
             return Err(HostParseError::PortNotInt(h_lower));
@@ -126,18 +127,18 @@ mod tests {
     }
 
     #[test]
-    fn hostname_lowercased_like_urlparse() {
-        // python3: urlparse('//Root@EXAMPLE.com:2222') -> hostname
-        // 'example.com', username 'Root', port 2222 — only the hostname
-        // attribute lowercases.
+    fn hostname_lowercased_user_and_port_untouched() {
+        // Only the hostname is case-normalized: `Root@EXAMPLE.com:2222`
+        // yields hostname `example.com`, username `Root` (unchanged), and
+        // port 2222.
         let h = parse_host("Root@EXAMPLE.com:2222").unwrap();
         assert_eq!(h.hostname, "example.com");
         assert_eq!(h.username, "Root");
         assert_eq!(h.port, 2222);
         assert_eq!(h.key, "example.com:2222");
 
-        // python3: urlparse('//UPPER.host:abc') raises ValueError on .port
-        // and the error message carries the lowercased hostname.
+        // A non-numeric port segment errors, and the error message carries
+        // the lowercased hostname.
         assert_eq!(
             parse_host("UPPER.host:abc"),
             Err(HostParseError::PortNotInt("upper.host".into()))

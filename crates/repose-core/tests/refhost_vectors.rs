@@ -14,8 +14,8 @@
 //! renderers keyed by host `<label>:22`; and, for cases that recorded a
 //! `zypper -x lr` capture, [`parse_repositories`] (the same pure fn the live
 //! `read_repos` path in `repose-ssh::host` calls) into the `list_repos`
-//! renderers — and compares against the goldens. This locks in the
-//! list-products byte-parity (notably the nested `<codestream><name>` fix)
+//! renderers — and compares against the goldens. This locks in the byte-exact
+//! `list-products` output (notably the nested `<codestream><name>` handling)
 //! and the list-repos rendering with no network access. Cases without
 //! `zypper-x-lr.xml` simply skip the list-repos half.
 //!

@@ -137,8 +137,8 @@ fn color_never_flag_contains_no_ansi_escape() {
 
 #[test]
 fn color_always_flag_colorizes_known_products_label() {
-    // Python 2.1.0 colors the `Products known by 'repose':` label green
-    // (utils.green): `\x1b[1;32m…\x1b[1;m\x1b[0m`.
+    // The `Products known by 'repose':` label is colored green:
+    // `\x1b[1;32m…\x1b[1;m\x1b[0m`.
     let config = vector("template/sample.yml");
     let output = repose(&[
         "--color=always",

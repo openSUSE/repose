@@ -24,14 +24,14 @@ extend-exclude = [
 ]
 
 [default.extend-words]
-# `transform_version_partialy`: spelling deliberately preserved to mirror the
-# Python fn repose.types.refhost.transformations.transform_version_partialy.
+# `transform_version_partialy`: the misspelling is the established name of the
+# refhost version transform. Renaming it is a source change of its own, not a
+# by-product of some other edit.
 partialy = "partialy"
-# Error string / exception name mirrored verbatim from the Python impl
-# ("Unknow version: ...", Python `UnsuportedProductMessage`).
+# User-facing error text pinned by tests/vectors/repoq/solve_repa.json
+# ("Unknow version: ..."); the wording is part of repose's output.
 unknow = "unknow"
-unsuported = "unsuported"
-# Fragments of "Qualität"/"café" split by \uXXXX escapes in display.rs
-# json.dumps parity tests (e.g. "Qualität", "café").
+# Fragments of "Qualität"/"café" split by \uXXXX escapes in the display.rs
+# NDJSON escaping tests (e.g. "Qualität", "café").
 qualit = "qualit"
 caf = "caf"

@@ -24,7 +24,7 @@ cli:          ## CLI consistency self-check vs committed expected output
 	bash scripts/check-cli.sh
 assets:       ## regenerate committed man pages + shell completions
 	cargo run --locked -p repose-cli --features gen --bin repose-gen -- crates/repose-cli
-check: fmt clippy test deny layer cli  ## everything CI runs
+check: fmt clippy test deny layer cli  ## the local gate (CI additionally runs typos, docs, coverage, MSRV, assets drift)
 install:      ## install `repose` into ~/.cargo/bin
 	cargo install --path crates/repose-cli --locked
 clean:

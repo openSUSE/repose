@@ -300,8 +300,8 @@ async fn async_main() -> ExitCode {
         Some(other) => other,
     };
 
-    // SIGINT → 130 (Python KeyboardInterrupt path). Racing the command future
-    // means Ctrl-C drops the in-flight SSH work and returns immediately.
+    // SIGINT → 130. Racing the command future means Ctrl-C drops the
+    // in-flight SSH work and returns immediately.
     tokio::select! {
         code = dispatch(cli, conn, cmd) => code,
         _ = tokio::signal::ctrl_c() => {
@@ -311,8 +311,8 @@ async fn async_main() -> ExitCode {
     }
 }
 
-/// Map `-d`/`-q` to a tracing level (default INFO), matching Python
-/// `create_logger` (INFO) + `-d`→DEBUG / `-q`→WARNING.
+/// Map `-d`/`-q` to a tracing level: default INFO, `-d` → DEBUG, `-q` →
+/// WARNING.
 const fn log_level(debug: bool, quiet: bool) -> Level {
     if debug {
         Level::DEBUG

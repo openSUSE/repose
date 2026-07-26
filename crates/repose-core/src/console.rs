@@ -1,4 +1,4 @@
-//! User-facing text / NDJSON sink (Python `repose.console.Console`).
+//! User-facing text / NDJSON sink.
 
 use std::io::{self, Write};
 

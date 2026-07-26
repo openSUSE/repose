@@ -1,4 +1,4 @@
-//! Resolve REPA → repo name/url/refresh (Python `Repoq`).
+//! Resolve REPA → repo name/url/refresh.
 
 use serde_json::Value;
 use thiserror::Error;
@@ -6,7 +6,7 @@ use thiserror::Error;
 use crate::repa::Repa;
 use crate::types::{Product, System};
 
-/// One resolved repository (Python `Repos` NamedTuple).
+/// One resolved repository.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Repos {
     pub(crate) name: String,
@@ -49,8 +49,8 @@ impl Repoq {
             .version
             .clone()
             .unwrap_or_else(|| base.version.clone());
-        // Python derives `baseversion` only at Repa construction (from the
-        // REPA's own version component) and never recomputes it after the
+        // `baseversion` is derived only at Repa construction (from the
+        // REPA's own version component) and is never recomputed after the
         // version is inherited from the host base product. A version-less
         // REPA therefore has no baseversion fallback.
         let baseversion = orepa.baseversion.clone();
@@ -93,10 +93,10 @@ impl Repoq {
         let shortversion = resolved_version.replace('-', "");
 
         let result_list = if let Some(repo) = &orepa.repo {
-            // Python: `subtemplate.get(repo, {"url": "http://empty.url"})["url"]`
-            // — a repo *absent* from the template falls back to the marker URL,
-            // but an entry present *without* a `url` key raises (KeyError →
-            // ValueError). Never fabricate a URL for a present entry.
+            // `http://empty.url` is the sentinel fallback URL for a repo key
+            // that is entirely *absent* from the subtemplate; an entry that
+            // is *present* but missing a `url` key must error instead —
+            // never fabricate a URL for a present entry.
             let entry = subtemplate.get(repo);
             let url_raw = match entry {
                 None => "http://empty.url",
@@ -198,9 +198,9 @@ impl Repoq {
             for repo in defaults {
                 let repo_name = repo.as_str().unwrap_or("");
                 // As in `solve_repa`: a repo absent from the template falls
-                // back to the marker URL (Python `.get(repo, {"url": ...})`),
-                // but a present entry without `url` raises (KeyError →
-                // UnsuportedProductMessage in Python).
+                // back to the marker URL, but a present entry without `url`
+                // raises `UnsupportedProductError` instead of fabricating
+                // one.
                 let entry = sub.get(repo_name);
                 let url_raw = match entry {
                     None => "http://empty.url",
@@ -413,9 +413,9 @@ PackageHub:
         );
     }
 
-    /// A repo entry that exists but has no `url` key must error (Python
-    /// KeyError → ValueError), never resolve to the bogus `http://empty.url`.
-    /// A repo entirely absent from the template still falls back to it.
+    /// A repo entry that exists but has no `url` key must error, never
+    /// resolve to the bogus `http://empty.url`. A repo entirely absent
+    /// from the template still falls back to it.
     #[test]
     fn solve_repa_entry_without_url_key_errors() {
         let rq = Repoq::new(serde_json::json!({
@@ -430,7 +430,7 @@ PackageHub:
                     .into()
             )
         );
-        // Absent entry keeps the Python `.get(repo, {"url": ...})` fallback.
+        // Absent entry keeps the sentinel `http://empty.url` fallback.
         let absent = crate::repa::Repa::parse("SLES:15-SP3::absent").unwrap();
         let res = rq.solve_repa(&absent, &base_15sp3()).unwrap();
         assert_eq!(res["SLES"][0].url, "http://empty.url");
@@ -474,15 +474,15 @@ PackageHub:
             RepoqError::Message("Unknow version: 15-SP3 for product: SLES".into())
         );
         // An explicit `-SP` version still falls back to its parse-derived
-        // baseversion, as in Python.
+        // baseversion.
         let explicit = crate::repa::Repa::parse("SLES:15-SP9").unwrap();
         let res = rq.solve_repa(&explicit, &base_15sp3()).unwrap();
         assert_eq!(res["SLES"][0].name, "SLES:15::pool");
         assert_eq!(res["SLES"][0].url, "http://example.invalid/15/");
     }
 
-    /// `solve_product`: an entry without `url` raises (Python
-    /// `UnsuportedProductMessage`); an absent entry keeps the fallback URL.
+    /// `solve_product`: an entry without `url` raises
+    /// `UnsupportedProductError`; an absent entry keeps the fallback URL.
     #[test]
     fn solve_product_entry_without_url_key_errors() {
         use crate::types::System;

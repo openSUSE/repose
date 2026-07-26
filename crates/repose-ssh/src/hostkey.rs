@@ -546,8 +546,9 @@ mod tests {
         assert!(verify(&mut verifier, KEY_ONE));
     }
 
-    // HMAC-SHA1 vectors computed independently (Python `hmac` stdlib) with
-    // salt = bytes 0x00..0x13; the Rust implementation must reproduce them.
+    // HMAC-SHA1 vectors computed independently with a reference HMAC
+    // implementation (salt = bytes 0x00..0x13); the Rust implementation must
+    // reproduce them.
     const HASHED_SALT: &str = "AAECAwQFBgcICQoLDA0ODxAREhM=";
     const HASHED_HOST: &str = "6tbkAfZDulNpJ/cQ7aCK0Bbfp+g="; // "host"
     const HASHED_HOST_2222: &str = "mwVUb/Ss+IB46YfMPRtwfxIeTCM="; // "[host]:2222"

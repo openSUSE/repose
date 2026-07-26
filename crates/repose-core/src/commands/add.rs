@@ -23,15 +23,14 @@ pub async fn run_add<W: Write>(
     let pruned = group.connect_and_prune().await;
     group.read_products().await;
 
-    // Fan out per-host work concurrently (Python spawned one worker task per
-    // target); `join_all` preserves key order for exit aggregation. Bounded
-    // by a semaphore (P1 step 13) rather than `.buffered(cap)`: every
-    // future is created up front and races for a permit, so one slow host
-    // holding a permit never blocks a *different* freed permit from
-    // admitting a later host — the same non-head-of-line-blocking property
-    // `buffer_unordered` would give, without needing an index/sort step,
-    // since `join_all`'s output stays in input (key) order regardless of
-    // acquisition order.
+    // Fan out per-host work concurrently, one future per host; `join_all`
+    // preserves key order for exit aggregation. Bounded by a semaphore (P1
+    // step 13) rather than `.buffered(cap)`: every future is created up
+    // front and races for a permit, so one slow host holding a permit
+    // never blocks a *different* freed permit from admitting a later host
+    // — the same non-head-of-line-blocking property `buffer_unordered`
+    // would give, without needing an index/sort step, since `join_all`'s
+    // output stays in input (key) order regardless of acquisition order.
     let cap = group.host_operation_limit().get();
     let semaphore = Arc::new(Semaphore::new(cap));
     // One fleet-wide probe budget (P1 step 21) shared by every host worker,
@@ -101,9 +100,9 @@ async fn add_one<W: Write>(
         .map(|r| cmd::zypper_ar(r.refresh, &r.name, &r.url))
         .collect();
     cmds.sort();
-    // Python `_add` collects into a set; dedup identical ar strings so a
-    // duplicate REPA does not issue the same `zypper ar` twice (the second
-    // run fails with "repository already exists" and wrongly fails the host).
+    // Dedup identical `ar` strings so a duplicate REPA does not issue the
+    // same `zypper ar` twice (the second run fails with "repository
+    // already exists" and wrongly fails the host).
     cmds.dedup();
     for c in cmds {
         if opts.dry {
@@ -163,8 +162,8 @@ mod tests {
 
     #[tokio::test]
     async fn duplicate_repa_issues_each_ar_once() {
-        // Python collected commands into a set; a REPA given twice must not
-        // run the same `zypper ar` twice (2nd run fails → host wrongly FAILED).
+        // A REPA given twice must not run the same `zypper ar` twice (2nd
+        // run fails → host wrongly FAILED).
         let (code1, ran1, _) = run_live(sles_host(), &["SLES:15-SP3:x86_64:update"]).await;
         let (code2, ran2, _) = run_live(
             sles_host(),

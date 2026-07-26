@@ -11,7 +11,7 @@ use async_trait::async_trait;
 use crate::error::SshError;
 use crate::types::{OutEntry, Repositories, Repository, System};
 
-/// Low-level SSH + SFTP session (Python `AsyncConnection` surface).
+/// Low-level SSH + SFTP session.
 ///
 /// Command tests mock [`Host`], not this trait. Session mocks belong in
 /// `repose-ssh` unit tests.
@@ -41,11 +41,11 @@ pub trait SshSession: Send {
     /// `cat /proc/sys/kernel/random/boot_id` or empty string if unreadable.
     async fn boot_id(&mut self) -> String;
 
-    /// Sleep-first reconnect. Python defaults: `retry=10`, `timeout=10`, `backoff=true`.
+    /// Sleep-first reconnect. Defaults: `retry=10`, `timeout=10`, `backoff=true`.
     async fn wait_reconnect(&mut self, retry: u32, timeout_secs: u64, backoff: bool) -> bool;
 }
 
-/// Per-host surface used by command workers (Python `AsyncTarget`).
+/// Per-host surface used by command workers.
 ///
 /// # `run` / `out` contract
 ///
@@ -92,7 +92,7 @@ pub trait Host: Send {
     async fn reboot(&mut self, command: &str) -> Result<bool, SshError>;
 }
 
-/// Multi-host fan-out (Python `AsyncHostGroup`).
+/// Multi-host fan-out.
 ///
 /// Object-safe: hosts are accessed by key rather than returning
 /// `impl Iterator<Item = &mut dyn Host>` (not object-safe).
@@ -153,13 +153,13 @@ pub trait HostGroup: Send {
     async fn close(&mut self);
 }
 
-/// Repository URL liveness probe (Python `check_repo_url_async`).
+/// Repository URL liveness probe.
 #[async_trait]
 pub trait Probe: Send + Sync {
     async fn is_live(&self, url: &str, timeout: Duration) -> bool;
 }
 
-/// Classify last `out` entry like Python `_report_target` (success codes only).
+/// Classify last `out` entry as success/failure by its zypper exit code.
 ///
 /// Returns `None` if `out` is empty (caller should treat as failure / bug).
 #[cfg(test)]

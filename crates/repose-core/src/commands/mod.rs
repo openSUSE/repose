@@ -81,8 +81,8 @@ pub(crate) fn load_repoq(config: &std::path::Path) -> Result<Repoq, TemplateErro
 ///
 /// Each emission takes the lock only for the duration of one synchronous
 /// write — never across an `.await` — so live output stays streaming and
-/// host-prefixed; lines from different hosts may interleave, matching the
-/// Python asyncio worker model.
+/// host-prefixed; lines from different hosts may interleave since each
+/// host runs and reports concurrently.
 pub(crate) struct SharedConsole<'a, W: Write> {
     inner: Mutex<&'a mut Console<W>>,
 }
@@ -123,7 +123,7 @@ impl<'a, W: Write> SharedConsole<'a, W> {
 }
 
 /// Report the last command's output for `host` via the console and classify
-/// its exit code (Python `_report_target`).
+/// its exit code.
 ///
 /// - exit `0`: stdout lines at info level, success.
 /// - informational success codes (100-103, 106, 107): the work completed but
@@ -158,11 +158,11 @@ fn report_target<W: Write>(host: &dyn Host, console: &mut Console<W>) -> bool {
     false
 }
 
-/// Run `command` on `host` and report the result (the Python
-/// `targets[host].run(cmd)` + `_report_target` pair).
+/// Run `command` on `host` and report the result.
 ///
-/// A transport-level `Err` (no `out` entry appended) counts as host failure,
-/// mirroring the Python worker-exception path into `_aggregate`.
+/// A transport-level `Err` (no `out` entry appended) counts as host
+/// failure, so it is reflected in the aggregated exit code like any other
+/// failed host.
 ///
 /// The console lock is taken only after the `.await` completes, for the
 /// synchronous report block.
@@ -188,16 +188,16 @@ async fn run_reported<W: Write>(
     run_reported_shared(host, command, &SharedConsole::new(console)).await
 }
 
-/// Verify `products` are present/absent in the host's re-read state
-/// (Python `_check_products`). Caller must have refreshed products.
+/// Verify `products` are present/absent in the host's re-read state.
+/// Caller must have refreshed products.
 fn check_products<W: Write>(
     host: &dyn Host,
     products: &[String],
     present: bool,
     console: &mut Console<W>,
 ) -> bool {
-    // Python: `installed = {...} if system else set()` — an unreadable /
-    // empty product state fails every `present` check instead of passing.
+    // An unreadable or empty product state fails every `present` check
+    // instead of passing.
     let installed: std::collections::BTreeSet<String> = host
         .products()
         .map(|s| s.flatten().into_iter().map(|p| p.name).collect())
@@ -228,9 +228,8 @@ fn check_products<W: Write>(
     ok
 }
 
-/// Reboot a transactional host, then verify the change took
-/// (Python `_reboot_and_verify`). Shared by install (`present=true`)
-/// and uninstall (`present=false`).
+/// Reboot a transactional host, then verify the change took. Shared by
+/// install (`present=true`) and uninstall (`present=false`).
 ///
 /// With `no_reboot` the change is left staged and only a reminder is
 /// printed (returns `true`). Otherwise the host is rebooted + reconnected
@@ -279,7 +278,7 @@ async fn reboot_and_verify<W: Write>(
     .await
 }
 
-/// Aggregate per-host bool results (Python `_aggregate`).
+/// Aggregate per-host bool results.
 pub(crate) fn aggregate(results: impl IntoIterator<Item = bool>) -> ExitCode {
     ExitCode::aggregate(results)
 }
@@ -499,7 +498,7 @@ mod report_tests {
         let mut buf = Buffer::default();
         let mut c = Console::new(&mut buf);
         assert!(report_target(&h, &mut c));
-        // stderr is NOT reported on exit 0 (Python `_report_target`).
+        // stderr is NOT reported on exit 0.
         assert_eq!(buf.0, "h1 - line1\nh1 - line2\n");
     }
 

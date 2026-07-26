@@ -241,8 +241,9 @@ impl RusshSession {
                 options
             }
         };
-        // With a ProxyCommand the proxy resolves the name on its side, so
-        // the known-hosts identity stays the CLI alias (paramiko parity).
+        // Deliberate: with a ProxyCommand the known-hosts identity is the CLI
+        // alias, not the resolved `Hostname`. Changing it would re-pin every
+        // proxied host under a different `known_hosts` entry.
         let target_host = if options.proxy_command.is_some() {
             self.hostname.clone()
         } else {
@@ -665,8 +666,8 @@ async fn authenticate_automatic(
                     }
                 }
             }
-            // Fail-closed parity: without a TTY an encrypted key is
-            // skipped instead of blocking on a passphrase prompt.
+            // Fail-closed: without a TTY an encrypted key is skipped
+            // instead of blocking on a passphrase prompt.
             Err(e) => {
                 *last_err = format!("{}: {e}", key_path.display());
                 continue;
@@ -782,10 +783,10 @@ fn proxy_command_line(
     Some(expand_proxy_command(proxy_command, host, port, user))
 }
 
-/// Sleep (seconds) before reconnect `attempt` (1-based), matching the Python
-/// schedule (aiossh.py `wait_reconnect`): the first sleep is the base
-/// timeout; attempt n > 1 sleeps `2 * (timeout + 5 * (n - 1))`. For the
-/// defaults (retry=10, timeout=10) that is 10,30,40,...,110 — 640 s total.
+/// Sleep (seconds) before reconnect `attempt` (1-based): the first sleep is
+/// the base timeout; attempt n > 1 sleeps `2 * (timeout + 5 * (n - 1))`. For
+/// the defaults (retry=10, timeout=10) that is 10,30,40,...,110 — 640 s
+/// total. Drives `wait_reconnect`'s sleep-first loop.
 fn reconnect_sleep_secs(attempt: u32, timeout_secs: u64, backoff: bool) -> u64 {
     if attempt <= 1 || !backoff {
         timeout_secs
@@ -1132,8 +1133,8 @@ mod tests {
     }
 
     #[test]
-    fn reconnect_schedule_matches_the_python_backoff() {
-        // aiossh.py wait_reconnect: 10,30,40,...,110 — 640 s in total.
+    fn reconnect_schedule_totals_640s_over_ten_attempts() {
+        // Reconnect schedule: 10,30,40,...,110 — 640 s in total.
         let schedule: Vec<u64> = (1..=10)
             .map(|attempt| super::reconnect_sleep_secs(attempt, 10, true))
             .collect();

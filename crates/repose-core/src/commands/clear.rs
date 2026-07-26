@@ -18,11 +18,11 @@ pub async fn run_clear<W: Write>(
     let pruned = group.connect_and_prune().await;
     group.read_repos().await;
 
-    // Fan out per-host work concurrently (Python spawned one worker task per
-    // target); `join_all` preserves key order for exit aggregation. Bounded
-    // by a semaphore (P1 step 17) — see `add.rs`'s `run_add` for why this
-    // avoids both the head-of-line blocking `.buffered(cap)` would cause
-    // and the index/sort step `buffer_unordered` would need.
+    // Fan out per-host work concurrently, one future per host; `join_all`
+    // preserves key order for exit aggregation. Bounded by a semaphore (P1
+    // step 17) — see `add.rs`'s `run_add` for why this avoids both the
+    // head-of-line blocking `.buffered(cap)` would cause and the
+    // index/sort step `buffer_unordered` would need.
     let cap = group.host_operation_limit().get();
     let semaphore = Arc::new(Semaphore::new(cap));
     let console = SharedConsole::new(console);
@@ -61,7 +61,8 @@ async fn clear_one<W: Write>(
         console.info(&format!("No repositories to clear from {}", host.key()));
         return true;
     }
-    // Python `_clear` collects into a set: sorted + unique.
+    // Sort and dedup the aliases so the `rr` command lists each one once,
+    // in a stable order.
     aliases.sort();
     aliases.dedup();
     let refs: Vec<&str> = aliases.iter().map(String::as_str).collect();
@@ -70,8 +71,8 @@ async fn clear_one<W: Write>(
         console.dry(host.key(), &c);
         return true;
     }
-    // Never report_target (Python parity); only a transport-level error
-    // (worker exception in Python) fails the host.
+    // This command does not classify success by exit code via
+    // `report_target`; only a transport-level error fails the host.
     match host.run(&c).await {
         Ok(()) => {
             console.info(&format!("Repositories cleared from {}", host.key()));
@@ -99,7 +100,7 @@ mod tests {
         let mut c = Console::new(&mut buf);
         let code = run_clear(&CommandOptions::default(), &mut g, &mut c).await;
         assert_eq!(code, ExitCode::Ok);
-        // Python logs the INFO no-op instead of staying silent.
+        // Emits an info line for the no-op case instead of staying silent.
         assert!(buf.0.contains("No repositories to clear from h1"));
     }
 
@@ -114,7 +115,8 @@ mod tests {
             url: "http://x".into(),
             state: true,
         };
-        // Duplicate alias: Python `_clear` returns a set → unique args.
+        // Duplicate alias: the alias list is deduped, so `rr` receives
+        // each arg once.
         h = h.with_raw_repos(vec![repo("b"), repo("a"), repo("a")]);
         g.insert(h);
         let mut buf = Buffer::default();

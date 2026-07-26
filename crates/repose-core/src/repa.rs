@@ -1,4 +1,4 @@
-//! REPA parse (`product:version:arch:repo`) — Python `repose.types.repa.Repa`.
+//! REPA parse (`product:version:arch:repo`).
 
 use thiserror::Error;
 
