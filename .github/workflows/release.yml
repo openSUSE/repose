@@ -42,7 +42,18 @@ jobs:
       - name: Verify tag matches workspace version
         shell: bash
         run: |
-          pkg="$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)"
+          # Scoped to the [workspace.package] table and anchored at the
+          # closing quote. Unscoped, the first `version = ` key in any table
+          # that happens to precede it wins (a `[workspace.dependencies.foo]`
+          # entry would yield its version); unanchored, `\(.*\)"` keeps any
+          # trailing comment inside the value, so an annotated version line
+          # fails a correctly tagged release.
+          pkg="$(sed -n '/^\[workspace\.package\]/,/^\[/p' Cargo.toml |
+                 sed -n 's/^version = "\([^"]*\)".*/\1/p' | head -1)"
+          if [ -z "$pkg" ]; then
+            echo "::error::no version found in [workspace.package] of Cargo.toml"
+            exit 1
+          fi
           if [ "$pkg" != "$GITHUB_REF_NAME" ]; then
             echo "::error::tag '$GITHUB_REF_NAME' != workspace version '$pkg'"
             exit 1
