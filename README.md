@@ -1,5 +1,7 @@
 # repose
 
+<img src="docs/assets/logo.svg" align="right" width="130" alt="repose logo">
+
 Manipulate zypper repositories and products on QAM reference hosts, over SSH.
 
 ## Introduction
