@@ -10,9 +10,14 @@ Run commands from the repository root:
 ```bash
 cargo fmt --check
 cargo clippy --workspace --all-targets -- -D warnings
+cargo clippy --workspace --all-targets --features gen -- -D warnings
 cargo test --workspace --all-targets --locked
 cargo deny check
 ```
+
+The second clippy line is not optional: without `--features gen` the
+`repose-gen` binary is skipped entirely (required-features off), so a
+violation there passes the first line and fails only the gen leg.
 
 Use the toolchain pinned in `rust-toolchain.toml` (repo root). The workspace MSRV is
 declared once in `Cargo.toml` (`rust-version = "1.96"`); do not introduce APIs

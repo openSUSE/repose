@@ -42,6 +42,12 @@ jobs:
         run: cargo fmt --all -- --check
       - name: Clippy
         run: cargo clippy --workspace --all-targets --locked -- -D warnings
+      - name: Clippy (gen feature)
+        # Without this leg `repose-gen.rs` is never linted: clippy skips
+        # binaries whose required-features are off, and the drift job only
+        # `cargo run`s the tool, where warnings do not fail. Mirrors the
+        # second clippy line of `make clippy`.
+        run: cargo clippy --workspace --all-targets --features gen --locked -- -D warnings
       - name: Layering (core ↛ ssh/russh)
         run: bash scripts/check-rust-layering.sh
       - name: Test
@@ -209,10 +215,21 @@ jobs:
         with:
           workspaces: . -> target
       - name: Regenerate man pages + completions
-        run: cargo run --locked -p repose-cli --features gen --bin repose-gen -- crates/repose-cli
+        # Empty the asset directories first: regenerating over the committed
+        # files hides an output the generator stopped emitting (dropped or
+        # renamed) — it stays byte-identical and tracked, so neither drift
+        # check below would ever see it. After the wipe it surfaces as a
+        # deletion in the diff. The output directory stays explicit: the
+        # tool's built-in default is baked at compile time, and an explicit
+        # path keeps the destination right even for a binary compiled at a
+        # different checkout location.
+        run: |
+          rm -rf crates/repose-cli/man crates/repose-cli/completions
+          cargo run --locked -p repose-cli --features gen --bin repose-gen -- crates/repose-cli
       - name: Check for drift
-        # Fail on modified tracked assets AND on untracked leftovers (e.g. a
-        # renamed page that regeneration no longer produces/overwrites).
+        # Fail on modified/deleted tracked assets AND on untracked leftovers
+        # (a renamed page shows up as both: a deletion of the old name and an
+        # untracked file under the new one).
         run: |
           git diff --exit-code -- crates/repose-cli/man crates/repose-cli/completions
           untracked="$(git status --porcelain -- crates/repose-cli/man crates/repose-cli/completions)"

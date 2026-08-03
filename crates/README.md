@@ -104,12 +104,15 @@ variant.
 generator crates):
 
 ```bash
-# from repository root (the argument is the output directory)
-cargo run -p repose-cli --features gen --bin repose-gen -- crates/repose-cli
+# from repository root; wipes the asset dirs first so an output the
+# generator no longer emits shows up as a deletion instead of surviving
+make assets
 ```
 
-CI (`rust-assets-drift`) regenerates and `git diff --exit-code`s these paths,
-so they can never drift from the CLI. Install paths (rename the generated
+(`repose-gen` alone also works: the optional argument is the output
+directory, defaulting to the crate's own.) CI (`rust-assets-drift`) runs the
+same wipe + regenerate and `git diff --exit-code`s these paths, so a
+modified, added, *or dropped* output can never drift from the CLI. Install paths (rename the generated
 files to the distro convention):
 
 | Asset | Generated file | Install path |
