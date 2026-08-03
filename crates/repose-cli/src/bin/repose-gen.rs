@@ -7,13 +7,21 @@
 use std::path::{Path, PathBuf};
 
 fn main() -> std::process::ExitCode {
-    let out = std::env::args()
+    // `args_os`, not `args`: the argument is a path, which need not be UTF-8
+    // — a non-UTF-8 path is legal on Unix and must work, where `args()`
+    // panics on it. The default is this crate's own directory: a cwd-relative
+    // default would nest a stray `crates/repose-cli/crates/repose-cli/` tree
+    // when run from inside the crate. The path is baked at compile time, so a
+    // stale binary whose source tree has moved recreates the old location —
+    // invoke via `make assets`/`cargo run`, or pass the directory explicitly
+    // as CI and the Makefile do.
+    let out = std::env::args_os()
         .nth(1)
-        .map_or_else(|| PathBuf::from("crates/repose-cli"), PathBuf::from);
+        .map_or_else(|| PathBuf::from(env!("CARGO_MANIFEST_DIR")), PathBuf::from);
     match generate(&out) {
         Ok(()) => std::process::ExitCode::SUCCESS,
         Err(e) => {
-            eprintln!("error: {e}");
+            eprintln!("error: {}: {e}", out.display());
             std::process::ExitCode::from(2)
         }
     }
