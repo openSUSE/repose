@@ -1,0 +1,94 @@
+{
+  "note": "ssh-kind report: command_count/probe_count/peak_concurrency are null by contract (kind == \"ssh\" doesn't instrument the fixture, per tests/performance/README.md). The comparator must SKIP those three metrics rather than fail, and must not fall back to a null-tolerant arithmetic comparison (`[[ \"null\" -le \"null\" ]]` used to silently pass as a shell arithmetic no-op).",
+  "expect": "pass",
+  "baseline": {
+    "contract_version": 2,
+    "workload_id": "ssh-list-products-1h",
+    "kind": "ssh",
+    "runner": {
+      "os": "linux",
+      "arch": "aarch64",
+      "toolchain": "rustc 1.97.1 (fixture)",
+      "profile": "release",
+      "rustflags": "",
+      "fixture_runtime": "container",
+      "runner_image": "sha256:fixture0000000000000000000000000000000000000000000000000000"
+    },
+    "host_count": 1,
+    "repetitions": 10,
+    "warmup_repetitions": 2,
+    "wall_time_ns": [
+      95000,
+      96500,
+      97200,
+      98000,
+      98800,
+      99500,
+      100200,
+      101000,
+      102500,
+      104000
+    ],
+    "latency_ns": {
+      "p50": 98800,
+      "p95": 104000,
+      "p99": 104000
+    },
+    "throughput_ops_per_sec": 10121.457489878542,
+    "peak_rss_bytes": null,
+    "command_count": null,
+    "probe_count": null,
+    "peak_concurrency": null,
+    "exit_code": 0,
+    "stdout_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "stderr_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "host_order": [
+      "repose@127.0.0.1:22"
+    ]
+  },
+  "candidate": {
+    "contract_version": 2,
+    "workload_id": "ssh-list-products-1h",
+    "kind": "ssh",
+    "runner": {
+      "os": "linux",
+      "arch": "aarch64",
+      "toolchain": "rustc 1.97.1 (fixture)",
+      "profile": "release",
+      "rustflags": "",
+      "fixture_runtime": "container",
+      "runner_image": "sha256:fixture0000000000000000000000000000000000000000000000000000"
+    },
+    "host_count": 1,
+    "repetitions": 10,
+    "warmup_repetitions": 2,
+    "wall_time_ns": [
+      96000,
+      97000,
+      97800,
+      98500,
+      99200,
+      100000,
+      100800,
+      101500,
+      103000,
+      105000
+    ],
+    "latency_ns": {
+      "p50": 99200,
+      "p95": 105000,
+      "p99": 105000
+    },
+    "throughput_ops_per_sec": 10080.645161290322,
+    "peak_rss_bytes": null,
+    "command_count": null,
+    "probe_count": null,
+    "peak_concurrency": null,
+    "exit_code": 0,
+    "stdout_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "stderr_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "host_order": [
+      "repose@127.0.0.1:22"
+    ]
+  }
+}

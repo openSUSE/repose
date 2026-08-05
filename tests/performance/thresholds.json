@@ -1,6 +1,7 @@
 {
   "contract_version": 1,
   "minimum_repetitions": 10,
+  "tail_minimum_repetitions": 100,
   "baseline_refresh_policy": "A baseline is only replaced with reviewed evidence: linked before/after reports, the reason for the change (an approved optimization, an accepted regression trade-off, or a runner-class migration), and explicit reviewer sign-off in the PR description. No automatic or silent widening — see tests/performance/README.md#baseline-update-review-requirements.",
   "owner": "See CODEOWNERS / PR reviewer for crates/repose-core/benches and tests/performance.",
   "metrics": {
@@ -41,7 +42,7 @@
     "latency_ns.p99": {
       "rule": "max_increase_ratio",
       "value": 1.2,
-      "evidence": "Tail percentile from a 20-repetition sample is the noisiest single number collected; a slightly wider margin than p50/p95 avoids flagging sampling noise as a regression."
+      "evidence": "Tail percentile from a 20-repetition sample is the noisiest single number collected; a slightly wider margin than p50/p95 avoids flagging sampling noise as a regression. Below `tail_minimum_repetitions` the nearest-rank p99 is drawn from too few samples to mean anything (at 20 reps it is just the 2nd-slowest run) — scripts/compare-performance.sh SKIPs it rather than gate on noise; p50/p95 still gate at `minimum_repetitions`."
     },
     "throughput_ops_per_sec": {
       "rule": "max_decrease_ratio",

@@ -1,6 +1,6 @@
 {
-  "note": "candidate is missing the required exit_code field \u2014 must be rejected before any metric comparison runs.",
-  "expect": "contract-failure",
+  "note": "candidate.runner.toolchain differs from baseline's \u2014 with the pinned container image (P0.1 step 7/8), a toolchain drift means the two runs were not built the same way and must not be compared; requires --allow-cross-runner to override.",
+  "expect": "incomparable-metadata",
   "baseline": {
     "command_count": 2,
     "contract_version": 2,
@@ -54,6 +54,7 @@
   "candidate": {
     "command_count": 2,
     "contract_version": 2,
+    "exit_code": 0,
     "host_count": 1,
     "host_order": [
       "h1"
@@ -71,7 +72,7 @@
     "runner": {
       "arch": "aarch64",
       "os": "macos",
-      "toolchain": "rustc 1.97.1 (fixture)",
+      "toolchain": "rustc 1.98.0 (fixture)",
       "profile": "release",
       "rustflags": "",
       "fixture_runtime": null,
