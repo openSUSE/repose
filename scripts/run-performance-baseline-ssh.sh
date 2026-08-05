@@ -17,9 +17,15 @@ set -euo pipefail
 : "${REPOSE_PERF_VALIDATOR:?run-performance-baseline.sh must set this}"
 : "${REPOSE_PERF_OUT:?run-performance-baseline.sh must set this}"
 
-REPS="${REPOSE_PERF_SSH_REPS:-5}"
-WARMUP="${REPOSE_PERF_SSH_WARMUP:-1}"
+# Defaults clear thresholds.json's `minimum_repetitions` (10), so an ssh
+# report is comparable without having to be asked for more repetitions.
+REPS="${REPOSE_PERF_SSH_REPS:-10}"
+WARMUP="${REPOSE_PERF_SSH_WARMUP:-2}"
 RUNNER_CLASS="${REPOSE_PERF_RUNNER_CLASS:-local-dev}"
+PROFILE="${REPOSE_PERF_PROFILE:-release}"
+# Set by run-performance-baseline.sh once it resolves which container runtime
+# started the fixture; null until then, never guessed.
+FIXTURE_RUNTIME="${REPOSE_PERF_FIXTURE_RUNTIME:-}"
 
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
@@ -246,6 +252,10 @@ run_workload() {
 		--argjson stderr_digest "$stderr_digest" \
 		--arg toolchain "$(rustc --version)" \
 		--arg runner_class "$RUNNER_CLASS" \
+		--arg profile "$PROFILE" \
+		--arg rustflags "${RUSTFLAGS:-}" \
+		--arg fixture_runtime "$FIXTURE_RUNTIME" \
+		--arg target "$REPOSE_SSH_HOST:$REPOSE_SSH_PORT" \
 		--arg os "$(uname -s)" \
 		--arg arch "$(uname -m)" \
 		--arg generated_at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
@@ -253,21 +263,32 @@ run_workload() {
             contract_version: 1,
             workload_id: $id,
             kind: "ssh",
-            runner: { os: $os, arch: $arch, toolchain: $toolchain, runner_class: $runner_class },
+            runner: {
+                os: $os, arch: $arch, toolchain: $toolchain,
+                profile: $profile, rustflags: $rustflags,
+                fixture_runtime: (if $fixture_runtime == "" then null else $fixture_runtime end),
+                runner_class: $runner_class
+            },
             generated_at: $generated_at,
             repetitions: $reps,
             warmup_repetitions: $warmup,
+            host_count: $host_count,
             wall_time_ns: ($samples | sort),
             latency_ns: { p50: $p50, p95: $p95, p99: $p99 },
             throughput_ops_per_sec: ($host_count / ($p50 / 1e9)),
             peak_rss_bytes: null,
-            command_count: 1,
-            probe_count: 0,
-            peak_concurrency: $host_count,
+            # Nothing here observes the remote command count, the probe count
+            # or the achieved concurrency: they would have to come from
+            # instrumenting the fixture. The deterministic `mock` workloads
+            # already gate all three, so these are reported as unknown rather
+            # than restated from the workload definition.
+            command_count: null,
+            probe_count: null,
+            peak_concurrency: null,
             exit_code: $exit_code,
             stdout_digest: $stdout_digest,
             stderr_digest: $stderr_digest,
-            host_order: [$id]
+            host_order: [$target]
         }' >"$REPOSE_PERF_OUT/$id.json.tmp"
 
 	jq -e -f "$REPOSE_PERF_VALIDATOR" "$REPOSE_PERF_OUT/$id.json.tmp" >/dev/null || return 1
