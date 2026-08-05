@@ -357,9 +357,9 @@ scripts/compare-performance.sh before.json after.json
 scripts/compare-performance.sh --workload mock-add-100h \
   tests/performance/baselines/local-dev.json tests/performance/baselines/raw/mock-add-100h.json
 
-# Deterministic checks only, runner-independent (what CI runs on every
-# PR — see the plan's PR4 for the workflow): implies --allow-cross-runner
-# and skips the repetition-count gate.
+# Deterministic checks only, runner-independent (what the `perf-semantic`
+# job in .github/workflows/ci.yml runs on every PR): implies
+# --allow-cross-runner and skips the repetition-count gate.
 scripts/compare-performance.sh --semantic-only --workload mock-add-100h \
   tests/performance/baselines/local-dev.json fresh-report.json
 ```
@@ -387,18 +387,32 @@ workload must compare as a pass, and a third run with
 `REPOSE_PERF_INJECT_DELAY_MS` set (a real, controllable per-repetition
 delay — not a fabricated fixture) must be caught as a regression.
 
-### Why this isn't in CI yet
+### What's in CI, and why latency/RSS gating still isn't
 
-CI enforcement is intentionally deferred: the thresholds above come from a
-handful of runs on one shared, uncontrolled development machine (see the
-`evidence` fields in `thresholds.json`), not a dedicated/scheduled runner.
-Shared CI runners are noisier still, so enabling latency/RSS gating there
-without runner-specific variance data would either pass everything (too
-loose) or flap on noise (too tight). Deterministic checks (the exact/ceiling
-metrics above) are cheap to run anywhere and can gate PRs today via `make
-perf-compare-test`; wall-clock/RSS gating should wait for a controlled or
-scheduled runner with its own variance study, per `thresholds.json`'s
-`baseline_refresh_policy`.
+Two workflows run the harness:
+
+- `.github/workflows/ci.yml`'s `perf-semantic` job, on every PR/push: the
+  same container pair described above, PR-sized (`--mock-reps 10
+  --mock-warmup 2 --ssh-reps 3 --ssh-warmup 1`), compared against the
+  committed `tests/performance/baselines/local-dev.json` with
+  `--semantic-only` — exact + ceiling metrics only, runner-independent, so
+  it blocks a PR that changes a command count or an observable digest.
+- `.github/workflows/perf.yml`'s `full-baseline` job, weekly (and
+  `workflow_dispatch`): the full-sized run (mock 100/10, ssh 20/3),
+  tagged `runner_class: github-ubuntu`, uploaded as artifacts and
+  compared against a committed `tests/performance/baselines/github-ubuntu.json`.
+  Its semantic-metrics comparison blocks the same way; its latency/RSS
+  comparison is `continue-on-error: true`.
+
+Latency/RSS gating stays deferred there because the thresholds above come
+from a handful of runs on one shared, uncontrolled development machine
+(see the `evidence` fields in `thresholds.json`), not `github-ubuntu`.
+Shared CI runners are noisier still, so gating on them without
+runner-specific variance data would either pass everything (too loose) or
+flap on noise (too tight). The weekly job exists in part to collect that
+data: once it has supplied five runs' worth, `thresholds.json` gets
+runner-class-specific ratios (per its `baseline_refresh_policy`) and its
+latency/RSS comparison flips to blocking.
 
 ### Baseline update review requirements
 
