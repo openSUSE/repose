@@ -3,8 +3,9 @@
   "expect": "incomparable-metadata",
   "baseline": {
     "command_count": 2,
-    "contract_version": 1,
+    "contract_version": 2,
     "exit_code": 0,
+    "host_count": 1,
     "host_order": [
       "h1"
     ],
@@ -21,7 +22,11 @@
     "runner": {
       "arch": "aarch64",
       "os": "macos",
-      "toolchain": null
+      "toolchain": "rustc 1.97.1 (fixture)",
+      "profile": "release",
+      "rustflags": "",
+      "fixture_runtime": null,
+      "runner_image": null
     },
     "stderr_digest": "fnv1a64:cbf29ce484222325",
     "stdout_digest": "fnv1a64:cbf29ce484222325",
@@ -48,8 +53,9 @@
   },
   "candidate": {
     "command_count": 2,
-    "contract_version": 1,
+    "contract_version": 2,
     "exit_code": 0,
+    "host_count": 1,
     "host_order": [
       "h1"
     ],
@@ -66,7 +72,11 @@
     "runner": {
       "arch": "aarch64",
       "os": "macos",
-      "toolchain": null
+      "toolchain": "rustc 1.97.1 (fixture)",
+      "profile": "release",
+      "rustflags": "",
+      "fixture_runtime": null,
+      "runner_image": null
     },
     "stderr_digest": "fnv1a64:cbf29ce484222325",
     "stdout_digest": "fnv1a64:cbf29ce484222325",

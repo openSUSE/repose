@@ -3,8 +3,9 @@
   "expect": "pass",
   "baseline": {
     "command_count": 2,
-    "contract_version": 1,
+    "contract_version": 2,
     "exit_code": 0,
+    "host_count": 1,
     "host_order": [
       "h1"
     ],
@@ -21,7 +22,11 @@
     "runner": {
       "arch": "aarch64",
       "os": "macos",
-      "toolchain": null
+      "toolchain": "rustc 1.97.1 (fixture)",
+      "profile": "release",
+      "rustflags": "",
+      "fixture_runtime": null,
+      "runner_image": null
     },
     "stderr_digest": "fnv1a64:cbf29ce484222325",
     "stdout_digest": "fnv1a64:cbf29ce484222325",
@@ -48,16 +53,17 @@
   },
   "candidate": {
     "command_count": 2,
-    "contract_version": 1,
+    "contract_version": 2,
     "exit_code": 0,
+    "host_count": 1,
     "host_order": [
       "h1"
     ],
     "kind": "mock",
     "latency_ns": {
-      "p50": 20000,
-      "p95": 24000,
-      "p99": 24000
+      "p50": 20800,
+      "p95": 23600,
+      "p99": 23600
     },
     "peak_concurrency": 1,
     "peak_rss_bytes": null,
@@ -66,11 +72,15 @@
     "runner": {
       "arch": "aarch64",
       "os": "macos",
-      "toolchain": null
+      "toolchain": "rustc 1.97.1 (fixture)",
+      "profile": "release",
+      "rustflags": "",
+      "fixture_runtime": null,
+      "runner_image": null
     },
     "stderr_digest": "fnv1a64:cbf29ce484222325",
     "stdout_digest": "fnv1a64:cbf29ce484222325",
-    "throughput_ops_per_sec": 49999.99999999999,
+    "throughput_ops_per_sec": 48076.92307692308,
     "wall_time_ns": [
       18000,
       18400,
