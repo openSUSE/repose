@@ -5,12 +5,12 @@
     "fixture_runtime": "container",
     "os": "linux",
     "profile": "release",
-    "runner_image": "sha256:26d9611f03b8168a0965106a605337d7e8474101824c9c3ec37ce48bd1e18e04",
+    "runner_image": "sha256:024b65364f868f05e4a88a2a84240953f1de7f7e5a69af7a6e43718deef1e9ad",
     "rustflags": "",
     "toolchain": "rustc 1.97.1 (8bab26f4f 2026-07-14)",
     "runner_class": "local-dev"
   },
-  "generated_at": "2026-08-05T19:09:36Z",
+  "generated_at": "2026-08-05T20:49:25Z",
   "workloads": [
     {
       "workload_id": "mock-add-100h",
@@ -19,11 +19,11 @@
       "warmup_repetitions": 3,
       "host_count": 100,
       "latency_ns": {
-        "p50": 301334,
-        "p95": 337208,
-        "p99": 382583
+        "p50": 301417,
+        "p95": 316333,
+        "p99": 317875
       },
-      "throughput_ops_per_sec": 331857.6728812547,
+      "throughput_ops_per_sec": 331766.29055428196,
       "peak_rss_bytes": 2932736,
       "command_count": 200,
       "probe_count": 100,
@@ -39,11 +39,11 @@
       "warmup_repetitions": 3,
       "host_count": 100,
       "latency_ns": {
-        "p50": 363417,
-        "p95": 604083,
-        "p99": 735416
+        "p50": 362000,
+        "p95": 395416,
+        "p99": 404625
       },
-      "throughput_ops_per_sec": 275165.9938858116,
+      "throughput_ops_per_sec": 276243.0939226519,
       "peak_rss_bytes": 3063808,
       "command_count": 200,
       "probe_count": 200,
@@ -59,11 +59,11 @@
       "warmup_repetitions": 3,
       "host_count": 100,
       "latency_ns": {
-        "p50": 20993625,
-        "p95": 21017041,
-        "p99": 21021000
+        "p50": 20996792,
+        "p95": 21006541,
+        "p99": 21018041
       },
-      "throughput_ops_per_sec": 4763.350779105562,
+      "throughput_ops_per_sec": 4762.632310688223,
       "peak_rss_bytes": 2932736,
       "command_count": 200,
       "probe_count": 100,
@@ -79,11 +79,11 @@
       "warmup_repetitions": 3,
       "host_count": 1,
       "latency_ns": {
-        "p50": 86709,
-        "p95": 92625,
-        "p99": 93833
+        "p50": 90875,
+        "p95": 107667,
+        "p99": 134708
       },
-      "throughput_ops_per_sec": 11532.828195458373,
+      "throughput_ops_per_sec": 11004.126547455297,
       "peak_rss_bytes": 2801664,
       "command_count": 2,
       "probe_count": 1,
@@ -99,11 +99,11 @@
       "warmup_repetitions": 3,
       "host_count": 20,
       "latency_ns": {
-        "p50": 158750,
-        "p95": 253375,
-        "p99": 276250
+        "p50": 168667,
+        "p95": 211250,
+        "p99": 414416
       },
-      "throughput_ops_per_sec": 125984.25196850393,
+      "throughput_ops_per_sec": 118576.84075723171,
       "peak_rss_bytes": 2801664,
       "command_count": 40,
       "probe_count": 20,
@@ -119,12 +119,12 @@
       "warmup_repetitions": 3,
       "host_count": 20,
       "latency_ns": {
-        "p50": 166584,
-        "p95": 181917,
-        "p99": 185375
+        "p50": 177667,
+        "p95": 336667,
+        "p99": 346209
       },
-      "throughput_ops_per_sec": 120059.54953657014,
-      "peak_rss_bytes": 2801664,
+      "throughput_ops_per_sec": 112570.14527177248,
+      "peak_rss_bytes": 2785280,
       "command_count": 40,
       "probe_count": 20,
       "peak_concurrency": 1,
@@ -139,12 +139,12 @@
       "warmup_repetitions": 3,
       "host_count": 100,
       "latency_ns": {
-        "p50": 352416,
-        "p95": 402083,
-        "p99": 451500
+        "p50": 349959,
+        "p95": 377292,
+        "p99": 385458
       },
-      "throughput_ops_per_sec": 283755.56160900753,
-      "peak_rss_bytes": 3063808,
+      "throughput_ops_per_sec": 285747.75902319985,
+      "peak_rss_bytes": 3055616,
       "command_count": 300,
       "probe_count": 100,
       "peak_concurrency": 1,
@@ -159,11 +159,11 @@
       "warmup_repetitions": 3,
       "host_count": 1,
       "latency_ns": {
-        "p50": 139291,
-        "p95": 195333,
-        "p99": 363542
+        "p50": 139875,
+        "p95": 172209,
+        "p99": 174250
       },
-      "throughput_ops_per_sec": 7179.214737492013,
+      "throughput_ops_per_sec": 7149.240393208222,
       "peak_rss_bytes": 2801664,
       "command_count": 3,
       "probe_count": 1,
@@ -179,11 +179,11 @@
       "warmup_repetitions": 3,
       "host_count": 20,
       "latency_ns": {
-        "p50": 180250,
-        "p95": 217333,
-        "p99": 220833
+        "p50": 180500,
+        "p95": 241000,
+        "p99": 243500
       },
-      "throughput_ops_per_sec": 110957.00416088766,
+      "throughput_ops_per_sec": 110803.32409972299,
       "peak_rss_bytes": 2801664,
       "command_count": 60,
       "probe_count": 20,
@@ -199,12 +199,12 @@
       "warmup_repetitions": 3,
       "host_count": 100,
       "latency_ns": {
-        "p50": 67375,
-        "p95": 95000,
-        "p99": 123750
+        "p50": 67125,
+        "p95": 73334,
+        "p99": 79042
       },
-      "throughput_ops_per_sec": 1484230.055658627,
-      "peak_rss_bytes": 2789376,
+      "throughput_ops_per_sec": 1489757.9143389198,
+      "peak_rss_bytes": 2801664,
       "command_count": 0,
       "probe_count": 0,
       "peak_concurrency": 1,
@@ -220,8 +220,8 @@
       "host_count": 1,
       "latency_ns": {
         "p50": 1167,
-        "p95": 1333,
-        "p99": 1708
+        "p95": 1334,
+        "p99": 1916
       },
       "throughput_ops_per_sec": 856898.029134533,
       "peak_rss_bytes": 2670592,
@@ -239,11 +239,11 @@
       "warmup_repetitions": 3,
       "host_count": 20,
       "latency_ns": {
-        "p50": 14209,
-        "p95": 15125,
-        "p99": 15500
+        "p50": 15750,
+        "p95": 39167,
+        "p99": 99250
       },
-      "throughput_ops_per_sec": 1407558.5896262932,
+      "throughput_ops_per_sec": 1269841.2698412698,
       "peak_rss_bytes": 2670592,
       "command_count": 0,
       "probe_count": 0,
@@ -259,17 +259,17 @@
       "warmup_repetitions": 2,
       "host_count": 1,
       "latency_ns": {
-        "p50": 138604000,
-        "p95": 148702708,
-        "p99": 148702708
+        "p50": 136981125,
+        "p95": 149531750,
+        "p99": 149531750
       },
-      "throughput_ops_per_sec": 7.214798995699979,
+      "throughput_ops_per_sec": 7.300275859174028,
       "peak_rss_bytes": null,
       "command_count": null,
       "probe_count": null,
       "peak_concurrency": null,
       "exit_code": 0,
-      "stdout_digest": "sha256:2b5a25bc4ee779a7aaf6949bccfb4f5c9b5762b83e3cca9aabc80140af72ba59",
+      "stdout_digest": "sha256:43f2f6f7b636bf31383a47ac8d2c169184119f57617a1e17b455b0b105449ced",
       "stderr_digest": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
     },
     {
@@ -279,11 +279,11 @@
       "warmup_repetitions": 2,
       "host_count": 1,
       "latency_ns": {
-        "p50": 142811875,
-        "p95": 147697833,
-        "p99": 147697833
+        "p50": 138398500,
+        "p95": 147432083,
+        "p99": 147432083
       },
-      "throughput_ops_per_sec": 7.002218828091151,
+      "throughput_ops_per_sec": 7.225511837194767,
       "peak_rss_bytes": null,
       "command_count": null,
       "probe_count": null,
@@ -299,11 +299,11 @@
       "warmup_repetitions": 2,
       "host_count": 1,
       "latency_ns": {
-        "p50": 137598708,
-        "p95": 151024416,
-        "p99": 151024416
+        "p50": 142470958,
+        "p95": 154018709,
+        "p99": 154018709
       },
-      "throughput_ops_per_sec": 7.267510099004709,
+      "throughput_ops_per_sec": 7.018974351249887,
       "peak_rss_bytes": null,
       "command_count": null,
       "probe_count": null,
@@ -319,17 +319,17 @@
       "warmup_repetitions": 2,
       "host_count": 1,
       "latency_ns": {
-        "p50": 146946542,
-        "p95": 156724208,
-        "p99": 156724208
+        "p50": 150689542,
+        "p95": 165972750,
+        "p99": 165972750
       },
-      "throughput_ops_per_sec": 6.805195865037776,
+      "throughput_ops_per_sec": 6.63616059036134,
       "peak_rss_bytes": null,
       "command_count": null,
       "probe_count": null,
       "peak_concurrency": null,
       "exit_code": 0,
-      "stdout_digest": "sha256:74a7d7977e02d261ce937cae5ac99ac234c73077184d450f9987628ad0b8621e",
+      "stdout_digest": "sha256:4daef08732e63d5ba9431583c75da4d4c79fbe606b31b156b395eac004296d94",
       "stderr_digest": null
     }
   ]

@@ -86,15 +86,21 @@ that is `null` on either side instead of failing or silently comparing
 ### Digest normalization for `ssh`-kind reports
 
 `ssh`-kind stdout/stderr are hashed as the exact raw bytes (trailing
-newlines included) after one substitution: the fixture's container address
-and port (`<host>:<port>` and, for OpenSSH's own `known_hosts` bracket form
-on a non-default port, `[<host>]:<port>`) are folded to a fixed placeholder
-before hashing, since that address is a property of this run's container
-network, not of `repose`'s behavior. The raw, unnormalized bytes are kept
-under `$REPOSE_PERF_OUT/raw-io/<workload-id>/` for debugging a digest
-mismatch. Every repetition's normalized digest is asserted equal to the
-first; a mismatch fails the workload rather than reporting the last run's
-digest as if it were representative.
+newlines included) after every spelling of the fixture's container address
+is folded to a fixed placeholder, since that address is a property of this
+run's container network, not of `repose`'s behavior: `[<host>]:<port>`
+(OpenSSH's own `known_hosts` bracket form on a non-default port),
+`<host>:<port>` (the target echo, the `Host:` header), and finally bare
+`<host>` with no port at all — `--format=json` prints host and port as
+separate JSON fields, never contiguous as `host:port`, and `HostSpec::key`
+drops the port entirely at the default 22, so `clear --print`'s dry-run
+line carries the bare address. All three substitutions are literal
+(`split`/`join`, not a regex), applied narrowest-first so the bare pass
+only catches what the first two didn't already consume. The raw,
+unnormalized bytes are kept under `$REPOSE_PERF_OUT/raw-io/<workload-id>/`
+for debugging a digest mismatch. Every repetition's normalized digest is
+asserted equal to the first; a mismatch fails the workload rather than
+reporting the last run's digest as if it were representative.
 
 ## Workload dimensions
 
