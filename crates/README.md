@@ -84,7 +84,7 @@ Run these commands from the repository root.
 
 - **Layering:** `repose-core` must never depend on `repose-ssh` or `russh`; `scripts/check-rust-layering.sh` enforces it, and CI runs it.
 - **Single SSH backend:** `deny.toml` bans `ssh2` / `libssh2-sys` / async-ssh2-* crates.
-- **Path deps** pin the workspace version (`version = "3.1.1"`) so `cargo-deny` `wildcards = "deny"` accepts them.
+- **Path deps** pin the workspace version (`version = "3.2.0"`) so `cargo-deny` `wildcards = "deny"` accepts them.
 - **Binary name:** `repose` (replace strategy; no `repose-rs`).
 
 Behavior is pinned by the committed expected-output vectors under
