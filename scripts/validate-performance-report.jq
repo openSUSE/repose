@@ -19,13 +19,34 @@ def is_nonneg_int: type == "number" and (. == (. | floor)) and . >= 0;
 def is_nonneg_num: type == "number" and . >= 0;
 def is_nonempty_string: type == "string" and length > 0;
 
+# Nearest-rank percentile, matching both emitters
+# (crates/repose-core/examples/baseline_report.rs's `percentile` and
+# scripts/run-performance-baseline-ssh.sh's `percentile_ns`): rank =
+# ceil((pct/100) * n), 1-indexed into the ascending sample array.
+def nearest_rank(sorted; pct):
+  (sorted | length) as $n
+  | sorted[(((pct / 100) * $n) | ceil) - 1];
+
 . as $r
-| check($r.contract_version; . == 1; "contract_version must be 1")
+| check($r.contract_version; . == 2; "contract_version must be 2")
 | check($r.workload_id; is_nonempty_string; "workload_id must be a non-empty string")
 | check($r.kind; . == "mock" or . == "ssh"; "kind must be \"mock\" or \"ssh\"")
 | check($r.runner; type == "object"; "runner must be an object")
 | check($r.runner.os; is_nonempty_string; "runner.os must be a non-empty string")
 | check($r.runner.arch; is_nonempty_string; "runner.arch must be a non-empty string")
+| check($r.runner.profile; is_nonempty_string; "runner.profile must be a non-empty string")
+| check($r.runner.rustflags; type == "string"; "runner.rustflags must be a string (may be empty)")
+| check(
+    $r.runner.fixture_runtime;
+    . == null or is_nonempty_string;
+    "runner.fixture_runtime must be a non-empty string, or null before the container pair resolves it"
+  )
+| check(
+    $r.runner.runner_image;
+    . == null or is_nonempty_string;
+    "runner.runner_image must be a non-empty string, or null before the runner image is built"
+  )
+| check($r.host_count; is_nonneg_int and . >= 1; "host_count must be an integer >= 1")
 | check($r.repetitions; is_nonneg_int and . >= 1; "repetitions must be an integer >= 1")
 | check($r.warmup_repetitions; is_nonneg_int; "warmup_repetitions must be a non-negative integer")
 | check(
@@ -33,11 +54,36 @@ def is_nonempty_string: type == "string" and length > 0;
     type == "array" and length == $r.repetitions and (all(.[]; is_nonneg_int));
     "wall_time_ns must have exactly `repetitions` non-negative nanosecond samples"
   )
+| check($r.wall_time_ns; . == sort; "wall_time_ns must be sorted ascending")
 | check($r.latency_ns; type == "object"; "latency_ns must be an object")
 | check($r.latency_ns.p50; is_nonneg_int; "latency_ns.p50 must be a non-negative integer")
 | check($r.latency_ns.p95; is_nonneg_int and . >= $r.latency_ns.p50; "latency_ns.p95 must be >= p50")
 | check($r.latency_ns.p99; is_nonneg_int and . >= $r.latency_ns.p95; "latency_ns.p99 must be >= p95")
+| check(
+    $r.latency_ns.p50;
+    . == nearest_rank($r.wall_time_ns; 50);
+    "latency_ns.p50 is not the nearest-rank p50 of wall_time_ns"
+  )
+| check(
+    $r.latency_ns.p95;
+    . == nearest_rank($r.wall_time_ns; 95);
+    "latency_ns.p95 is not the nearest-rank p95 of wall_time_ns"
+  )
+| check(
+    $r.latency_ns.p99;
+    . == nearest_rank($r.wall_time_ns; 99);
+    "latency_ns.p99 is not the nearest-rank p99 of wall_time_ns"
+  )
 | check($r.throughput_ops_per_sec; is_nonneg_num; "throughput_ops_per_sec must be a non-negative number")
+| check(
+    $r.throughput_ops_per_sec;
+    ($r.latency_ns.p50 == 0) or (
+      (. - ($r.host_count / ($r.latency_ns.p50 / 1e9))) / ($r.host_count / ($r.latency_ns.p50 / 1e9))
+      | fabs
+      | . <= 1e-9
+    );
+    "throughput_ops_per_sec is inconsistent with host_count and latency_ns.p50"
+  )
 | check(
     $r.peak_rss_bytes;
     . == null or is_nonneg_int;
