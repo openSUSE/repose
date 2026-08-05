@@ -17,10 +17,13 @@ the committed baseline summaries used to catch regressions (P0.5).
 - `baselines/<runner-class>.json` — one compact, committed summary per
   runner identity (semantic counters + latency percentiles, no raw sample
   arrays or per-host output). `<runner-class>` is `local-dev` unless
-  `REPOSE_PERF_RUNNER_CLASS` is set.
+  `REPOSE_PERF_RUNNER_CLASS` is set. One `runner` object covers every
+  workload in the file — see "The container pair" below.
 - `baselines/raw/` (gitignored) — the full per-workload reports the
   orchestration script produces, including every wall-time sample and
   (for small fleets) host ordering. Local/CI artifacts only.
+- `runner/Dockerfile` — the pinned build+measure environment both `mock`
+  and `ssh` workloads run in; see "The container pair" below.
 - `opportunity-matrix.md` (P0.4) — the top profiled optimization
   candidates, ranked and evidence-linked.
 - `comparator-fixtures/` (P0.5) — fixtures for `scripts/compare-performance.sh`.
@@ -32,22 +35,66 @@ checks its shape:
 
 | Field                     | Meaning                                                                 |
 | ------------------------- | ------------------------------------------------------------------------ |
-| `contract_version`        | Always `1`.                                                             |
+| `contract_version`        | Always `2`.                                                             |
 | `workload_id`              | Matches an id in `workloads.json`.                                      |
 | `kind`                     | `"mock"` (in-process `repose-core` API) or `"ssh"` (real CLI + fixture). |
-| `runner`                   | `{os, arch, toolchain, runner_class}`.                                  |
+| `runner`                   | `{os, arch, toolchain, profile, rustflags, fixture_runtime, runner_image, runner_class}` — see field notes below and "The container pair". |
 | `generated_at`             | RFC3339 UTC timestamp.                                                  |
+| `host_count`               | Hosts the workload targets (from `workloads.json`).                     |
 | `repetitions` / `warmup_repetitions` | Measured / discarded warmup runs.                              |
 | `wall_time_ns`             | One nanosecond sample per repetition (warmups excluded), ascending.     |
 | `latency_ns.{p50,p95,p99}` | Nearest-rank percentiles over `wall_time_ns`.                            |
 | `throughput_ops_per_sec`   | `host_count / (p50_latency_seconds)` — hosts processed per second at the median run. |
 | `peak_rss_bytes`           | Process peak RSS for the whole measured run, or `null` if the platform collector was unavailable. |
-| `command_count`            | Exact remote/mock commands completed (see `MockMetricsSnapshot::commands_completed`; for `ssh`-kind reports this is coarse — see Limits below). |
-| `probe_count`              | Exact URL-liveness probes issued.                                       |
-| `peak_concurrency`         | Maximum observed in-flight host operations.                            |
+| `command_count`            | Exact remote/mock commands completed (see `MockMetricsSnapshot::commands_completed`), or `null` for a `kind == "ssh"` report — see "The null-counter policy" below. |
+| `probe_count`              | Exact URL-liveness probes issued, or `null` for `kind == "ssh"`.        |
+| `peak_concurrency`         | Maximum observed in-flight host operations, or `null` for `kind == "ssh"`. |
 | `exit_code`                | Process/aggregate exit code.                                            |
-| `stdout_digest` / `stderr_digest` | `"<algo>:<hex>"` content fingerprint — `fnv1a64` for `mock`-kind reports (deterministic, no new dependency; **not** cryptographic), `sha256` for `ssh`-kind reports. |
+| `stdout_digest` / `stderr_digest` | `"<algo>:<hex>"` content fingerprint — `fnv1a64` for `mock`-kind reports (deterministic, no new dependency; **not** cryptographic), `sha256` for `ssh`-kind reports (of the byte-exact, target-normalized stream — see "Digest normalization for `ssh`-kind reports"). `stderr_digest` may be `null` for a workload whose stderr provably cannot reproduce (declared as `expect.stderr_digest: null` with the reason in `workloads.json`; `stdout_digest` is never exempt). |
 | `host_order`               | Host keys in aggregation order.                                        |
+
+### `runner` field notes
+
+- `os`/`arch`/`toolchain`: the measuring process's platform and exact
+  `rustc --version`. Under the container pair these describe the runner
+  container (always Linux), not the contributor's host.
+- `profile`: always `"release"` — the harness only ever measures a release
+  build.
+- `rustflags`: the invoking shell's `RUSTFLAGS`, verbatim (may be empty).
+- `fixture_runtime`: which container CLI built and ran the pair —
+  `"docker"`, `"podman"`, or `"container"` — or `null` for a `--skip-ssh`
+  host-native mock-only run, which never touches a container.
+- `runner_image`: the runner image's digest (`sha256:...`), or `null`
+  under `--skip-ssh`. This is what makes "these two runs were built the
+  same way" checkable rather than asserted — see "The container pair".
+- `runner_class`: the contributor/CI identity for this baseline
+  (`REPOSE_PERF_RUNNER_CLASS`, default `local-dev`); names the committed
+  `baselines/<runner-class>.json` file.
+
+### The null-counter policy
+
+`command_count`, `probe_count`, and `peak_concurrency` are `null` on a
+`kind == "ssh"` report, never a fabricated or approximated number.
+Observing them for real would mean instrumenting the fixture (wrapping its
+fake `zypper`, counting SFTP opens) for metrics the deterministic `mock`
+workloads already gate exactly; see "Alternatives considered" in
+`plans/p0.1-repair-performance-measurement.md` for why that trade was
+deferred rather than made. `scripts/compare-performance.sh` SKIPs a metric
+that is `null` on either side instead of failing or silently comparing
+`null` as if it were a number.
+
+### Digest normalization for `ssh`-kind reports
+
+`ssh`-kind stdout/stderr are hashed as the exact raw bytes (trailing
+newlines included) after one substitution: the fixture's container address
+and port (`<host>:<port>` and, for OpenSSH's own `known_hosts` bracket form
+on a non-default port, `[<host>]:<port>`) are folded to a fixed placeholder
+before hashing, since that address is a property of this run's container
+network, not of `repose`'s behavior. The raw, unnormalized bytes are kept
+under `$REPOSE_PERF_OUT/raw-io/<workload-id>/` for debugging a digest
+mismatch. Every repetition's normalized digest is asserted equal to the
+first; a mismatch fails the workload rather than reporting the last run's
+digest as if it were representative.
 
 ## Workload dimensions
 
@@ -55,8 +102,8 @@ checks its shape:
 hosts, with variants for repeated repository URLs, one slow host, and
 text/JSON output; `ssh`-kind entries add real transport, product
 discovery, a dry-run preview, `--debug` verbose logging, and a
-first-contact `accept-new` known_hosts scenario against the Docker OpenSSH
-fixture (`tests/ssh/`).
+first-contact `accept-new` known_hosts scenario against the OpenSSH
+fixture (`tests/ssh/`), reached over the container pair described below.
 
 Two dimensions are intentionally *not* simulated in the mock harness:
 
@@ -84,15 +131,16 @@ own gated/barrier unit tests (P0.2) and `add.rs`'s `concurrent_hosts_overlap_in_
 
 ## Running it
 
-Prerequisites: a release build, `jq`, `rustc`; the `ssh`-kind workloads
-additionally need `docker` and `ssh-keygen` (see `tests/ssh/run.sh`) — the
-script skips them with a message if unavailable.
+Prerequisites: `jq`, `ssh-keygen`, and a live container runtime — Docker,
+Podman, or Apple's `container` (macOS-native). `--skip-ssh` needs none of
+the container tooling; it also needs a local Rust toolchain and skips the
+`ssh`-kind workloads entirely.
 
 ```sh
-# Everything (mock workloads always run; ssh workloads run if Docker is available):
+# Everything, inside the container pair (see below):
 scripts/run-performance-baseline.sh
 
-# Faster local iteration:
+# Faster local iteration — host-native, mock workloads only, no container:
 scripts/run-performance-baseline.sh --mock-reps 5 --mock-warmup 1 --skip-ssh
 
 # One mock workload directly (skips RSS collection/toolchain metadata):
@@ -109,20 +157,72 @@ cargo bench -p repose-core --bench fleet --locked             # full statistical
 `scripts/run-performance-baseline.sh` builds once in release mode, runs
 every `mock`-kind workload through `baseline_report` (which checks the
 reviewed expectation on every repetition, then reports timing), runs every
-`ssh`-kind workload against the Docker fixture via
+`ssh`-kind workload against the fixture via
 `scripts/run-performance-baseline-ssh.sh`, validates every report against
 the contract, writes raw per-workload reports to `--out` (default
 `tests/performance/baselines/raw/`, gitignored), and finally writes the
-compact committed summary to `tests/performance/baselines/<runner-class>.json`.
+compact committed summary to `tests/performance/baselines/<runner-class>.json`
+(validated against `scripts/validate-performance-summary.jq`).
+
+## The container pair
+
+Everything but `--skip-ssh` runs inside two containers on one private
+network: the runner (`tests/performance/runner/Dockerfile` — the pinned
+build+measure environment) and the fixture (the unmodified
+`tests/ssh/Dockerfile`, container-to-container only, no published port).
+This is deliberate, not incidental — see the "Decisions taken up front"
+and assumptions 6 and 7 in `plans/p0.1-repair-performance-measurement.md`:
+
+- repose is deployed on Linux, so that is the environment worth measuring
+  — not the contributor's laptop OS and toolchain.
+- A pinned image is what makes two runs a month apart share a toolchain, a
+  libc and a set of system packages; without it, `local-dev` numbers from
+  two contributors (or one contributor a month apart) are not the same
+  baseline.
+- On at least one development machine, host→container networking does not
+  work at all (a published port accepts and then resets; a container IP
+  never resolves) while container→container does — so the fixture is
+  never published to the host, and its address/readiness is resolved and
+  proven reachable from inside the runner container.
+- One `runner` object describes a whole committed summary, so `mock` and
+  `ssh` workloads are measured in the *same* container run — a mock
+  workload staying host-native next to a containerized `ssh` workload
+  would make that one object's fields describe only some of what it
+  claims to cover.
+
+Select the runtime with `REPOSE_PERF_CONTAINER_CLI`: `auto` (default)
+tries `docker`, then `podman`, then `container` in turn, with a liveness
+call for each (a present binary with a dead daemon counts as
+unavailable). An explicit value that isn't live fails loudly instead of
+silently trying another runtime — a baseline measured somewhere else is
+not the same baseline. There is no host-native fallback for the full run.
+
+`runner.runner_image` (the runner image's digest) is what makes "these two
+runs were built the same way" checkable: it changes whenever the image is
+rebuilt (`rust-toolchain.toml` resolving `stable` to a new version, or the
+Dockerfile itself changing), and `scripts/compare-performance.sh` rejects
+comparing across a mismatch unless `--allow-cross-runner` is passed. It
+pins the OS, libc, toolchain and system packages the measurement ran
+with; it deliberately does **not** pin the host's CPU, kernel, or whether
+the container gets its own VM (Apple `container`) or shares the host
+kernel (Docker/Podman on Linux) — those remain free, which is why
+`runner.arch` and `runner.runner_class` are checked separately, and why a
+macOS `local-dev` figure is a regression detector for that machine, never
+a proxy for a Linux CI runner.
+
+`REPOSE_PERF_CACHE_DIR` (default `$HOME/.cache/repose-perf`) is a
+persistent cargo registry/git/target cache bind-mounted into the runner,
+kept outside the repository so a rebuild doesn't start from zero.
 
 ### Warmup / repetition policy
 
 Mock workloads default to 3 warmup + 20 measured repetitions (fast,
-in-process); `ssh`-kind workloads default to 1 warmup + 5 measured
-repetitions (real network round trips per rep). Override with
-`--mock-reps`/`--mock-warmup`/`--ssh-reps`/`--ssh-warmup`. Warmup
-repetitions are still checked against the reviewed expectation (so a
-warmup crash still fails loudly) but are excluded from `wall_time_ns`.
+in-process); `ssh`-kind workloads default to 2 warmup + 10 measured
+repetitions (real network round trips per rep) — enough to clear
+`thresholds.json`'s `minimum_repetitions` (10) without being asked.
+Override with `--mock-reps`/`--mock-warmup`/`--ssh-reps`/`--ssh-warmup`.
+Warmup repetitions are still checked against the reviewed expectation (so
+a warmup crash still fails loudly) but are excluded from `wall_time_ns`.
 
 ### Result interpretation
 
@@ -134,17 +234,24 @@ warmup crash still fails loudly) but are excluded from `wall_time_ns`.
   the only source of real transport/host-key timing in this baseline —
   they do not model true 100-host network fan-out (a single-container
   fixture cannot); use them for transport realism, not fleet-scaling
-  claims.
-- Compare same-runner-class reports only; `os`/`arch`/`toolchain` differ
-  in ways that make cross-runner latency comparisons meaningless
+  claims. Under Apple `container`, each container is its own VM with a
+  real network hop between client and fixture, so absolute `ssh`-kind
+  latency there is not comparable to a Docker/Podman run on Linux, where
+  the pair shares the host kernel — `runner.fixture_runtime` records
+  which applies.
+- Compare same-runner-class reports only; `os`/`arch`/`toolchain`/
+  `profile`/`rustflags`/`fixture_runtime`/`runner_image` differ in ways
+  that make cross-runner latency comparisons meaningless
   (`scripts/compare-performance.sh`, P0.5, enforces this).
 
 ### Platform notes for `peak_rss_bytes`
 
-- macOS: `/usr/bin/time -l`, `maximum resident set size` (already bytes).
-- Linux: GNU `time -v`, `Maximum resident set size` (KB, converted to
-  bytes). Falls back to `null` if GNU `time` isn't installed (BusyBox/
-  POSIX `time` doesn't support `-v`).
+- Inside the container pair: GNU `time -v`, `Maximum resident set size`
+  (KB, converted to bytes) — the runner image always has it installed.
+- `--skip-ssh` (host-native): macOS uses `/usr/bin/time -l`, `maximum
+  resident set size` (already bytes); Linux uses GNU `time -v` if
+  present, else falls back to `null` (BusyBox/POSIX `time` doesn't
+  support `-v`).
 
 ### Artifact retention
 
@@ -206,35 +313,77 @@ the script exits nonzero — it never reports a silent partial success.
 ## Regression thresholds and the comparator (P0.5)
 
 `scripts/compare-performance.sh <baseline.json> <candidate.json>` compares
-two contract-valid reports for the *same* workload and runner class,
-applying the rules in `tests/performance/thresholds.json`:
+two contract-valid reports for the *same* workload and runner, applying
+the rules in `tests/performance/thresholds.json`:
 
 - **Exact** (`exit_code`, `command_count`, `probe_count`, `stdout_digest`,
   `stderr_digest`): any change is a regression. These are deterministic for
-  `mock`-kind workloads, so there is no legitimate noise to tolerate.
+  `mock`-kind workloads, so there is no legitimate noise to tolerate. A
+  metric that is `null` on either side is SKIPped, not compared — see "The
+  null-counter policy" above.
 - **Ceiling** (`peak_concurrency`): the candidate may not exceed the
-  baseline's observed value.
+  baseline's observed value. Also SKIPped when either side is `null`.
 - **Threshold** (`latency_ns.{p50,p95,p99}`, `throughput_ops_per_sec`,
   `peak_rss_bytes`): a variance-derived relative tolerance — see
   `thresholds.json` for the exact ratios and the repeated-run evidence each
-  one cites. `peak_rss_bytes` is skipped (not failed) when either side is
-  `null`.
+  one cites. Skipped when either side is `null`. `latency_ns.p99` is
+  additionally SKIPped below `tail_minimum_repetitions` (100): a
+  nearest-rank p99 drawn from, say, 20 repetitions is just the 2nd-slowest
+  run and too noisy a single sample to gate on; `p50`/`p95` still gate at
+  the ordinary `minimum_repetitions` (10).
+
+Before any metric check, the comparator rejects a mismatch in
+`contract_version`, `runner.os`, `.arch`, `.toolchain`, `.profile`,
+`.rustflags`, `.fixture_runtime`, `.runner_image`, and `.runner_class`
+with exit `3` — pass `--allow-cross-runner` to compare anyway. With the
+pinned container image (see "The container pair"), everything but
+`.arch`, `.runner_class`, and `.fixture_runtime` should now match across
+contributors; a `.runner_image` mismatch is the cheapest single check for
+"these two runs were not built the same way".
 
 Exit codes distinguish failure kinds: `0` pass (including a real
-improvement), `1` regression, `2` contract failure (a report doesn't
-satisfy the schema), `3` incomparable metadata (different
-`workload_id`/`runner_class`, or below `minimum_repetitions`).
+improvement), `1` regression, `2` contract failure (a report, or an
+extracted `--workload` entry, doesn't satisfy its contract), `3`
+incomparable metadata (different `workload_id`, a runner/environment field
+mismatch, a `--workload` id absent from a summary, or below
+`minimum_repetitions`).
 
 ```sh
 make perf-compare-test   # comparator-fixtures/*.json + one real injected-slowdown guardrail
 scripts/compare-performance.sh before.json after.json
+
+# Compare one workload straight out of the committed summary — no raw
+# per-workload report needed on the baseline side:
+scripts/compare-performance.sh --workload mock-add-100h \
+  tests/performance/baselines/local-dev.json tests/performance/baselines/raw/mock-add-100h.json
+
+# Deterministic checks only, runner-independent (what CI runs on every
+# PR — see the plan's PR4 for the workflow): implies --allow-cross-runner
+# and skips the repetition-count gate.
+scripts/compare-performance.sh --semantic-only --workload mock-add-100h \
+  tests/performance/baselines/local-dev.json fresh-report.json
 ```
 
-`scripts/test-compare-performance.sh` (`make perf-compare-test`) checks all
-six fixture categories under `comparator-fixtures/` (pass, improvement,
-regression, missing-metric, contract-failure, incomparable-metadata), then
-runs one real end-to-end guardrail: two genuine `baseline_report` runs of
-the same workload must compare as a pass, and a third run with
+`--workload <id>` extracts one workload's data from either input. A
+standalone report (like the ones under `baselines/raw/`) is used as-is,
+validated against the full report contract
+(`scripts/validate-performance-report.jq`). A compact baseline summary
+(like `baselines/<runner-class>.json`) has its `<id>` entry merged with
+the summary's `runner`/`contract_version` and validated against the
+*comparable subset* of the contract
+(`scripts/validate-performance-comparable.jq`) — a summary entry has no
+`wall_time_ns` samples, so there is nothing to recompute percentiles from.
+`scripts/validate-performance-summary.jq` checks the same subset for every
+entry in a whole summary file, plus the summary's own shape
+(`contract_version`, `runner`, unique `workload_id`s); both are jq
+*libraries* (`include`d, not run standalone) invoked with `-L scripts`.
+
+`scripts/test-compare-performance.sh` (`make perf-compare-test`) checks
+every fixture category under `comparator-fixtures/` (pass, improvement,
+regression, missing-metric, null-metric, toolchain-mismatch,
+tail-reps-skip, contract-failure, incomparable-metadata), then runs one
+real end-to-end guardrail: two genuine `baseline_report` runs of the same
+workload must compare as a pass, and a third run with
 `REPOSE_PERF_INJECT_DELAY_MS` set (a real, controllable per-repetition
 delay — not a fabricated fixture) must be caught as a regression.
 
