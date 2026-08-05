@@ -322,7 +322,7 @@ fn main() {
     let throughput = workload.host_count as f64 / (p50 as f64 / 1e9);
 
     let report = serde_json::json!({
-        "contract_version": 1,
+        "contract_version": 2,
         "workload_id": id,
         "kind": "mock",
         "runner": {
@@ -332,7 +332,15 @@ fn main() {
             // --version`), which knows the invoking toolchain; this binary
             // only knows its own target triple constants.
             "toolchain": serde_json::Value::Null,
+            "profile": if cfg!(debug_assertions) { "debug" } else { "release" },
+            "rustflags": std::env::var("RUSTFLAGS").unwrap_or_default(),
+            // This binary never leaves the host process: no ssh transport,
+            // no container. Filled in once the container pair (P0.1 step 7)
+            // measures mock workloads there too.
+            "fixture_runtime": serde_json::Value::Null,
+            "runner_image": serde_json::Value::Null,
         },
+        "host_count": workload.host_count,
         "repetitions": repetitions,
         "warmup_repetitions": warmup,
         "wall_time_ns": samples_ns,
