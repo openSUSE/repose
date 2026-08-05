@@ -271,7 +271,9 @@
         "exit_code": 0,
         "stdout_contains": [
           "\"event\": \"product\""
-        ]
+        ],
+        "stderr_digest": null,
+        "stderr_digest_reason": "Under --debug, stderr is russh's packet trace and nothing else: 103 lines, none of them a repose diagnostic. It reproduces neither across repetitions (TCP coalescing splits CHANNEL_DATA into a different number of `msg type 94, seqn N, len N` lines) nor across fixture runs (`enc: [...]` carries the bytes of a client key the fixture regenerates every start). Dropping the DEBUG lines instead would leave the digest of an empty stream, which would falsely read as a passing check. stdout is still digested."
       }
     },
     {
