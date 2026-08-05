@@ -43,9 +43,25 @@ def is_nonempty_string: type == "string" and length > 0;
     . == null or is_nonneg_int;
     "peak_rss_bytes must be a non-negative integer, or null before RSS collection runs"
   )
-| check($r.command_count; is_nonneg_int; "command_count must be a non-negative integer")
-| check($r.probe_count; is_nonneg_int; "probe_count must be a non-negative integer")
-| check($r.peak_concurrency; is_nonneg_int and . >= 1; "peak_concurrency must be an integer >= 1")
+
+# A `ssh` report may leave these unknown: observing them means instrumenting
+# the fixture, and the deterministic `mock` workloads already gate all three.
+# A `mock` report has no such excuse.
+| check(
+    $r.command_count;
+    is_nonneg_int or (. == null and $r.kind == "ssh");
+    "command_count must be a non-negative integer, or null for a kind == \"ssh\" report"
+  )
+| check(
+    $r.probe_count;
+    is_nonneg_int or (. == null and $r.kind == "ssh");
+    "probe_count must be a non-negative integer, or null for a kind == \"ssh\" report"
+  )
+| check(
+    $r.peak_concurrency;
+    (is_nonneg_int and . >= 1) or (. == null and $r.kind == "ssh");
+    "peak_concurrency must be an integer >= 1, or null for a kind == \"ssh\" report"
+  )
 | check($r.exit_code; is_nonneg_int; "exit_code must be a non-negative integer")
 | check($r.stdout_digest; is_nonempty_string; "stdout_digest must be a non-empty string")
 | check(
