@@ -45,11 +45,17 @@ sha256_of() {
 	fi
 }
 
-# The fixture's port is ephemeral, so the raw streams differ between runs in
-# a way that says nothing about performance. Fold both spellings the output
-# carries — `[host]:port` (known_hosts entries, host-key messages) and
-# `host:port` (the target echo, the `Host:` header) — to fixed placeholders
-# before hashing.
+# The fixture's address varies between runs (an ephemeral port pre-container,
+# a container-network IP that differs per host/CLI post-container) in a way
+# that says nothing about performance. Fold every spelling the output
+# carries to fixed placeholders before hashing: `[host]:port` (known_hosts
+# entries, host-key messages), `host:port` (the target echo, the `Host:`
+# header), and bare `host` with no port suffix at all — `--format=json`
+# prints host and port as separate JSON fields (never contiguous as
+# `host:port`), and `HostSpec::key` (repose-core's `host_parse.rs`) drops
+# the port entirely at the default 22, so `clear --print`'s dry-run line
+# carries the bare address. The bare pass runs last so it only catches what
+# the first two didn't already consume.
 #
 # `jq -Rsj` round-trips the stream verbatim, so a stream that does not end in
 # a newline still does not after normalizing; `sed` would append one on BSD
@@ -60,8 +66,10 @@ normalized_digest() {
 	jq -Rsj \
 		--arg bracket "[$REPOSE_SSH_HOST]:$REPOSE_SSH_PORT" \
 		--arg plain "$REPOSE_SSH_HOST:$REPOSE_SSH_PORT" \
+		--arg bare "$REPOSE_SSH_HOST" \
 		'split($bracket) | join("[FIXTURE]:PORT")
-		 | split($plain) | join("FIXTURE:PORT")' "$1" | sha256_of
+		 | split($plain) | join("FIXTURE:PORT")
+		 | split($bare) | join("FIXTURE")' "$1" | sha256_of
 }
 
 # Build the repose argv for one ssh-kind workload ($1: workload JSON,
