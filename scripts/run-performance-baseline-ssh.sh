@@ -24,8 +24,10 @@ WARMUP="${REPOSE_PERF_SSH_WARMUP:-2}"
 RUNNER_CLASS="${REPOSE_PERF_RUNNER_CLASS:-local-dev}"
 PROFILE="${REPOSE_PERF_PROFILE:-release}"
 # Set by run-performance-baseline.sh once it resolves which container runtime
-# started the fixture; null until then, never guessed.
+# started the fixture and built the runner image; null until then, never
+# guessed.
 FIXTURE_RUNTIME="${REPOSE_PERF_FIXTURE_RUNTIME:-}"
+RUNNER_IMAGE="${REPOSE_PERF_RUNNER_IMAGE:-}"
 
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
@@ -255,18 +257,20 @@ run_workload() {
 		--arg profile "$PROFILE" \
 		--arg rustflags "${RUSTFLAGS:-}" \
 		--arg fixture_runtime "$FIXTURE_RUNTIME" \
+		--arg runner_image "$RUNNER_IMAGE" \
 		--arg target "$REPOSE_SSH_HOST:$REPOSE_SSH_PORT" \
 		--arg os "$(uname -s)" \
 		--arg arch "$(uname -m)" \
 		--arg generated_at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
 		'{
-            contract_version: 1,
+            contract_version: 2,
             workload_id: $id,
             kind: "ssh",
             runner: {
                 os: $os, arch: $arch, toolchain: $toolchain,
                 profile: $profile, rustflags: $rustflags,
                 fixture_runtime: (if $fixture_runtime == "" then null else $fixture_runtime end),
+                runner_image: (if $runner_image == "" then null else $runner_image end),
                 runner_class: $runner_class
             },
             generated_at: $generated_at,
