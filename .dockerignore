@@ -22,3 +22,9 @@
 !/fuzz/Cargo.toml
 !/fuzz/fuzz_targets/
 !/fuzz/fuzz_targets/*.rs
+# tests/performance/runner/Dockerfile (the perf-harness runner image):
+# resolves `stable` against the repository's own pin at build time.
+!/rust-toolchain.toml
+!/tests/performance/
+!/tests/performance/runner/
+!/tests/performance/runner/Dockerfile
