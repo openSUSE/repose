@@ -48,7 +48,11 @@ def is_nonempty_string: type == "string" and length > 0;
 | check($r.peak_concurrency; is_nonneg_int and . >= 1; "peak_concurrency must be an integer >= 1")
 | check($r.exit_code; is_nonneg_int; "exit_code must be a non-negative integer")
 | check($r.stdout_digest; is_nonempty_string; "stdout_digest must be a non-empty string")
-| check($r.stderr_digest; is_nonempty_string; "stderr_digest must be a non-empty string")
+| check(
+    $r.stderr_digest;
+    . == null or is_nonempty_string;
+    "stderr_digest must be a non-empty string, or null for a workload whose stderr provably cannot reproduce (it must then declare `expect.stderr_digest: null` with a reason)"
+  )
 | check(
     $r.host_order;
     type == "array" and (all(.[]; type == "string"));
