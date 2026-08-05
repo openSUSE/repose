@@ -101,10 +101,14 @@ finish_report() {
 		--argjson rss "$rss_bytes" \
 		--arg toolchain "$(rustc --version)" \
 		--arg runner_class "$RUNNER_CLASS" \
+		--arg profile "release" \
+		--arg rustflags "${RUSTFLAGS:-}" \
 		--arg generated_at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
 		'.peak_rss_bytes = $rss
          | .runner.toolchain = $toolchain
          | .runner.runner_class = $runner_class
+         | .runner.profile = $profile
+         | .runner.rustflags = $rustflags
          | .generated_at = $generated_at' \
 		"$tmp_stdout" >"$dest.tmp"
 	jq -e -f "$VALIDATOR" "$dest.tmp" >/dev/null
