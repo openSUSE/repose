@@ -263,3 +263,54 @@ jobs:
           workspaces: . -> target
       - name: Build (MSRV)
         run: cargo build --workspace --locked
+
+  perf-semantic:
+    # P0.1 step 13: the same container pair a contributor runs locally
+    # (tests/performance/README.md) — Docker is available here (the
+    # rust-coverage job above already builds tests/ssh/Dockerfile with it),
+    # so REPOSE_PERF_CONTAINER_CLI=auto resolves to `docker` and CI
+    # measures from the same pinned runner image a contributor does.
+    # Deterministic/semantic metrics only (exit code, command/probe
+    # counts, output digests, peak-concurrency ceiling): latency/RSS
+    # gating stays opt-in until a controlled/scheduled runner has its own
+    # variance study (see tests/performance/README.md#why-this-isnt-in-ci-yet).
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@2c7215f132e9ebf062739d9130488b56d53c060c  # master
+        with:
+          toolchain: stable
+      - name: Cache cargo
+        # Tag runs re-verify a release: keep them off restored build state;
+        # PR/master runs keep the cache.
+        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32  # v2
+        with:
+          workspaces: . -> target
+      - name: Comparator unit tests
+        run: make perf-compare-test
+      - name: Run the baseline inside the container pair
+        # A runner_class distinct from the committed "local-dev" baseline,
+        # so the compact summary this writes to
+        # tests/performance/baselines/<runner_class>.json never clobbers
+        # the committed one being compared against below.
+        env:
+          REPOSE_PERF_RUNNER_CLASS: ci-pr
+        run: |
+          bash scripts/run-performance-baseline.sh --mock-reps 10 --mock-warmup 2 \
+            --ssh-reps 3 --ssh-warmup 1 --out "$RUNNER_TEMP/perf"
+      - name: Compare every workload against local-dev (semantic metrics only)
+        run: |
+          status=0
+          for id in $(jq -r '.workloads[].id' tests/performance/workloads.json); do
+            echo "== $id =="
+            if ! bash scripts/compare-performance.sh --semantic-only --workload "$id" \
+                tests/performance/baselines/local-dev.json "$RUNNER_TEMP/perf/$id.json"; then
+              status=1
+            fi
+          done
+          exit "$status"
