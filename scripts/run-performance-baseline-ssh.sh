@@ -6,8 +6,9 @@
 # scripts/run-performance-baseline.sh.
 set -euo pipefail
 
+# repose has no identity flag: the client key reaches it through the
+# `IdentityFile` line the fixture writes into $HOME/.ssh/config.
 : "${REPOSE_SSH_TARGET:?tests/ssh/run.sh must set this}"
-: "${REPOSE_SSH_IDENTITY:?tests/ssh/run.sh must set this}"
 : "${REPOSE_SSH_KNOWN_HOSTS:?tests/ssh/run.sh must set this}"
 : "${REPOSE_BIN:?run-performance-baseline.sh must set this}"
 : "${REPOSE_PERF_WORKLOADS:?run-performance-baseline.sh must set this}"
@@ -70,7 +71,7 @@ run_workload() {
 	echo "-- $id --"
 	local i exit_code=0 stdout="" stderr=""
 	for ((i = 0; i < WARMUP; i++)); do
-		stdout="$(env -u SSH_AUTH_SOCK -u COLOR NO_COLOR=1 "$REPOSE_BIN" -i "$REPOSE_SSH_IDENTITY" "${args[@]}" 2>"$tmp/stderr")" || exit_code=$?
+		stdout="$(env -u SSH_AUTH_SOCK -u COLOR NO_COLOR=1 "$REPOSE_BIN" "${args[@]}" 2>"$tmp/stderr")" || exit_code=$?
 	done
 
 	local samples="[]"
@@ -78,7 +79,7 @@ run_workload() {
 		local start end
 		start="$(date +%s%N)"
 		exit_code=0
-		stdout="$(env -u SSH_AUTH_SOCK -u COLOR NO_COLOR=1 "$REPOSE_BIN" -i "$REPOSE_SSH_IDENTITY" "${args[@]}" 2>"$tmp/stderr")" || exit_code=$?
+		stdout="$(env -u SSH_AUTH_SOCK -u COLOR NO_COLOR=1 "$REPOSE_BIN" "${args[@]}" 2>"$tmp/stderr")" || exit_code=$?
 		end="$(date +%s%N)"
 		stderr="$(cat "$tmp/stderr")"
 		samples="$(jq -c --argjson ns "$((end - start))" '. + [$ns]' <<<"$samples")"
