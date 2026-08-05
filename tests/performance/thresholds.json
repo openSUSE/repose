@@ -32,7 +32,7 @@
     "latency_ns.p50": {
       "rule": "max_increase_ratio",
       "value": 1.0,
-      "evidence": "5 independent local runs of mock-add-100h (20 reps, 3 warmup) on this shared/uncontrolled runner ranged 189625-296375 ns p50 (~56% spread); mock-add-1h ranged 33708-44916 ns (~33% spread). A 100% (2x) threshold sits comfortably above observed noise while still catching a real regression. Tighten per-runner-class once a controlled/scheduled runner has its own variance study (see baseline_refresh_policy)."
+      "evidence": "5 independent local runs of mock-add-100h (20 reps, 3 warmup) on this shared/uncontrolled runner ranged 189625-296375 ns p50 (~56% spread); mock-add-1h ranged 33708-44916 ns (~33% spread). A 100% (2x) threshold sits comfortably above observed noise while still catching a real regression. Tighten per-runner-class once .github/workflows/perf.yml's scheduled 'github-ubuntu' job (weekly + workflow_dispatch) has supplied five runs' worth of variance data (see baseline_refresh_policy); until then that job's latency/RSS comparison stays continue-on-error and only its semantic-metrics comparison blocks."
     },
     "latency_ns.p95": {
       "rule": "max_increase_ratio",
