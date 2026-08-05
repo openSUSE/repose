@@ -1,0 +1,102 @@
+---
+name: perf
+
+on:
+  schedule:
+    - cron: "0 6 * * 1" # weekly, Monday 06:00 UTC
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: perf
+  cancel-in-progress: false
+
+jobs:
+  full-baseline:
+    # P0.1 step 14: the full baseline (not the PR-sized one in ci.yml's
+    # perf-semantic), measured in the same pinned container pair
+    # (tests/performance/README.md), tagged runner_class "github-ubuntu".
+    #
+    # Semantic metrics (exit code, command/probe counts, output digests,
+    # peak-concurrency ceiling) block. Latency/RSS comparison against the
+    # committed baseline is `continue-on-error: true`: the thresholds in
+    # tests/performance/thresholds.json come from a handful of runs on one
+    # shared, uncontrolled development machine, not this runner class.
+    # Gating stays deferred until five scheduled runs here have supplied
+    # their own variance study, at which point thresholds.json gets
+    # runner-class-specific ratios (see its baseline_refresh_policy/
+    # evidence fields) and this step flips to blocking.
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@2c7215f132e9ebf062739d9130488b56d53c060c  # master
+        with:
+          toolchain: stable
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32  # v2
+        with:
+          workspaces: . -> target
+      - name: Snapshot the committed github-ubuntu baseline (if any)
+        # Copied before the baseline run below overwrites this same path
+        # with a fresh summary. Absent on the run that first produces it —
+        # the committed baseline lands in a follow-up commit once its
+        # numbers are reviewed (tests/performance/README.md#baseline-update-review-requirements).
+        id: snapshot
+        run: |
+          if [ -f tests/performance/baselines/github-ubuntu.json ]; then
+            cp tests/performance/baselines/github-ubuntu.json "$RUNNER_TEMP/committed-github-ubuntu.json"
+            echo "exists=true" >>"$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >>"$GITHUB_OUTPUT"
+          fi
+      - name: Run the full baseline inside the container pair
+        env:
+          REPOSE_PERF_RUNNER_CLASS: github-ubuntu
+        run: |
+          bash scripts/run-performance-baseline.sh --mock-reps 100 --mock-warmup 10 \
+            --ssh-reps 20 --ssh-warmup 3 --out "$RUNNER_TEMP/perf"
+      - name: Upload raw per-workload reports
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        with:
+          name: perf-raw-github-ubuntu
+          path: ${{ runner.temp }}/perf
+          if-no-files-found: error
+      - name: Upload the github-ubuntu summary
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        with:
+          name: perf-summary-github-ubuntu
+          path: tests/performance/baselines/github-ubuntu.json
+          if-no-files-found: error
+      - name: Compare every workload against github-ubuntu (semantic metrics — blocking)
+        if: steps.snapshot.outputs.exists == 'true'
+        run: |
+          status=0
+          for id in $(jq -r '.workloads[].id' tests/performance/workloads.json); do
+            echo "== $id =="
+            if ! bash scripts/compare-performance.sh --semantic-only --workload "$id" \
+                "$RUNNER_TEMP/committed-github-ubuntu.json" "$RUNNER_TEMP/perf/$id.json"; then
+              status=1
+            fi
+          done
+          exit "$status"
+      - name: Compare every workload against github-ubuntu (latency/RSS — non-blocking)
+        if: steps.snapshot.outputs.exists == 'true'
+        continue-on-error: true
+        run: |
+          status=0
+          for id in $(jq -r '.workloads[].id' tests/performance/workloads.json); do
+            echo "== $id =="
+            if ! bash scripts/compare-performance.sh --allow-cross-runner --workload "$id" \
+                "$RUNNER_TEMP/committed-github-ubuntu.json" "$RUNNER_TEMP/perf/$id.json"; then
+              status=1
+            fi
+          done
+          exit "$status"
