@@ -1,25 +1,30 @@
 {
-  "contract_version": 1,
+  "contract_version": 2,
   "runner": {
     "arch": "aarch64",
-    "os": "macos",
-    "toolchain": "rustc 1.97.1 (8bab26f4f 2026-07-14) (Homebrew)",
+    "fixture_runtime": "container",
+    "os": "linux",
+    "profile": "release",
+    "runner_image": "sha256:26d9611f03b8168a0965106a605337d7e8474101824c9c3ec37ce48bd1e18e04",
+    "rustflags": "",
+    "toolchain": "rustc 1.97.1 (8bab26f4f 2026-07-14)",
     "runner_class": "local-dev"
   },
-  "generated_at": "2026-07-21T20:03:53Z",
+  "generated_at": "2026-08-05T19:09:36Z",
   "workloads": [
     {
       "workload_id": "mock-add-100h",
       "kind": "mock",
-      "repetitions": 5,
-      "warmup_repetitions": 1,
+      "repetitions": 20,
+      "warmup_repetitions": 3,
+      "host_count": 100,
       "latency_ns": {
-        "p50": 202584,
-        "p95": 213708,
-        "p99": 213708
+        "p50": 301334,
+        "p95": 337208,
+        "p99": 382583
       },
-      "throughput_ops_per_sec": 493622.3986099593,
-      "peak_rss_bytes": 7340032,
+      "throughput_ops_per_sec": 331857.6728812547,
+      "peak_rss_bytes": 2932736,
       "command_count": 200,
       "probe_count": 100,
       "peak_concurrency": 1,
@@ -30,15 +35,16 @@
     {
       "workload_id": "mock-add-100h-repeated-urls",
       "kind": "mock",
-      "repetitions": 5,
-      "warmup_repetitions": 1,
+      "repetitions": 20,
+      "warmup_repetitions": 3,
+      "host_count": 100,
       "latency_ns": {
-        "p50": 275875,
-        "p95": 286792,
-        "p99": 286792
+        "p50": 363417,
+        "p95": 604083,
+        "p99": 735416
       },
-      "throughput_ops_per_sec": 362483.00860897143,
-      "peak_rss_bytes": 7323648,
+      "throughput_ops_per_sec": 275165.9938858116,
+      "peak_rss_bytes": 3063808,
       "command_count": 200,
       "probe_count": 200,
       "peak_concurrency": 1,
@@ -49,15 +55,16 @@
     {
       "workload_id": "mock-add-100h-slow-host",
       "kind": "mock",
-      "repetitions": 5,
-      "warmup_repetitions": 1,
+      "repetitions": 20,
+      "warmup_repetitions": 3,
+      "host_count": 100,
       "latency_ns": {
-        "p50": 20999833,
-        "p95": 21009125,
-        "p99": 21009125
+        "p50": 20993625,
+        "p95": 21017041,
+        "p99": 21021000
       },
-      "throughput_ops_per_sec": 4761.942630686634,
-      "peak_rss_bytes": 7323648,
+      "throughput_ops_per_sec": 4763.350779105562,
+      "peak_rss_bytes": 2932736,
       "command_count": 200,
       "probe_count": 100,
       "peak_concurrency": 2,
@@ -68,15 +75,16 @@
     {
       "workload_id": "mock-add-1h",
       "kind": "mock",
-      "repetitions": 5,
-      "warmup_repetitions": 1,
+      "repetitions": 20,
+      "warmup_repetitions": 3,
+      "host_count": 1,
       "latency_ns": {
-        "p50": 48125,
-        "p95": 69291,
-        "p99": 69291
+        "p50": 86709,
+        "p95": 92625,
+        "p99": 93833
       },
-      "throughput_ops_per_sec": 20779.22077922078,
-      "peak_rss_bytes": 6782976,
+      "throughput_ops_per_sec": 11532.828195458373,
+      "peak_rss_bytes": 2801664,
       "command_count": 2,
       "probe_count": 1,
       "peak_concurrency": 1,
@@ -87,15 +95,16 @@
     {
       "workload_id": "mock-add-20h",
       "kind": "mock",
-      "repetitions": 5,
-      "warmup_repetitions": 1,
+      "repetitions": 20,
+      "warmup_repetitions": 3,
+      "host_count": 20,
       "latency_ns": {
-        "p50": 61000,
-        "p95": 85709,
-        "p99": 85709
+        "p50": 158750,
+        "p95": 253375,
+        "p99": 276250
       },
-      "throughput_ops_per_sec": 327868.8524590164,
-      "peak_rss_bytes": 7094272,
+      "throughput_ops_per_sec": 125984.25196850393,
+      "peak_rss_bytes": 2801664,
       "command_count": 40,
       "probe_count": 20,
       "peak_concurrency": 1,
@@ -106,15 +115,16 @@
     {
       "workload_id": "mock-add-20h-json",
       "kind": "mock",
-      "repetitions": 5,
-      "warmup_repetitions": 1,
+      "repetitions": 20,
+      "warmup_repetitions": 3,
+      "host_count": 20,
       "latency_ns": {
-        "p50": 63458,
-        "p95": 80250,
-        "p99": 80250
+        "p50": 166584,
+        "p95": 181917,
+        "p99": 185375
       },
-      "throughput_ops_per_sec": 315169.08821582777,
-      "peak_rss_bytes": 7061504,
+      "throughput_ops_per_sec": 120059.54953657014,
+      "peak_rss_bytes": 2801664,
       "command_count": 40,
       "probe_count": 20,
       "peak_concurrency": 1,
@@ -125,15 +135,16 @@
     {
       "workload_id": "mock-install-100h",
       "kind": "mock",
-      "repetitions": 5,
-      "warmup_repetitions": 1,
+      "repetitions": 20,
+      "warmup_repetitions": 3,
+      "host_count": 100,
       "latency_ns": {
-        "p50": 252125,
-        "p95": 267083,
-        "p99": 267083
+        "p50": 352416,
+        "p95": 402083,
+        "p99": 451500
       },
-      "throughput_ops_per_sec": 396628.6564204263,
-      "peak_rss_bytes": 7372800,
+      "throughput_ops_per_sec": 283755.56160900753,
+      "peak_rss_bytes": 3063808,
       "command_count": 300,
       "probe_count": 100,
       "peak_concurrency": 1,
@@ -144,15 +155,16 @@
     {
       "workload_id": "mock-install-1h",
       "kind": "mock",
-      "repetitions": 5,
-      "warmup_repetitions": 1,
+      "repetitions": 20,
+      "warmup_repetitions": 3,
+      "host_count": 1,
       "latency_ns": {
-        "p50": 38166,
-        "p95": 56583,
-        "p99": 56583
+        "p50": 139291,
+        "p95": 195333,
+        "p99": 363542
       },
-      "throughput_ops_per_sec": 26201.3310276162,
-      "peak_rss_bytes": 6881280,
+      "throughput_ops_per_sec": 7179.214737492013,
+      "peak_rss_bytes": 2801664,
       "command_count": 3,
       "probe_count": 1,
       "peak_concurrency": 1,
@@ -163,15 +175,16 @@
     {
       "workload_id": "mock-install-20h",
       "kind": "mock",
-      "repetitions": 5,
-      "warmup_repetitions": 1,
+      "repetitions": 20,
+      "warmup_repetitions": 3,
+      "host_count": 20,
       "latency_ns": {
-        "p50": 75167,
-        "p95": 87000,
-        "p99": 87000
+        "p50": 180250,
+        "p95": 217333,
+        "p99": 220833
       },
-      "throughput_ops_per_sec": 266074.20809663815,
-      "peak_rss_bytes": 7143424,
+      "throughput_ops_per_sec": 110957.00416088766,
+      "peak_rss_bytes": 2801664,
       "command_count": 60,
       "probe_count": 20,
       "peak_concurrency": 1,
@@ -182,15 +195,16 @@
     {
       "workload_id": "mock-list-products-100h",
       "kind": "mock",
-      "repetitions": 5,
-      "warmup_repetitions": 1,
+      "repetitions": 20,
+      "warmup_repetitions": 3,
+      "host_count": 100,
       "latency_ns": {
-        "p50": 66584,
-        "p95": 70917,
-        "p99": 70917
+        "p50": 67375,
+        "p95": 95000,
+        "p99": 123750
       },
-      "throughput_ops_per_sec": 1501862.3092634869,
-      "peak_rss_bytes": 6651904,
+      "throughput_ops_per_sec": 1484230.055658627,
+      "peak_rss_bytes": 2789376,
       "command_count": 0,
       "probe_count": 0,
       "peak_concurrency": 1,
@@ -201,15 +215,16 @@
     {
       "workload_id": "mock-list-products-1h",
       "kind": "mock",
-      "repetitions": 5,
-      "warmup_repetitions": 1,
+      "repetitions": 20,
+      "warmup_repetitions": 3,
+      "host_count": 1,
       "latency_ns": {
-        "p50": 2125,
-        "p95": 3666,
-        "p99": 3666
+        "p50": 1167,
+        "p95": 1333,
+        "p99": 1708
       },
-      "throughput_ops_per_sec": 470588.23529411765,
-      "peak_rss_bytes": 6307840,
+      "throughput_ops_per_sec": 856898.029134533,
+      "peak_rss_bytes": 2670592,
       "command_count": 0,
       "probe_count": 0,
       "peak_concurrency": 1,
@@ -220,21 +235,102 @@
     {
       "workload_id": "mock-list-products-20h-json",
       "kind": "mock",
-      "repetitions": 5,
-      "warmup_repetitions": 1,
+      "repetitions": 20,
+      "warmup_repetitions": 3,
+      "host_count": 20,
       "latency_ns": {
-        "p50": 18459,
-        "p95": 20292,
-        "p99": 20292
+        "p50": 14209,
+        "p95": 15125,
+        "p99": 15500
       },
-      "throughput_ops_per_sec": 1083482.3121512542,
-      "peak_rss_bytes": 6504448,
+      "throughput_ops_per_sec": 1407558.5896262932,
+      "peak_rss_bytes": 2670592,
       "command_count": 0,
       "probe_count": 0,
       "peak_concurrency": 1,
       "exit_code": 0,
       "stdout_digest": "fnv1a64:2c96a1505b9714c1",
       "stderr_digest": "fnv1a64:cbf29ce484222325"
+    },
+    {
+      "workload_id": "ssh-dry-clear-1h",
+      "kind": "ssh",
+      "repetitions": 10,
+      "warmup_repetitions": 2,
+      "host_count": 1,
+      "latency_ns": {
+        "p50": 138604000,
+        "p95": 148702708,
+        "p99": 148702708
+      },
+      "throughput_ops_per_sec": 7.214798995699979,
+      "peak_rss_bytes": null,
+      "command_count": null,
+      "probe_count": null,
+      "peak_concurrency": null,
+      "exit_code": 0,
+      "stdout_digest": "sha256:2b5a25bc4ee779a7aaf6949bccfb4f5c9b5762b83e3cca9aabc80140af72ba59",
+      "stderr_digest": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "workload_id": "ssh-first-contact-accept-new-1h",
+      "kind": "ssh",
+      "repetitions": 10,
+      "warmup_repetitions": 2,
+      "host_count": 1,
+      "latency_ns": {
+        "p50": 142811875,
+        "p95": 147697833,
+        "p99": 147697833
+      },
+      "throughput_ops_per_sec": 7.002218828091151,
+      "peak_rss_bytes": null,
+      "command_count": null,
+      "probe_count": null,
+      "peak_concurrency": null,
+      "exit_code": 0,
+      "stdout_digest": "sha256:2cf523ca46f08b89a80c49f3543008577ce7a529bfa1f878c938247b3cf6b78d",
+      "stderr_digest": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "workload_id": "ssh-list-products-1h",
+      "kind": "ssh",
+      "repetitions": 10,
+      "warmup_repetitions": 2,
+      "host_count": 1,
+      "latency_ns": {
+        "p50": 137598708,
+        "p95": 151024416,
+        "p99": 151024416
+      },
+      "throughput_ops_per_sec": 7.267510099004709,
+      "peak_rss_bytes": null,
+      "command_count": null,
+      "probe_count": null,
+      "peak_concurrency": null,
+      "exit_code": 0,
+      "stdout_digest": "sha256:2cf523ca46f08b89a80c49f3543008577ce7a529bfa1f878c938247b3cf6b78d",
+      "stderr_digest": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "workload_id": "ssh-list-products-1h-json-debug",
+      "kind": "ssh",
+      "repetitions": 10,
+      "warmup_repetitions": 2,
+      "host_count": 1,
+      "latency_ns": {
+        "p50": 146946542,
+        "p95": 156724208,
+        "p99": 156724208
+      },
+      "throughput_ops_per_sec": 6.805195865037776,
+      "peak_rss_bytes": null,
+      "command_count": null,
+      "probe_count": null,
+      "peak_concurrency": null,
+      "exit_code": 0,
+      "stdout_digest": "sha256:74a7d7977e02d261ce937cae5ac99ac234c73077184d450f9987628ad0b8621e",
+      "stderr_digest": null
     }
   ]
 }
