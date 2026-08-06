@@ -6,6 +6,16 @@
 # end-to-end guardrail using the baseline_report harness's controllable
 # slowdown (REPOSE_PERF_INJECT_DELAY_MS) instead of a static fixture.
 #
+# The unchanged leg of that guardrail is deliberately `--semantic-only`:
+# gating latency on a shared runner is exactly what tests/performance's
+# README defers under "What's in CI, and why latency/RSS gating still isn't",
+# and at 15 repetitions a nearest-rank p95 *is* the slowest sample, so one
+# preempted scheduling slice fails a build that changed nothing. What the leg
+# still asserts is that two real runs of the same build agree on every
+# deterministic metric. The slowed leg keeps the full comparison: a 5 ms
+# injected per-repetition delay against a sub-100 us baseline is a ~100x
+# signal that no amount of runner noise can hide.
+#
 # Run from the repository root.
 set -euo pipefail
 
@@ -61,16 +71,16 @@ BASELINE_REPORT="$ROOT/target/release/examples/baseline_report"
 REPOSE_PERF_INJECT_DELAY_MS=5 "$BASELINE_REPORT" mock-add-1h 15 3 >"$tmp/e2e-slowed.json"
 
 set +e
-bash "$COMPARE" "$tmp/e2e-baseline.json" "$tmp/e2e-unchanged.json" >"$tmp/e2e-unchanged.log" 2>&1
+bash "$COMPARE" --semantic-only "$tmp/e2e-baseline.json" "$tmp/e2e-unchanged.json" >"$tmp/e2e-unchanged.log" 2>&1
 unchanged_code=$?
 bash "$COMPARE" "$tmp/e2e-baseline.json" "$tmp/e2e-slowed.json" >"$tmp/e2e-slowed.log" 2>&1
 slowed_code=$?
 set -e
 
 if [[ "$unchanged_code" -eq 0 ]]; then
-	echo "ok: unchanged real run passes"
+	echo "ok: two real runs of the same build agree on the deterministic metrics"
 else
-	echo "FAIL: unchanged real run should pass, got exit $unchanged_code"
+	echo "FAIL: unchanged real run should pass its semantic comparison, got exit $unchanged_code"
 	sed 's/^/    /' "$tmp/e2e-unchanged.log"
 	failures=1
 fi
