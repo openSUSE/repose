@@ -389,9 +389,19 @@ every fixture category under `comparator-fixtures/` (pass, improvement,
 regression, missing-metric, null-metric, toolchain-mismatch,
 tail-reps-skip, contract-failure, incomparable-metadata), then runs one
 real end-to-end guardrail: two genuine `baseline_report` runs of the same
-workload must compare as a pass, and a third run with
+workload must agree under `--semantic-only`, and a third run with
 `REPOSE_PERF_INJECT_DELAY_MS` set (a real, controllable per-repetition
-delay — not a fabricated fixture) must be caught as a regression.
+delay — not a fabricated fixture) must be caught as a regression by the
+*full* comparison.
+
+The asymmetry is deliberate, and is the same policy as the section below.
+Those runs use 15 repetitions, where a nearest-rank p95 is just the slowest
+sample, so putting the unchanged leg under the latency thresholds gates a
+shared runner's scheduling noise: it has failed a build that changed
+nothing. The injected 5 ms per repetition, against a sub-100 µs baseline, is
+a ~100x signal that survives any noise the runner can add — so the leg that
+must *catch* something keeps the full comparator, and the leg that must
+*pass* asserts only the deterministic metrics.
 
 ### What's in CI, and why latency/RSS gating still isn't
 
