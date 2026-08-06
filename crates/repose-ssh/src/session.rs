@@ -368,6 +368,14 @@ impl RusshSession {
             .handle
             .as_mut()
             .ok_or_else(|| SshError::NotConnected(self.hostname.clone()))?;
+        // Known residual, deliberately unfixed here: if this channel-open
+        // itself times out, russh has already registered the channel with
+        // the transport; the late `CHANNEL_OPEN_CONFIRMATION` is delivered
+        // to a receiver we already dropped, and the channel id is never
+        // exposed to us — so it cannot be closed from this call site.
+        // Fixing it would require either an upstream API or tearing down
+        // the whole transport, which turns a transient stall into a dead
+        // host; out of scope for this best-effort cleanup.
         let mut channel = with_deadline(
             TimeoutPhase::ChannelOpen,
             self.config.channel_open_deadline,
@@ -379,7 +387,8 @@ impl RusshSession {
             },
         )
         .await?;
-        with_deadline(
+        let cleanup_deadline = self.config.channel_cleanup_deadline;
+        let dispatch = with_deadline(
             TimeoutPhase::Dispatch,
             self.config.dispatch_deadline,
             async {
@@ -389,7 +398,11 @@ impl RusshSession {
                     .map_err(|e| SshError::Transport(e.to_string()))
             },
         )
-        .await?;
+        .await;
+        if let Err(error) = dispatch {
+            close_channel(&channel, cleanup_deadline).await;
+            return Err(error);
+        }
 
         // Command completion has its own, separately configured budget
         // (`ConnectionConfig::timeout`), but reports exhaustion with the
@@ -397,8 +410,7 @@ impl RusshSession {
         let deadline = Duration::from_secs_f64(self.config.timeout);
         let stdout_limit = self.config.max_stdout_bytes.get();
         let stderr_limit = self.config.max_stderr_bytes.get();
-        let cleanup_deadline = self.config.channel_cleanup_deadline;
-        let collect = async {
+        let result = with_deadline(TimeoutPhase::Command, deadline, async {
             let mut stdout = Vec::new();
             let mut stderr = Vec::new();
             let mut code = None;
@@ -408,26 +420,20 @@ impl RusshSession {
                 };
                 match msg {
                     ChannelMsg::Data { ref data } => {
-                        if let Err(error) = accumulate_or_overflow(
+                        accumulate_or_overflow(
                             &mut stdout,
                             data,
                             stdout_limit,
                             OutputStream::Stdout,
-                        ) {
-                            close_on_overflow(&channel, cleanup_deadline).await;
-                            return Err(error);
-                        }
+                        )?;
                     }
                     ChannelMsg::ExtendedData { ref data, .. } => {
-                        if let Err(error) = accumulate_or_overflow(
+                        accumulate_or_overflow(
                             &mut stderr,
                             data,
                             stderr_limit,
                             OutputStream::Stderr,
-                        ) {
-                            close_on_overflow(&channel, cleanup_deadline).await;
-                            return Err(error);
-                        }
+                        )?;
                     }
                     ChannelMsg::ExitStatus { exit_status } => {
                         // SSH exit codes fit in 0..=255; make truncation explicit.
@@ -440,8 +446,17 @@ impl RusshSession {
             let stdout = String::from_utf8_lossy(&stdout).into_owned();
             let stderr = String::from_utf8_lossy(&stderr).into_owned();
             Ok::<_, SshError>((stdout, stderr, code))
-        };
-        with_deadline(TimeoutPhase::Command, deadline, collect).await
+        })
+        .await;
+        // Unified close: dispatch errors are handled above; every other
+        // failure (output overflow, command-completion timeout) reaches
+        // this one call site. Deliberately outside the `Command` deadline,
+        // so a slow close cannot itself convert an `OutputTooLarge` into a
+        // `Timeout`.
+        if result.is_err() {
+            close_channel(&channel, cleanup_deadline).await;
+        }
+        result
     }
 
     fn sftp_timeout_secs(&self) -> u64 {
@@ -545,11 +560,15 @@ fn accumulate_or_overflow(
     Ok(())
 }
 
-/// Best-effort channel close after an output-limit overflow, bounded by
+/// Best-effort channel close for a channel we are about to discard after a
+/// dispatch/command timeout or an output/SFTP overflow. Required because
+/// russh's plain `Channel` has no `Drop` impl — dropping it silently sends
+/// nothing, so the peer's session slot (e.g. OpenSSH's `MaxSessions`) stays
+/// occupied until the peer's own timeout or teardown. Bounded by
 /// `channel_cleanup_deadline` so a stalled close request cannot itself pin
-/// the host slot indefinitely. The channel is discarded immediately
+/// the host slot indefinitely; the channel is discarded immediately
 /// afterward regardless of whether the close completes.
-async fn close_on_overflow(channel: &russh::Channel<client::Msg>, deadline: Duration) {
+async fn close_channel(channel: &russh::Channel<client::Msg>, deadline: Duration) {
     let _ = tokio::time::timeout(deadline, channel.close()).await;
 }
 
