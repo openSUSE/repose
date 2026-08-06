@@ -97,9 +97,10 @@ pub struct ConnectionConfig {
     pub dispatch_deadline: Duration,
     /// One SFTP read/listdir/readlink operation's budget.
     pub sftp_operation_deadline: Duration,
-    /// Bounded cleanup/drain budget after a stdout/stderr/SFTP overflow,
-    /// before the typed error is returned.
-    pub overflow_cleanup_deadline: Duration,
+    /// Bounded best-effort channel-close budget after an output/SFTP
+    /// overflow or a dispatch/command timeout, before the typed error is
+    /// returned.
+    pub channel_cleanup_deadline: Duration,
 }
 
 impl Default for ConnectionConfig {
@@ -122,7 +123,7 @@ impl Default for ConnectionConfig {
             channel_open_deadline: Duration::from_secs(15),
             dispatch_deadline: Duration::from_secs(15),
             sftp_operation_deadline: Duration::from_secs(30),
-            overflow_cleanup_deadline: Duration::from_secs(5),
+            channel_cleanup_deadline: Duration::from_secs(5),
         }
     }
 }
@@ -146,7 +147,7 @@ mod tests {
         assert_eq!(config.channel_open_deadline, Duration::from_secs(15));
         assert_eq!(config.dispatch_deadline, Duration::from_secs(15));
         assert_eq!(config.sftp_operation_deadline, Duration::from_secs(30));
-        assert_eq!(config.overflow_cleanup_deadline, Duration::from_secs(5));
+        assert_eq!(config.channel_cleanup_deadline, Duration::from_secs(5));
         // The existing command-completion budget is untouched by P1.
         assert_eq!(config.timeout, 120.0);
     }
@@ -171,7 +172,7 @@ mod tests {
             channel_open_deadline: Duration::ZERO,
             dispatch_deadline: Duration::ZERO,
             sftp_operation_deadline: Duration::ZERO,
-            overflow_cleanup_deadline: Duration::ZERO,
+            channel_cleanup_deadline: Duration::ZERO,
             ..ConnectionConfig::default()
         };
         let cloned = config.clone();

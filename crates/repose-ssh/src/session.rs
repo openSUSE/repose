@@ -397,7 +397,7 @@ impl RusshSession {
         let deadline = Duration::from_secs_f64(self.config.timeout);
         let stdout_limit = self.config.max_stdout_bytes.get();
         let stderr_limit = self.config.max_stderr_bytes.get();
-        let cleanup_deadline = self.config.overflow_cleanup_deadline;
+        let cleanup_deadline = self.config.channel_cleanup_deadline;
         let collect = async {
             let mut stdout = Vec::new();
             let mut stderr = Vec::new();
@@ -546,7 +546,7 @@ fn accumulate_or_overflow(
 }
 
 /// Best-effort channel close after an output-limit overflow, bounded by
-/// `overflow_cleanup_deadline` so a stalled close request cannot itself pin
+/// `channel_cleanup_deadline` so a stalled close request cannot itself pin
 /// the host slot indefinitely. The channel is discarded immediately
 /// afterward regardless of whether the close completes.
 async fn close_on_overflow(channel: &russh::Channel<client::Msg>, deadline: Duration) {

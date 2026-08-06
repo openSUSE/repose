@@ -27,7 +27,7 @@ during implementation:
 | `channel_open_deadline` | `15s` |
 | `dispatch_deadline` | `15s` |
 | `sftp_operation_deadline` | `30s` |
-| `overflow_cleanup_deadline` | `5s` |
+| `channel_cleanup_deadline` | `5s` |
 | `command_deadline` | unchanged (`ConnectionConfig.timeout`, default 120s) |
 
 ## 2. Before/after metrics (mock-kind workloads, step 37)
