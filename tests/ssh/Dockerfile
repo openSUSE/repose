@@ -32,6 +32,10 @@ RUN ln -s SLES.prod /etc/products.d/baseproduct \
         > /usr/local/bin/zypper \
     && chmod 0755 /usr/local/bin/zypper
 
+# Sparse file (no image bloat): enough sequential 8 KiB SFTP round trips to
+# make a short `sftp_operation_deadline` reliably fire mid-read.
+RUN truncate -s 16M /usr/local/share/large.bin
+
 EXPOSE 22
 HEALTHCHECK --interval=1s --timeout=3s --start-period=1s --retries=30 \
     CMD ssh-keyscan -T 2 -p 22 127.0.0.1 >/dev/null 2>&1 || exit 1

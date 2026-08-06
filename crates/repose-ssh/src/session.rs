@@ -7,7 +7,7 @@ use std::pin::Pin;
 use std::process::Stdio;
 use std::sync::Arc;
 use std::task::{Context, Poll};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use async_trait::async_trait;
 use futures_util::StreamExt;
@@ -459,12 +459,24 @@ impl RusshSession {
         result
     }
 
-    fn sftp_timeout_secs(&self) -> u64 {
-        if self.config.timeout.is_finite() && self.config.timeout > 0.0 {
-            self.config.timeout.ceil() as u64
-        } else {
-            1
-        }
+    /// The per-request timeout handed to russh-sftp, one second below our
+    /// own `sftp_operation_deadline` so *our* deadline elapses first and
+    /// russh-sftp's `request()` reaches its own timeout arm — which is what
+    /// unregisters the pending request from its internal map
+    /// (`self.requests.remove(&id)`). Without this margin, our deadline and
+    /// russh-sftp's would race, and a dropped future can leave a stale
+    /// entry in that map. russh-sftp's `set_timeout` only takes whole
+    /// seconds, so any sub-second `sftp_operation_deadline` clamps to this
+    /// function's 1s floor; our deadline stays authoritative regardless
+    /// (`invalidate_sftp` resets the cached subsystem after our own
+    /// timeout fires, whether or not russh-sftp's coarser timeout also
+    /// fired).
+    fn sftp_request_timeout_secs(&self) -> u64 {
+        self.config
+            .sftp_operation_deadline
+            .as_secs()
+            .saturating_sub(1)
+            .max(1)
     }
 
     async fn sftp_session(&mut self) -> Result<&SftpSession, SshError> {
@@ -484,21 +496,34 @@ impl RusshSession {
                 },
             )
             .await?;
-            let sftp = with_deadline(
-                TimeoutPhase::Dispatch,
-                self.config.dispatch_deadline,
-                async {
-                    channel
-                        .request_subsystem(true, "sftp")
-                        .await
-                        .map_err(|e| SshError::Transport(e.to_string()))?;
-                    SftpSession::new(channel.into_stream()).await.map_err(|e| {
-                        SshError::Transport(format!("SFTP initialization failed: {e}"))
-                    })
-                },
-            )
+            let cleanup_deadline = self.config.channel_cleanup_deadline;
+            let dispatch_deadline = self.config.dispatch_deadline;
+            // One aggregate budget across both dispatch phases, not two
+            // full `dispatch_deadline`s: `remaining` shrinks by whatever
+            // `request_subsystem` already spent.
+            let started = Instant::now();
+            let subsystem = with_deadline(TimeoutPhase::Dispatch, dispatch_deadline, async {
+                channel
+                    .request_subsystem(true, "sftp")
+                    .await
+                    .map_err(|e| SshError::Transport(e.to_string()))
+            })
+            .await;
+            if let Err(error) = subsystem {
+                close_channel(&channel, cleanup_deadline).await;
+                return Err(error);
+            }
+            // Past this point `channel.into_stream()` hands off to
+            // `ChannelCloseOnDrop`, which closes on drop — no manual close
+            // needed for a `SftpSession::new` failure/timeout below.
+            let remaining = dispatch_deadline.saturating_sub(started.elapsed());
+            let sftp = with_deadline(TimeoutPhase::Dispatch, remaining, async {
+                SftpSession::new(channel.into_stream())
+                    .await
+                    .map_err(|e| SshError::Transport(format!("SFTP initialization failed: {e}")))
+            })
             .await?;
-            sftp.set_timeout(self.sftp_timeout_secs());
+            sftp.set_timeout(self.sftp_request_timeout_secs());
             self.sftp = Some(sftp);
         }
 
@@ -529,18 +554,48 @@ impl RusshSession {
             limit,
             deadline,
         };
-        let indexed: Vec<(usize, Option<Vec<u8>>)> =
+        let indexed: Vec<(usize, Result<Vec<u8>, SshError>)> =
             futures_util::stream::iter(paths.into_iter().enumerate().zip(std::iter::repeat(ctx)))
                 .map(read_one_bounded)
                 .buffer_unordered(cap)
                 .collect()
                 .await;
+        if indexed
+            .iter()
+            .any(|(_, result)| result.as_ref().is_err_and(is_sftp_timeout))
+        {
+            self.invalidate_sftp().await;
+        }
         let mut out = vec![None; count];
         for (idx, result) in indexed {
-            out[idx] = result;
+            out[idx] = result.ok();
         }
         out
     }
+
+    /// Drop and close the cached SFTP subsystem after one of its operations
+    /// timed out, so the next SFTP call builds a fresh subsystem instead of
+    /// reusing one that may still hold a stale pending request in
+    /// russh-sftp's internal map (see `sftp_request_timeout_secs`).
+    /// `SftpSession::close()` stops the reader task and closes the channel
+    /// (via `ChannelCloseOnDrop`) — dropping the session alone does not.
+    async fn invalidate_sftp(&mut self) {
+        if let Some(sftp) = self.sftp.take() {
+            let _ = sftp.close().await;
+        }
+    }
+}
+
+/// Whether `error` is an SFTP operation timeout — the trigger for
+/// invalidating the cached SFTP subsystem rather than reusing it.
+fn is_sftp_timeout(error: &SshError) -> bool {
+    matches!(
+        error,
+        SshError::Timeout {
+            phase: TimeoutPhase::SftpOperation,
+            ..
+        }
+    )
 }
 
 /// Append `chunk` to `buffer` unless doing so would exceed `limit`, checked
@@ -586,14 +641,13 @@ struct BoundedReadCtx<'a> {
 
 async fn read_one_bounded(
     ((idx, path), ctx): ((usize, String), BoundedReadCtx<'_>),
-) -> (usize, Option<Vec<u8>>) {
+) -> (usize, Result<Vec<u8>, SshError>) {
     let result = with_deadline(
         TimeoutPhase::SftpOperation,
         ctx.deadline,
         read_bounded(ctx.sftp, &path, ctx.limit),
     )
-    .await
-    .ok();
+    .await;
     (idx, result)
 }
 
@@ -859,38 +913,50 @@ impl SshSession for RusshSession {
     async fn listdir(&mut self, path: &str) -> Result<Vec<String>, SshError> {
         let deadline = self.config.sftp_operation_deadline;
         let sftp = self.sftp_session().await?;
-        with_deadline(TimeoutPhase::SftpOperation, deadline, async {
+        let result = with_deadline(TimeoutPhase::SftpOperation, deadline, async {
             let entries = sftp
                 .read_dir(path)
                 .await
                 .map_err(|e| SshError::Other(format!("SFTP listdir {path}: {e}")))?;
             Ok(entries.map(|entry| entry.file_name()).collect())
         })
-        .await
+        .await;
+        if result.as_ref().is_err_and(is_sftp_timeout) {
+            self.invalidate_sftp().await;
+        }
+        result
     }
 
     async fn readlink(&mut self, path: &str) -> Result<Option<String>, SshError> {
         let deadline = self.config.sftp_operation_deadline;
         let sftp = self.sftp_session().await?;
-        with_deadline(TimeoutPhase::SftpOperation, deadline, async {
+        let result = with_deadline(TimeoutPhase::SftpOperation, deadline, async {
             sftp.read_link(path)
                 .await
                 .map(Some)
                 .map_err(|e| SshError::Other(format!("SFTP readlink {path}: {e}")))
         })
-        .await
+        .await;
+        if result.as_ref().is_err_and(is_sftp_timeout) {
+            self.invalidate_sftp().await;
+        }
+        result
     }
 
     async fn read_file(&mut self, path: &str) -> Result<Vec<u8>, SshError> {
         let limit = self.config.max_sftp_file_bytes.get();
         let deadline = self.config.sftp_operation_deadline;
         let sftp = self.sftp_session().await?;
-        with_deadline(
+        let result = with_deadline(
             TimeoutPhase::SftpOperation,
             deadline,
             read_bounded(sftp, path, limit),
         )
-        .await
+        .await;
+        if result.as_ref().is_err_and(is_sftp_timeout) {
+            self.invalidate_sftp().await;
+        }
+        result
     }
 
     async fn close(&mut self) -> Result<(), SshError> {
@@ -1097,20 +1163,55 @@ mod tests {
     }
 
     #[test]
-    fn sftp_timeout_rounds_up_and_has_a_safe_minimum() {
+    fn sftp_request_timeout_stays_strictly_below_the_operation_deadline() {
         let config = ConnectionConfig {
-            timeout: 1.2,
+            sftp_operation_deadline: Duration::from_secs(30),
             ..ConnectionConfig::default()
         };
         let session = RusshSession::new("host", 22, "root", config);
-        assert_eq!(session.sftp_timeout_secs(), 2);
+        assert_eq!(session.sftp_request_timeout_secs(), 29);
+    }
 
+    #[test]
+    fn sftp_request_timeout_never_reaches_zero() {
+        // A sub-second (or zero) operation deadline cannot express a
+        // russh-sftp request timeout below one second: `set_timeout` only
+        // takes whole seconds. Our own `sftp_operation_deadline` stays the
+        // authoritative bound in that case (it still elapses first).
+        for deadline in [Duration::from_millis(500), Duration::ZERO] {
+            let config = ConnectionConfig {
+                sftp_operation_deadline: deadline,
+                ..ConnectionConfig::default()
+            };
+            let session = RusshSession::new("host", 22, "root", config);
+            assert_eq!(session.sftp_request_timeout_secs(), 1);
+        }
+
+        // A whole-second deadline also floors at 1s (equal to the
+        // deadline, not strictly below it) rather than reaching 0.
         let config = ConnectionConfig {
-            timeout: 0.0,
+            sftp_operation_deadline: Duration::from_secs(1),
             ..ConnectionConfig::default()
         };
         let session = RusshSession::new("host", 22, "root", config);
-        assert_eq!(session.sftp_timeout_secs(), 1);
+        assert_eq!(session.sftp_request_timeout_secs(), 1);
+    }
+
+    #[test]
+    fn is_sftp_timeout_matches_only_the_sftp_operation_phase() {
+        let sftp_timeout = SshError::Timeout {
+            phase: TimeoutPhase::SftpOperation,
+            deadline: Duration::from_secs(1),
+        };
+        assert!(super::is_sftp_timeout(&sftp_timeout));
+
+        let command_timeout = SshError::Timeout {
+            phase: TimeoutPhase::Command,
+            deadline: Duration::from_secs(1),
+        };
+        assert!(!super::is_sftp_timeout(&command_timeout));
+
+        assert!(!super::is_sftp_timeout(&SshError::Other("boom".into())));
     }
 
     #[test]
