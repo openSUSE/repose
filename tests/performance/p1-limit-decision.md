@@ -206,7 +206,7 @@ host-operation cap: 32 concurrent hosts × (256 KiB + 256 KiB) = 16 MiB.
 | Channel open | 15 s | — |
 | Exec dispatch / SFTP subsystem initialization | 15 s | — |
 | SFTP operation (one read/listdir/readlink call) | 30 s | — |
-| Bounded cleanup/drain after an output/SFTP overflow | 5 s | — |
+| Bounded channel-close after an output/SFTP overflow or a dispatch/command timeout | 5 s | — |
 | Command completion | — | unchanged: existing configurable `ConnectionConfig.timeout` (default 120 s) |
 
 **Evidence:** real, measured, uncontended single-session latency for the
@@ -266,7 +266,7 @@ today's *no* deadline on these phases.
 | `channel_open_deadline` | `15s` |
 | `dispatch_deadline` | `15s` |
 | `sftp_operation_deadline` | `30s` |
-| `overflow_cleanup_deadline` | `5s` |
+| `channel_cleanup_deadline` | `5s` |
 | `command_deadline` | unchanged (`ConnectionConfig.timeout`, default 120s) |
 
 ## Reproducing this evidence

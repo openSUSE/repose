@@ -588,8 +588,8 @@ mod tests {
             defaults.sftp_operation_deadline
         );
         assert_eq!(
-            conn.overflow_cleanup_deadline,
-            defaults.overflow_cleanup_deadline
+            conn.channel_cleanup_deadline,
+            defaults.channel_cleanup_deadline
         );
         // CLI-set fields still come from flags/defaults as before.
         assert_eq!(conn.host_key_policy, HostKeyPolicy::AcceptNew);
