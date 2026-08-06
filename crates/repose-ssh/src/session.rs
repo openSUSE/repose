@@ -618,10 +618,16 @@ fn accumulate_or_overflow(
 /// Best-effort channel close for a channel we are about to discard after a
 /// dispatch/command timeout or an output/SFTP overflow. Required because
 /// russh's plain `Channel` has no `Drop` impl — dropping it silently sends
-/// nothing, so the peer's session slot (e.g. OpenSSH's `MaxSessions`) stays
-/// occupied until the peer's own timeout or teardown. Bounded by
-/// `channel_cleanup_deadline` so a stalled close request cannot itself pin
-/// the host slot indefinitely; the channel is discarded immediately
+/// nothing, leaking client-side channel state and leaving the peer's
+/// channel half-open until the whole transport is torn down.
+///
+/// This does not reclaim a peer session slot held by a still-running remote
+/// command: OpenSSH's `session_close_by_channel()` returns without releasing
+/// the slot while the exec child is alive (`s->pid != 0` with `force == 0`),
+/// so a `MaxSessions` slot frees on child reap, not on channel close.
+///
+/// Bounded by `channel_cleanup_deadline` so a stalled close request cannot
+/// itself pin the caller indefinitely; the channel is discarded immediately
 /// afterward regardless of whether the close completes.
 async fn close_channel(channel: &russh::Channel<client::Msg>, deadline: Duration) {
     let _ = tokio::time::timeout(deadline, channel.close()).await;
