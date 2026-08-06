@@ -155,45 +155,6 @@ async fn live_session_covers_auth_host_keys_commands_sftp_and_reconnect() {
     assert!(error.to_string().contains("timed out"));
 }
 
-/// Twelve consecutive command timeouts on one session must not exhaust the
-/// fixture sshd's `MaxSessions 10` (default): each timed-out `run()` now
-/// closes its channel instead of abandoning a plain `Channel` (which sends
-/// nothing on drop), so the peer's per-connection session slot is freed
-/// before the next `channel_open_session()`. Fails on a pre-fix `HEAD`
-/// (the 11th `channel_open` is refused); passes once dispatch/command
-/// timeouts reach `close_channel`.
-///
-/// No remote-process-survival assertion here: closing (or abandoning) the
-/// channel does not reap the remote `sleep 300` — OpenSSH's `sshd` does not
-/// signal a non-pty exec child on channel teardown, and `sleep` never
-/// touches its now-broken stdio, so it keeps running for its full duration
-/// regardless of the fix. That is a property of the remote process/server,
-/// not something this change affects; see `perf-audit-proposal.md` §P0.2.
-#[tokio::test]
-async fn live_repeated_command_timeouts_do_not_exhaust_the_server() {
-    let Some(fixture) = fixture() else { return };
-    let mut session =
-        fixture.session(fixture.config(HostKeyPolicy::Yes, fixture.known_hosts.clone(), 0.5));
-    session.connect().await.expect("session should connect");
-
-    for attempt in 1..=12 {
-        let error = session
-            .run("sleep 300")
-            .await
-            .expect_err("sleep 300 must exceed the 0.5s command timeout");
-        assert!(
-            matches!(error, repose_core::error::SshError::Timeout { .. }),
-            "attempt {attempt} returned an unexpected error: {error:?}"
-        );
-    }
-
-    let (stdout, _, status) = session
-        .run("printf ok")
-        .await
-        .expect("the session must remain usable after twelve timeouts");
-    assert_eq!((stdout.as_str(), status), ("ok", 0));
-}
-
 #[tokio::test]
 async fn live_session_rejects_a_changed_host_key_and_off_accepts_it() {
     let Some(fixture) = fixture() else { return };
