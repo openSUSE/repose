@@ -371,6 +371,50 @@ async fn live_sftp_read_of_a_missing_file_is_unchanged() {
     assert!(matches!(error, repose_core::error::SshError::Other(_)));
 }
 
+/// An SFTP operation timeout invalidates the cached subsystem: the next
+/// SFTP call on the same session succeeds through a freshly built one
+/// rather than reusing a possibly stale subsystem.
+///
+/// Non-regression guard, not a failing-first test: a stale subsystem would
+/// very likely also answer the second read against this healthy fixture
+/// server. The failing-first evidence that the cached subsystem is
+/// actually rebuilt is the unit tests for `is_sftp_timeout` plus the
+/// dedicated channel-cleanup coverage in
+/// `live_repeated_command_timeouts_do_not_exhaust_the_server`.
+#[tokio::test]
+async fn live_sftp_timeout_rebuilds_the_cached_subsystem_for_the_next_read() {
+    let Some(fixture) = fixture() else { return };
+    let config = ConnectionConfig {
+        sftp_operation_deadline: std::time::Duration::from_millis(50),
+        max_sftp_file_bytes: std::num::NonZeroUsize::new(16 * 1024 * 1024).unwrap(),
+        ..fixture.config(HostKeyPolicy::Yes, fixture.known_hosts.clone(), 2.0)
+    };
+    let mut session = fixture.session(config);
+    session.connect().await.expect("session should connect");
+
+    let error = session
+        .read_file("/usr/local/share/large.bin")
+        .await
+        .expect_err("a 50ms deadline must not survive a ~2000-round-trip read");
+    assert_eq!(
+        error,
+        repose_core::error::SshError::Timeout {
+            phase: repose_core::error::TimeoutPhase::SftpOperation,
+            deadline: std::time::Duration::from_millis(50),
+        }
+    );
+
+    let product = session
+        .read_file("/etc/products.d/SLES.prod")
+        .await
+        .expect("the freshly rebuilt subsystem must serve the next read");
+    assert!(
+        product
+            .windows(b"<name>SLES</name>".len())
+            .any(|window| window == b"<name>SLES</name>")
+    );
+}
+
 /// A `/etc/products.d` listing above the configured plausible-entry cap is
 /// rejected before any addon path is constructed, while a normal (small)
 /// listing discovers products exactly as before.
