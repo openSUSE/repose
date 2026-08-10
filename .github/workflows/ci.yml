@@ -35,7 +35,7 @@ jobs:
         # Tag runs re-verify a release: keep them off restored build state;
         # PR/master runs keep the cache.
         if: ${{ !startsWith(github.ref, 'refs/tags/') }}
-        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32  # v2
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6  # v2
         with:
           workspaces: . -> target
       - name: Format
@@ -80,7 +80,7 @@ jobs:
         # Tag runs re-verify a release: keep them off restored build state;
         # PR/master runs keep the cache.
         if: ${{ !startsWith(github.ref, 'refs/tags/') }}
-        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32  # v2
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6  # v2
         with:
           workspaces: . -> target
       - name: Clippy
@@ -108,7 +108,7 @@ jobs:
         # Tag runs re-verify a release: keep them off restored build state;
         # PR/master runs keep the cache.
         if: ${{ !startsWith(github.ref, 'refs/tags/') }}
-        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32  # v2
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6  # v2
         with:
           workspaces: . -> target
       - name: Clippy (beta)
@@ -149,7 +149,7 @@ jobs:
         # Tag runs re-verify a release: keep them off restored build state;
         # PR/master runs keep the cache.
         if: ${{ !startsWith(github.ref, 'refs/tags/') }}
-        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32  # v2
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6  # v2
         with:
           workspaces: . -> target
       - name: Install cargo-llvm-cov
@@ -184,7 +184,7 @@ jobs:
         # Tag runs re-verify a release: keep them off restored build state;
         # PR/master runs keep the cache.
         if: ${{ !startsWith(github.ref, 'refs/tags/') }}
-        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32  # v2
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6  # v2
         with:
           workspaces: . -> target
       - name: Build Rust binary
@@ -211,7 +211,7 @@ jobs:
         # Tag runs re-verify a release: keep them off restored build state;
         # PR/master runs keep the cache.
         if: ${{ !startsWith(github.ref, 'refs/tags/') }}
-        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32  # v2
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6  # v2
         with:
           workspaces: . -> target
       - name: Regenerate man pages + completions
@@ -258,7 +258,7 @@ jobs:
         # Tag runs re-verify a release: keep them off restored build state;
         # PR/master runs keep the cache.
         if: ${{ !startsWith(github.ref, 'refs/tags/') }}
-        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32  # v2
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6  # v2
         with:
           workspaces: . -> target
       - name: Build (MSRV)
@@ -288,7 +288,7 @@ jobs:
         # Tag runs re-verify a release: keep them off restored build state;
         # PR/master runs keep the cache.
         if: ${{ !startsWith(github.ref, 'refs/tags/') }}
-        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32  # v2
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6  # v2
         with:
           workspaces: . -> target
       - name: Comparator unit tests
