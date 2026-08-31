@@ -31,7 +31,7 @@ futures-util = { version = "0.3", default-features = false, features = ["std", "
 # usable, with the minimal `sync` feature (no added runtime/IO/macros).
 tokio = { version = "1", default-features = false, features = ["sync"] }
 # XML parsers (zypper -x lr, .prod)
-quick-xml = { version = "0.41", features = ["serialize"] }
+quick-xml = { version = "0.42", features = ["serialize"] }
 
 [dev-dependencies]
 tokio = { version = "1", features = ["rt", "macros", "rt-multi-thread", "time"] }
