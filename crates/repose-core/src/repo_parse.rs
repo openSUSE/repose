@@ -30,7 +30,7 @@ pub fn parse_repositories(xml: &str) -> Vec<Repository> {
                 if in_url {
                     in_url = false;
                 }
-                let tag = String::from_utf8_lossy(e.name().as_ref()).into_owned();
+                let tag = e.name().as_ref().to_string();
                 if tag == "repo" {
                     in_repo = true;
                     alias.clear();
@@ -49,9 +49,9 @@ pub fn parse_repositories(xml: &str) -> Vec<Repository> {
                             continue;
                         };
                         match a.key.as_ref() {
-                            b"alias" => alias = val.into_owned(),
-                            b"name" => name = val.into_owned(),
-                            b"enabled" => enabled = val.into_owned(),
+                            "alias" => alias = val.into_owned(),
+                            "name" => name = val.into_owned(),
+                            "enabled" => enabled = val.into_owned(),
                             _ => {}
                         }
                     }
@@ -64,14 +64,10 @@ pub fn parse_repositories(xml: &str) -> Vec<Repository> {
             // Text arrives fragmented (entity references and CDATA split it
             // into separate events): accumulate, never assign.
             Ok(Event::Text(t)) if in_url => {
-                if let Ok(text) = t.decode() {
-                    url.push_str(&text);
-                }
+                url.push_str(&t);
             }
             Ok(Event::CData(t)) if in_url => {
-                if let Ok(text) = t.decode() {
-                    url.push_str(&text);
-                }
+                url.push_str(&t);
             }
             Ok(Event::GeneralRef(e)) if in_url => {
                 match resolve_general_ref(&e) {
@@ -82,7 +78,7 @@ pub fn parse_repositories(xml: &str) -> Vec<Repository> {
                 }
             }
             Ok(Event::End(e)) => {
-                let tag = String::from_utf8_lossy(e.name().as_ref()).into_owned();
+                let tag = e.name().as_ref().to_string();
                 if tag == "url" {
                     in_url = false;
                     // Trimming padding is a documented delta (see below).

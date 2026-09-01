@@ -12,21 +12,14 @@ pub(crate) fn resolve_general_ref(e: &BytesRef<'_>) -> Option<String> {
     if let Ok(Some(ch)) = e.resolve_char_ref() {
         return Some(ch.to_string());
     }
-    let name = e.decode().ok()?;
-    quick_xml::escape::resolve_predefined_entity(&name).map(str::to_string)
+    quick_xml::escape::resolve_predefined_entity(e).map(str::to_string)
 }
 
 /// Index of `tag` in the tracked `.prod` fields, if it is one.
-fn field_index(tag: &[u8]) -> Option<usize> {
-    [
-        b"name".as_slice(),
-        b"arch",
-        b"baseversion",
-        b"patchlevel",
-        b"version",
-    ]
-    .iter()
-    .position(|f| *f == tag)
+fn field_index(tag: &str) -> Option<usize> {
+    ["name", "arch", "baseversion", "patchlevel", "version"]
+        .iter()
+        .position(|f| *f == tag)
 }
 
 /// Parse one `.prod` XML document into a product, or `None` if malformed.
@@ -95,12 +88,12 @@ pub fn parse_prod_xml(xml: &str, _filename: &str) -> Option<Product> {
             // events: accumulate every piece of the active field's `.text`.
             Ok(Event::Text(t)) => {
                 if active.is_some() && !text_done {
-                    acc.push_str(&t.decode().ok()?);
+                    acc.push_str(&t);
                 }
             }
             Ok(Event::CData(t)) => {
                 if active.is_some() && !text_done {
-                    acc.push_str(&t.decode().ok()?);
+                    acc.push_str(&t);
                 }
             }
             Ok(Event::GeneralRef(e)) => {
