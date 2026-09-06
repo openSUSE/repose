@@ -22,6 +22,12 @@ rust-version = "1.96"
 [profile.dev.package."*"]
 opt-level = 2
 
+# Trades ~2.8x the release build time for ~28% off the shipped binary. Also
+# reaches the OBS/IBS package: %cargo_build passes --release.
+[profile.release]
+lto = "fat"
+codegen-units = 1
+
 [workspace.lints.rust]
 unsafe_code = "forbid"
 
