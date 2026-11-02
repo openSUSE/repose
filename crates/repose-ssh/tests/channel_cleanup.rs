@@ -78,7 +78,7 @@ impl Handler for FakeServer {
     async fn auth_publickey(
         &mut self,
         _user: &str,
-        _public_key: &russh::keys::ssh_key::PublicKey,
+        _key: russh::server::VerifiedPublicKey<'_>,
     ) -> Result<Auth, Self::Error> {
         Ok(Auth::Accept)
     }
