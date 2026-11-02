@@ -2136,7 +2136,7 @@ checksum = "d6f6ff9a378485b298a5286656da665ba74413d36db0979633275d2e708145d4"
 
 [[package]]
 name = "repose-cli"
-version = "3.3.0"
+version = "3.3.1"
 dependencies = [
  "clap",
  "clap_complete",
@@ -2150,7 +2150,7 @@ dependencies = [
 
 [[package]]
 name = "repose-core"
-version = "3.3.0"
+version = "3.3.1"
 dependencies = [
  "async-trait",
  "criterion",
@@ -2168,7 +2168,7 @@ dependencies = [
 
 [[package]]
 name = "repose-ssh"
-version = "3.3.0"
+version = "3.3.1"
 dependencies = [
  "async-trait",
  "futures-util",
